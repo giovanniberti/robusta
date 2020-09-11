@@ -15,7 +15,6 @@ use crate::transformation::ModTransformer;
 #[proc_macro_attribute]
 pub fn bridge(_args: TokenStream, raw_input: TokenStream) -> TokenStream {
     let module_data = parse_macro_input!(raw_input as JNIBridgeModule);
-    println!("Package map: {:?}", module_data.package_map);
 
     let mut transformer = ModTransformer::new(module_data);
     let tokens = transformer.transform_module();
