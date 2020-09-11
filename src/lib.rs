@@ -84,13 +84,14 @@ impl<'ast> Visit<'ast> for ImplAccumulator<'ast> {
 }
 
 enum StructDeclarationKind {
-    Bridged,
     // structs with `package` attrib and impl
-    UnImpl,
+    Bridged,
     // structs with `package` attrib but no impl
-    UnAttrib,
+    UnImpl,
     // structs without `package` attrib but with impl
-    Bare, // structs without `package` attrib and no impl
+    UnAttrib,
+    // structs without `package` attrib and no impl
+    Bare,
 }
 
 struct StructDeclVisitor<'ast> {
