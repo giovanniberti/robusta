@@ -1,0 +1,16 @@
+[package]
+name = "robusta"
+version = "0.0.0"
+authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
+description = "A `cargo generate` template for quick-starting a procedural macro crate"
+keywords = ["template", "proc_macro", "procmacro"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1"
+proc-macro2 = "1.0.21"
+syn = { version = "1.0", features = ["full"] }
+proc-macro-error = { version = "1", default-features = false }
