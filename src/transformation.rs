@@ -1,8 +1,9 @@
-use crate::validation::JNIBridgeModule;
-use syn::fold::Fold;
-use syn::{ItemMod, ItemImpl, Signature, Type, ItemStruct};
-use proc_macro2::{TokenStream, Ident};
+use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
+use syn::{Attribute, ItemImpl, ItemMod, ItemStruct, parse_quote, Signature, Type};
+use syn::fold::Fold;
+
+use crate::validation::JNIBridgeModule;
 
 pub(crate) struct ModTransformer {
     module: JNIBridgeModule
@@ -45,8 +46,11 @@ impl Fold for ModTransformer {
     }
 
     fn fold_item_mod(&mut self, node: ItemMod) -> ItemMod {
+        let allow_non_snake_case: Attribute = parse_quote!{ #![allow(non_snake_case)] };
+        let allow_unused: Attribute = parse_quote!{ #![allow(unused)] };
+
         ItemMod {
-            attrs: vec![],
+            attrs: vec![allow_non_snake_case, allow_unused],
             vis: self.fold_visibility(node.vis),
             mod_token: node.mod_token,
             ident: self.fold_ident(node.ident),
