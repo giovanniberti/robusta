@@ -1,7 +1,9 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::ToTokens;
-use syn::{Attribute, ItemImpl, ItemMod, ItemStruct, parse_quote, Signature, Type};
+use syn::{Abi, Attribute, ItemImpl, ItemMod, ItemStruct, LitStr, parse_quote, Signature, Type, ImplItemMethod};
 use syn::fold::Fold;
+use syn::spanned::Spanned;
+use syn::token::Extern;
 
 use crate::validation::JNIBridgeModule;
 
@@ -78,6 +80,17 @@ struct ImplTransformer {
 }
 
 impl Fold for ImplTransformer {
+    fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
+        let no_mangle = parse_quote!{ #[no_mangle] };
+        ImplItemMethod {
+            attrs: vec![no_mangle],
+            vis: node.vis,
+            defaultness: node.defaultness,
+            sig: self.fold_signature(node.sig),
+            block: self.fold_block(node.block)
+        }
+    }
+
     fn fold_signature(&mut self, node: Signature) -> Signature {
         let jni_method_name = {
             let mut res = self.package.clone().replace('.', "_");
@@ -90,7 +103,10 @@ impl Fold for ImplTransformer {
             constness: node.constness,
             asyncness: node.asyncness,
             unsafety: node.unsafety,
-            abi: node.abi,
+            abi: Some(Abi {
+                extern_token: Extern { span: node.span() },
+                name: Some(LitStr::new("system", node.span()))
+            }),
             fn_token: node.fn_token,
             ident: Ident::new(&jni_method_name, node.ident.span()),
             generics: node.generics,
