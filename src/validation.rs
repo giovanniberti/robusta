@@ -25,7 +25,7 @@ impl AttribItemChecker {
 
 impl<'ast> Visit<'ast> for AttribItemChecker {
     fn visit_item(&mut self, node: &'ast Item) {
-        let has_package_attribute = |a: &Attribute| a.path.segments.first().unwrap().ident.to_string() == "package";
+        let has_package_attribute = |a: &Attribute| a.path.segments.first().unwrap().ident == "package";
         match node {
             Item::Struct(_) => {}
             Item::Const(i) if i.attrs.iter().any(has_package_attribute) => {
@@ -134,7 +134,7 @@ impl<'ast> StructDeclVisitor<'ast> {
 impl<'ast> Visit<'ast> for StructDeclVisitor<'ast> {
     fn visit_item_struct(&mut self, node: &'ast ItemStruct) {
         let struct_name = node.ident.to_string();
-        let has_package_attrib = node.attrs.iter().any(|a| a.path.segments.first().unwrap().ident.to_string() == "package");
+        let has_package_attrib = node.attrs.iter().any(|a| a.path.segments.first().unwrap().ident == "package");
         let has_impl = self.module_impls.iter().filter_map(|i| {
             match &*i.self_ty {
                 Type::Path(p) => Some(p.path.segments.last().unwrap().ident.to_string()),
@@ -226,8 +226,7 @@ impl Parse for JNIBridgeModule {
                                 _ => None
                             }
                         })
-                        .collect::<Vec<_>>()
-                        .contains(&impl_struct_name)
+                        .any(|struct_name| struct_name == impl_struct_name)
                 } else {
                     false
                 }
@@ -240,7 +239,7 @@ impl Parse for JNIBridgeModule {
             .map(|s| {
                 let name = s.ident.to_string();
                 let package = s.attrs.iter()
-                    .filter(|a| a.path.segments.last().unwrap().ident.to_string() == "package")
+                    .filter(|a| a.path.segments.last().unwrap().ident == "package")
                     .map(|a| {
                         a.parse_args_with(|t: ParseStream| { Punctuated::<Ident, Token![.]>::parse_separated_nonempty(t) })
                             .unwrap()
