@@ -163,8 +163,9 @@ impl Parse for JNIBridgeModule {
                         None
                     }
                     StructDeclarationKind::Bare => {
-                        emit_warning!(struct_item, "ignoring struct with no `package` attribute";
-                            help = struct_item.span() => "add a #[package(...)] attribute");
+                        emit_warning!(struct_item, "ignoring struct with no `package` attribute and no implementation";
+                            help = struct_item.span() => "add a #[package(...)] attribute";
+                            note = "structs with declared methods require package attribute for correct translation");
                         None
                     }
                 }
