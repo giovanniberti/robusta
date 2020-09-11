@@ -3,10 +3,10 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use std::collections::{BTreeMap, BTreeSet};
 
-use proc_macro_error::proc_macro_error;
 use proc_macro_error::{emit_error, emit_warning};
+use proc_macro_error::proc_macro_error;
 use quote::quote;
-use syn::{Attribute, Error, Ident, Item, ItemImpl, ItemMod, ItemStruct, parse_macro_input, Result, Type, ImplItem};
+use syn::{Attribute, Error, Ident, ImplItem, Item, ItemMod, ItemStruct, parse_macro_input, Result, Type, ItemImpl};
 use syn::export::ToTokens;
 use syn::parse::{Parse, ParseBuffer, ParseStream};
 use syn::punctuated::Punctuated;
@@ -173,12 +173,12 @@ impl Parse for JNIBridgeModule {
             .collect();
 
         let structs_idents: Vec<_> = bridged_structs.iter().map(|s| &s.ident).collect();
-        let bridged_impls: Vec<_> = mod_visitor.module_impls.into_iter()
+        let bridged_impls: Vec<_> = mod_visitor.module_impls.iter()
             .filter_map(|item_impl| {
                 match &*item_impl.self_ty {
                     Type::Path(p) => {
                         if let Some(pos) = structs_idents.iter().position(|id| *id == &p.path.segments.last().unwrap().ident) {
-                            Some((bridged_structs[pos], item_impl))
+                            Some((bridged_structs[pos], *item_impl))
                         } else {
                             None
                         }
@@ -188,6 +188,27 @@ impl Parse for JNIBridgeModule {
             })
             .map(|(s, i)| (s.clone(), i.clone()))
             .collect();
+
+        mod_visitor.module_impls.into_iter()
+            .filter(|i| {
+                if let Type::Path(p) = &*i.self_ty {
+                    let impl_struct_name = p.path.segments.last().unwrap().ident.to_string();
+                    !bridged_impls.iter()
+                        .map(|(s, i)| i)
+                        .filter_map(|i| {
+                            match &*i.self_ty {
+                                Type::Path(p) => Some(p.path.segments.last().unwrap().ident.to_string()),
+                                _ => None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .contains(&impl_struct_name)
+                } else {
+                    false
+                }
+        }).for_each(|lone_impl| {
+            emit_error!(lone_impl, "impl declared without corresponding struct");
+        });
 
         let package_map: BTreeMap<String, String> = bridged_structs.iter()
             .map(|s| {
