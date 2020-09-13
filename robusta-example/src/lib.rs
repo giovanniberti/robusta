@@ -26,7 +26,3 @@ mod jni {
 
     //impl Foo {}
 }
-
-fn main() {
-    println!("Hello, world!");
-}

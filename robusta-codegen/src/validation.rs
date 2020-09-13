@@ -155,7 +155,7 @@ impl<'ast> Visit<'ast> for StructDeclVisitor<'ast> {
 
 pub(crate) struct JNIBridgeModule {
     pub(crate) module_decl: ItemMod,
-    pub(crate) package_map: BTreeMap<String, String>,
+    pub(crate) package_map: BTreeMap<String, Option<String>>,
 }
 
 impl Parse for JNIBridgeModule {
@@ -234,18 +234,22 @@ impl Parse for JNIBridgeModule {
             valid_input = false;
         });
 
-        let package_map: BTreeMap<String, String> = bridged_structs.iter()
+        let package_map: BTreeMap<String, Option<String>> = bridged_structs.iter()
             .map(|s| {
                 let name = s.ident.to_string();
-                let package = s.attrs.iter()
+                let package_string = s.attrs.iter()
                     .filter(|a| a.path.segments.last().unwrap().ident == "package")
                     .map(|a| {
-                        a.parse_args_with(|t: ParseStream| { Punctuated::<Ident, Token![.]>::parse_separated_nonempty(t) })
+                        a.parse_args_with(|t: ParseStream| { Punctuated::<Ident, Token![.]>::parse_terminated(t) })
+                            .map_err(|_| emit_error!(a, "invalid package name"))
                             .unwrap()
                             .to_token_stream()
                             .to_string().replace(' ', "")
                     })
                     .next().unwrap();
+
+                let package = if package_string.is_empty() { None } else { Some(package_string) };
+
                 (name, package)
             })
             .collect();

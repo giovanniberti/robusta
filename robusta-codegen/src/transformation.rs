@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Abi, Attribute, Block, Expr, FnArg, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference};
+use syn::{Abi, Attribute, Block, Expr, FnArg, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic};
 use syn::fold::Fold;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -134,7 +134,7 @@ impl Fold for ModTransformer {
 
 struct ImplFnTransformer {
     pub(crate) struct_name: String,
-    pub(crate) package: String,
+    pub(crate) package: Option<String>,
 }
 
 impl ImplFnTransformer {
@@ -171,7 +171,9 @@ impl Fold for ImplFnTransformer {
         let no_mangle = parse_quote! { #[no_mangle] };
         ImplItemMethod {
             attrs: vec![no_mangle],
-            vis: node.vis,
+            vis: Visibility::Public(VisPublic {
+                pub_token: Token![pub](node.span())
+            }),
             defaultness: node.defaultness,
             sig: self.fold_signature(node.sig.clone()),
             block: self.wrap_fn_block(node.sig, node.block),
@@ -180,8 +182,13 @@ impl Fold for ImplFnTransformer {
 
     fn fold_signature(&mut self, node: Signature) -> Signature {
         let jni_method_name = {
-            let snake_case_package = self.package.clone().replace('.', "_");
-            format!("{}_{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
+            let snake_case_package = self.package.clone().map(|s| {
+                let mut s = s.replace('.', "_");
+                s.push('_');
+                s
+            }).unwrap_or("".into());
+
+            format!("Java_{}{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
         };
 
         let freestanding_inputs = node.inputs.iter()
