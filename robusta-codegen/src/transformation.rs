@@ -1,14 +1,15 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::ToTokens;
-use syn::{Abi, Attribute, FnArg, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, LitStr, parse_quote, Pat, PatIdent, PatType, Signature, Type, TypeReference};
+use proc_macro_error::emit_error;
+use quote::{quote_spanned, ToTokens};
+use syn::{Abi, Attribute, Block, Expr, FnArg, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference};
 use syn::fold::Fold;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Token;
 use syn::token::Extern;
 
-use crate::validation::JNIBridgeModule;
 use crate::utils::unique_ident;
+use crate::validation::JNIBridgeModule;
 
 pub(crate) struct ModTransformer {
     module: JNIBridgeModule
@@ -22,7 +23,18 @@ impl ModTransformer {
     }
 
     pub(crate) fn transform_module(&mut self) -> TokenStream {
-        let module_decl = self.module.module_decl.clone();
+        let mut module_decl = self.module.module_decl.clone();
+        if let Some((brace, mut items)) = module_decl.content {
+            let mut items_with_use: Vec<Item> = vec![
+                parse_quote!{ use ::robusta::convert::{FromJavaValue, IntoJavaValue}; },
+                parse_quote!{ use ::jni::JNIEnv; },
+                parse_quote!{ use ::jni::objects::JClass; }
+            ];
+            items_with_use.append(&mut items);
+
+            module_decl.content = Some((brace, items_with_use));
+        }
+
         self.fold_item_mod(module_decl).into_token_stream()
     }
 }
@@ -116,6 +128,35 @@ struct ImplFnTransformer {
     pub(crate) package: String,
 }
 
+impl ImplFnTransformer {
+    fn wrap_fn_block(&mut self, mut signature: Signature, node: Block) -> Block {
+        signature.ident = Ident::new("inner", signature.span());
+        let call_inputs: Punctuated<Expr, Token![,]> = signature.inputs.iter().map(|a| match a {
+            FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
+            FnArg::Typed(t) => {
+                match &*t.pat {
+                    Pat::Ident(ident) => {
+                        ident.ident.clone()
+                    },
+                    _ => panic!("Non-identifier argument pattern in function")
+                }
+            },
+        }).map(|i: Ident| {
+            let input_param: Expr = parse_quote!{ FromJavaValue::from(#i, &env) };
+            input_param
+        }).collect();
+
+        let result: Block = parse_quote! {{
+            #signature
+                #node
+
+            IntoJavaValue::into(inner(#call_inputs), &env)
+        }};
+
+        result
+    }
+}
+
 impl Fold for ImplFnTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
         let no_mangle = parse_quote! { #[no_mangle] };
@@ -123,8 +164,8 @@ impl Fold for ImplFnTransformer {
             attrs: vec![no_mangle],
             vis: node.vis,
             defaultness: node.defaultness,
-            sig: self.fold_signature(node.sig),
-            block: self.fold_block(node.block),
+            sig: self.fold_signature(node.sig.clone()),
+            block: self.wrap_fn_block(node.sig, node.block),
         }
     }
 
@@ -134,7 +175,7 @@ impl Fold for ImplFnTransformer {
             format!("{}_{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
         };
 
-        let new_inputs: Punctuated<_, _> = node.inputs.iter()
+        let freestanding_inputs = node.inputs.iter()
             .map(|arg| {
                 match arg {
                     FnArg::Receiver(r) => {
@@ -191,8 +232,48 @@ impl Fold for ImplFnTransformer {
                         }
                     }
                 }
-            })
-            .collect();
+            });
+
+        let jni_abi_inputs: Punctuated<FnArg, Token![,]> = {
+            let mut res = Punctuated::new();
+            res.push(parse_quote!(env: JNIEnv<'env>));
+            res.push(parse_quote!(class: JClass));
+
+            let jni_compatible_inputs: Punctuated<_, Token![,]> = freestanding_inputs.map(|input| {
+                match input {
+                    FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
+                    FnArg::Typed(t) => {
+                        let original_input_type = t.ty;
+
+                        FnArg::Typed(PatType {
+                            attrs: t.attrs,
+                            pat: t.pat,
+                            colon_token: t.colon_token,
+                            ty: Box::new(syn::parse2(quote_spanned!{ original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap())
+                        })
+                    },
+                }
+            }).collect();
+
+            res.extend(jni_compatible_inputs);
+            res
+        };
+
+        let jni_output = match &node.output {
+            ReturnType::Default => node.output.clone(),
+            ReturnType::Type(arrow, rtype) => {
+                match &**rtype {
+                    Type::Path(p) => {
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned!{ p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
+                    },
+                    _ => {
+                        let res = node.output.clone();
+                        emit_error!(res, "Only type or type paths are permitted as type ascriptions in function params");
+                        res
+                    }
+                }
+            },
+        };
 
         Signature {
             constness: node.constness,
@@ -204,11 +285,11 @@ impl Fold for ImplFnTransformer {
             }),
             fn_token: node.fn_token,
             ident: Ident::new(&jni_method_name, node.ident.span()),
-            generics: node.generics,
+            generics: parse_quote!{ <'env> },
             paren_token: node.paren_token,
-            inputs: new_inputs,
+            inputs: jni_abi_inputs,
             variadic: node.variadic,
-            output: node.output,
+            output: jni_output,
         }
     }
 }

@@ -1,11 +1,17 @@
 [package]
-name = "robusta"
+name = "robusta-codegen"
 version = "0.0.0"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
 description = "A `cargo generate` template for quick-starting a procedural macro crate"
 keywords = ["template", "proc_macro", "procmacro"]
 edition = "2018"
 
+[lib]
+proc-macro = true
+
 [dependencies]
-robusta-codegen = { path = "./robusta-codegen"}
-jni = "0.17.0"
+quote = "1"
+proc-macro2 = "1.0.21"
+syn = { version = "1.0", features = ["full", "visit", "fold"] }
+proc-macro-error = { version = "1", default-features = false }
+rand = "0.7.3"

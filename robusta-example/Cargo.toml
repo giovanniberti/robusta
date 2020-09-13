@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 robusta = { path = "../" }
+jni = "0.17.0"
