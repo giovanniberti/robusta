@@ -182,7 +182,7 @@ impl Fold for ImplFnTransformer {
 
     fn fold_signature(&mut self, node: Signature) -> Signature {
         if node.ident.to_string().contains('_') {
-            emit_error!(node.ident, "native methods cannot contain `_` character");
+            emit_error!(node.ident, "JNI methods cannot contain `_` character");
         }
 
         let jni_method_name = {
