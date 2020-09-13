@@ -156,7 +156,6 @@ impl<'ast> Visit<'ast> for StructDeclVisitor<'ast> {
 pub(crate) struct JNIBridgeModule {
     pub(crate) module_decl: ItemMod,
     pub(crate) package_map: BTreeMap<String, String>,
-    pub(crate) bridged_impls: Vec<(ItemStruct, ItemImpl)>,
 }
 
 impl Parse for JNIBridgeModule {
@@ -257,7 +256,6 @@ impl Parse for JNIBridgeModule {
             Ok(JNIBridgeModule {
                 module_decl,
                 package_map,
-                bridged_impls,
             })
         }
     }
