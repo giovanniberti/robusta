@@ -7,5 +7,5 @@ keywords = ["template", "proc_macro", "procmacro"]
 edition = "2018"
 
 [dependencies]
-robusta-codegen = { path = "./robusta-codegen"}
+robusta-codegen = { path = "./robusta-codegen" }
 jni = "0.17.0"

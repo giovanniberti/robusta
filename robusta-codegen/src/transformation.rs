@@ -10,6 +10,7 @@ use syn::token::Extern;
 
 use crate::utils::unique_ident;
 use crate::validation::JNIBridgeModule;
+use std::str::FromStr;
 
 pub(crate) struct ModTransformer {
     module: JNIBridgeModule
@@ -25,10 +26,18 @@ impl ModTransformer {
     pub(crate) fn transform_module(&mut self) -> TokenStream {
         let mut module_decl = self.module.module_decl.clone();
         if let Some((brace, mut items)) = module_decl.content {
+            /* FIXME: Somehow, enabling `no_jni` on `robusta` Cargo.toml doesn't do anything.
+                Will investigate, for now this doesn't do anything wrong ¯\_(ツ)_/¯ */
+            let jni_path_prefix = if cfg!(no_jni) {
+                ""
+            } else {
+                "::robusta"
+            };
+
             let mut items_with_use: Vec<Item> = vec![
                 parse_quote!{ use ::robusta::convert::{FromJavaValue, IntoJavaValue}; },
-                parse_quote!{ use ::jni::JNIEnv; },
-                parse_quote!{ use ::jni::objects::JClass; }
+                syn::parse2(TokenStream::from_str(&format!("use {}::jni::JNIEnv;", jni_path_prefix)).unwrap()).unwrap(),
+                syn::parse2(TokenStream::from_str(&format!("use {}::jni::objects::JClass;", jni_path_prefix)).unwrap()).unwrap()
             ];
             items_with_use.append(&mut items);
 
