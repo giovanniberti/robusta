@@ -181,6 +181,10 @@ impl Fold for ImplFnTransformer {
     }
 
     fn fold_signature(&mut self, node: Signature) -> Signature {
+        if node.ident.to_string().contains('_') {
+            emit_error!(node.ident, "native methods cannot contain `_` character");
+        }
+
         let jni_method_name = {
             let snake_case_package = self.package.clone().map(|s| {
                 let mut s = s.replace('.', "_");
