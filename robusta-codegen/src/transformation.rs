@@ -286,6 +286,9 @@ impl Fold for ImplFnTransformer {
                     Type::Path(p) => {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned!{ p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
                     },
+                    Type::Reference(r) => {
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned!{ r.span() => <#r as IntoJavaValue<'env>>::Target }).unwrap())
+                    },
                     _ => {
                         let res = node.output.clone();
                         emit_error!(res, "Only type or type paths are permitted as type ascriptions in function params");
