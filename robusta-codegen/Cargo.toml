@@ -1,10 +1,11 @@
 [package]
 name = "robusta-codegen"
-version = "0.0.0"
+version = "0.0.1"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
-description = "A `cargo generate` template for quick-starting a procedural macro crate"
-keywords = ["template", "proc_macro", "procmacro"]
+description = "Procedural macro crate to support `robusta`"
+keywords = ["proc_macro", "procmacro", "robusta"]
 edition = "2018"
+categories = ["development-tools::ffi", "api-bindings"]
 
 [lib]
 proc-macro = true
