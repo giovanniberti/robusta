@@ -1,14 +1,16 @@
 package com.example.robusta;
 
+import java.util.*;
+
 class HelloWorld {
-    private static native String special(String input1, String input2);
+    private static native ArrayList<String> special(ArrayList<Integer> input1, int in2);
 
     static {
         System.loadLibrary("robusta_example");
     }
 
     public static void main(String[] args) {
-        String output = HelloWorld.special("Rust", "Java");
+        ArrayList<String> output = HelloWorld.special(new ArrayList<Integer>(List.of(1, 2, 3)), 4);
         System.out.println(output);
 	}
 }
