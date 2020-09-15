@@ -74,25 +74,29 @@ however to provide maximum compatibility with `robusta`, we suggest using the re
 
 ### Conversion table
 
-| **Rust**  | **Java**       |
-|-----------|----------------|
-| i32       | int            |
-| bool      | boolean        |
-| char      | char           |
-| i8        | byte           |
-| f32       | float          |
-| f64       | double         |
-| i64       | long           |
-| i16       | short          |
-| Vec\<T\>† | ArrayList\<T\> |
+| **Rust**       | **Java*                           |
+|----------------|-----------------------------------|
+| i32            | int                               |
+| bool           | boolean                           |
+| char           | char                              |
+| i8             | byte                              |
+| f32            | float                             |
+| f64            | double                            |
+| i64            | long                              |
+| i16            | short                             |
+| Vec\<T\>†      | ArrayList\<T\>                    |
+| JObject<'env>‡ | *(any Java object as input type)* |
+| jobject        | *(any Java object as output)*     |
 
 † Type parameter `T` must implement proper conversion types
+
+‡ The special `'env` lifetime **must** be used
 
 ## Limitations
 Only static methods are supported.
 
 Currently there are some limitations in the conversion mechanism:
- * Boxed types are not supported, neither as input nor as output types.
+ * Boxed types are supported only through the opaque `JObject`/`jobject` types
  * Automatic type conversion is limited to the table outlined above, though easily extendable if needed.
 
 
