@@ -74,7 +74,7 @@ however to provide maximum compatibility with `robusta`, we suggest using the re
 
 ### Conversion table
 
-| **Rust**       | **Java*                           |
+| **Rust**       | **Java**                          |
 |----------------|-----------------------------------|
 | i32            | int                               |
 | bool           | boolean                           |
