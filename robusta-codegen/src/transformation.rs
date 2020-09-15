@@ -35,7 +35,7 @@ impl ModTransformer {
             };
 
             let mut items_with_use: Vec<Item> = vec![
-                parse_quote!{ use ::robusta::convert::{FromJavaValue, IntoJavaValue}; },
+                parse_quote! { use ::robusta::convert::{FromJavaValue, IntoJavaValue}; },
                 syn::parse2(TokenStream::from_str(&format!("use {}::jni::JNIEnv;", jni_path_prefix)).unwrap()).unwrap(),
                 syn::parse2(TokenStream::from_str(&format!("use {}::jni::objects::JClass;", jni_path_prefix)).unwrap()).unwrap()
             ];
@@ -139,21 +139,31 @@ struct ImplFnTransformer {
 
 impl ImplFnTransformer {
     fn wrap_fn_block(&mut self, mut signature: Signature, node: Block) -> Block {
-        signature.ident = Ident::new("inner", signature.span());
-        let call_inputs: Punctuated<Expr, Token![,]> = signature.inputs.iter().map(|a| match a {
-            FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
-            FnArg::Typed(t) => {
-                match &*t.pat {
-                    Pat::Ident(ident) => {
-                        ident.ident.clone()
-                    },
-                    _ => panic!("Non-identifier argument pattern in function")
+        let call_inputs: Punctuated<Expr, Token![,]> = signature.inputs.iter()
+            .map(|a| self.make_arg_freestanding(a, signature.ident.clone()))
+            .map(|a| match a {
+                FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
+                FnArg::Typed(t) => {
+                    match &*t.pat {
+                        Pat::Ident(ident) => {
+                            ident.ident.clone()
+                        }
+                        _ => panic!("Non-identifier argument pattern in function")
+                    }
                 }
-            },
-        }).map(|i: Ident| {
-            let input_param: Expr = parse_quote!{ FromJavaValue::from(#i, &env) };
-            input_param
-        }).collect();
+            })
+            .map(|i: Ident| {
+                let input_param: Expr = parse_quote! { FromJavaValue::from(#i, &env) };
+                input_param
+            }).collect();
+
+        let inner_fn_ident = Ident::new("inner", signature.span());
+        let inner_fn_inputs: Punctuated<FnArg, Token![,]> = signature.inputs.iter()
+            .map(|a| self.make_arg_freestanding(a, inner_fn_ident.clone()))
+            .collect();
+
+        signature.ident = inner_fn_ident;
+        signature.inputs = inner_fn_inputs;
 
         let result: Block = parse_quote! {{
             #signature
@@ -196,63 +206,7 @@ impl Fold for ImplFnTransformer {
         };
 
         let freestanding_inputs = node.inputs.iter()
-            .map(|arg| {
-                match arg {
-                    FnArg::Receiver(r) => {
-                        let receiver_span = r.span();
-                        let struct_type_ident = Type::Verbatim(Ident::new(&self.struct_name, receiver_span).to_token_stream());
-
-                        let self_type = match r.reference.clone() {
-                            Some((and_token, lifetime)) => {
-                                Type::Reference(TypeReference {
-                                    and_token,
-                                    lifetime,
-                                    mutability: r.mutability,
-                                    elem: Box::new(struct_type_ident),
-                                })
-                            }
-
-                            None => Type::Verbatim(struct_type_ident.to_token_stream())
-                        };
-
-                        FnArg::Typed(PatType {
-                            attrs: r.attrs.clone(),
-                            pat: Box::new(Pat::Ident(PatIdent {
-                                attrs: vec![],
-                                by_ref: None,
-                                mutability: None,
-                                ident: unique_ident(&format!("receiver_{}", self.struct_name), receiver_span),
-                                subpat: None,
-                            })),
-                            colon_token: Token![:](receiver_span),
-                            ty: Box::new(self_type),
-                        })
-                    }
-
-                    FnArg::Typed(t) => {
-                        if let Pat::Ident(ident) = &*t.pat {
-                            if ident.ident == "self" {
-                                FnArg::Typed(PatType {
-                                    attrs: vec![],
-                                    pat: Box::new(Pat::Ident(PatIdent {
-                                        attrs: ident.attrs.clone(),
-                                        by_ref: ident.by_ref,
-                                        mutability: ident.mutability,
-                                        ident: unique_ident(&format!("receiver_{}", self.struct_name), t.span()),
-                                        subpat: ident.subpat.clone()
-                                    })),
-                                    colon_token: t.colon_token,
-                                    ty: t.ty.clone()
-                                })
-                            } else {
-                                arg.clone()
-                            }
-                        } else {
-                            arg.clone()
-                        }
-                    }
-                }
-            });
+            .map(|arg| { self.make_arg_freestanding(arg, node.ident.clone()) });
 
         let jni_abi_inputs: Punctuated<FnArg, Token![,]> = {
             let mut res = Punctuated::new();
@@ -269,9 +223,9 @@ impl Fold for ImplFnTransformer {
                             attrs: t.attrs,
                             pat: t.pat,
                             colon_token: t.colon_token,
-                            ty: Box::new(syn::parse2(quote_spanned!{ original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap())
+                            ty: Box::new(syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap()),
                         })
-                    },
+                    }
                 }
             }).collect();
 
@@ -284,18 +238,18 @@ impl Fold for ImplFnTransformer {
             ReturnType::Type(arrow, rtype) => {
                 match &**rtype {
                     Type::Path(p) => {
-                        ReturnType::Type(*arrow, syn::parse2(quote_spanned!{ p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
-                    },
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
+                    }
                     Type::Reference(r) => {
-                        ReturnType::Type(*arrow, syn::parse2(quote_spanned!{ r.span() => <#r as IntoJavaValue<'env>>::Target }).unwrap())
-                    },
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { r.span() => <#r as IntoJavaValue<'env>>::Target }).unwrap())
+                    }
                     _ => {
                         let res = node.output.clone();
                         emit_error!(res, "Only type or type paths are permitted as type ascriptions in function params");
                         res
                     }
                 }
-            },
+            }
         };
 
         Signature {
@@ -308,11 +262,71 @@ impl Fold for ImplFnTransformer {
             }),
             fn_token: node.fn_token,
             ident: Ident::new(&jni_method_name, node.ident.span()),
-            generics: parse_quote!{ <'env> },
+            generics: parse_quote! { <'env> },
             paren_token: node.paren_token,
             inputs: jni_abi_inputs,
             variadic: node.variadic,
             output: jni_output,
+        }
+    }
+}
+
+impl ImplFnTransformer {
+    fn make_arg_freestanding(&mut self, arg: &FnArg, fn_name: Ident) -> FnArg {
+        match arg {
+            FnArg::Receiver(r) => {
+                let receiver_span = r.span();
+                let struct_type_ident = Type::Verbatim(Ident::new(&self.struct_name, receiver_span).to_token_stream());
+
+                let self_type = match r.reference.clone() {
+                    Some((and_token, lifetime)) => {
+                        Type::Reference(TypeReference {
+                            and_token,
+                            lifetime,
+                            mutability: r.mutability,
+                            elem: Box::new(struct_type_ident),
+                        })
+                    }
+
+                    None => Type::Verbatim(struct_type_ident.to_token_stream())
+                };
+
+                FnArg::Typed(PatType {
+                    attrs: r.attrs.clone(),
+                    pat: Box::new(Pat::Ident(PatIdent {
+                        attrs: vec![],
+                        by_ref: None,
+                        mutability: None,
+                        ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, fn_name), receiver_span),
+                        subpat: None,
+                    })),
+                    colon_token: Token![:](receiver_span),
+                    ty: Box::new(self_type),
+                })
+            }
+
+            FnArg::Typed(t) => {
+                if let Pat::Ident(ident) = &*t.pat {
+                    if ident.ident == "self" {
+                        FnArg::Typed(PatType {
+                            attrs: vec![],
+                            pat: Box::new(Pat::Ident(PatIdent {
+                                attrs: ident.attrs.clone(),
+                                by_ref: ident.by_ref,
+                                mutability: ident.mutability,
+                                ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, fn_name), t.span()),
+                                subpat: ident.subpat.clone(),
+                            })),
+                            colon_token: t.colon_token,
+                            ty: t.ty.clone(),
+                        })
+                    } else {
+                        arg.clone()
+                    }
+                } else {
+                    arg.clone()
+                }
+            }
         }
     }
 }
