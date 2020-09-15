@@ -6,6 +6,8 @@ description = "Procedural macro crate to support `robusta`"
 keywords = ["proc_macro", "procmacro", "robusta"]
 edition = "2018"
 categories = ["development-tools::ffi", "api-bindings"]
+license = "MIT"
+repository = "https://github.com/giovanniberti/robusta/robusta-codegen"
 
 [lib]
 proc-macro = true

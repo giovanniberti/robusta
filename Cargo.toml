@@ -2,6 +2,7 @@
 name = "robusta"
 version = "0.0.1"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
+repository = "https://github.com/giovanniberti/robusta"
 description = "Easy interop between Rust and Java"
 keywords = ["ffi", "jni", "java"]
 license = "MIT"
