@@ -3,18 +3,22 @@ use jni::objects::{JString, JObject, JValue, JList};
 use jni::sys::{jboolean, jbooleanArray, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jstring, jobject};
 use paste::paste;
 
+/// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [`JObject`] and [`jobject`].
+/// User that wants automatic conversion should instead implement [`FromJavaValue`] and [`IntoJavaValue`]
 pub trait JavaValue<'env> {
     fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env>;
 
     fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self;
 }
 
+/// Conversion trait from Rust values to Java values, analogous to [`Into`]. Used when converting types returned from JNI-available functions.
 pub trait IntoJavaValue<'env> {
     type Target: JavaValue<'env>;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target;
 }
 
+/// Conversion trait from Rust values to Java values, analogous to [`From`]. Used when converting types that are input to JNI-available functions.
 pub trait FromJavaValue<'env> {
     type Source: JavaValue<'env>;
 
