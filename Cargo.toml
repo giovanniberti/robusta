@@ -10,9 +10,10 @@ edition = "2018"
 readme = "README.md"
 categories = ["development-tools::ffi", "api-bindings"]
 exclude = ["/robusta-codegen", "/robusta-example", "README.md"]
+documentation = "https://docs.rs/robusta/"
 
 [dependencies]
-robusta-codegen = { path = "./robusta-codegen" }
+robusta-codegen = "=0.0.1"
 jni = "0.17.0"
 paste = "1.0.0"
 
