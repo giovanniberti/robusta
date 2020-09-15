@@ -89,6 +89,8 @@ however to provide maximum compatibility with `robusta`, we suggest using the re
 † Type parameter `T` must implement proper conversion types
 
 ## Limitations
+Only static methods are supported.
+
 Currently there are some limitations in the conversion mechanism:
  * Boxed types are not supported, neither as input nor as output types.
  * Automatic type conversion is limited to the table outlined above, though easily extendable if needed.
