@@ -26,9 +26,7 @@ impl ModTransformer {
     pub(crate) fn transform_module(&mut self) -> TokenStream {
         let mut module_decl = self.module.module_decl.clone();
         if let Some((brace, mut items)) = module_decl.content {
-            /* FIXME: Somehow, enabling `no_jni` on `robusta` Cargo.toml doesn't do anything.
-                Will investigate, for now this doesn't do anything wrong ¯\_(ツ)_/¯ */
-            let jni_path_prefix = if cfg!(no_jni) {
+            let jni_path_prefix = if cfg!(feature = "no_jni") {
                 ""
             } else {
                 "::robusta"
