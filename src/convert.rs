@@ -121,9 +121,9 @@ impl<'env> IntoJavaValue<'env> for bool {
 
     fn into(self, _env: &JNIEnv<'env>) -> Self::Target {
         if self {
-            0
-        } else {
             1
+        } else {
+            0
         }
     }
 }
