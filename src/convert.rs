@@ -38,7 +38,7 @@ impl<'env, T> FromJavaValue<'env> for T where T: JavaValue<'env> {
 }
 
 macro_rules! jvalue_types {
-    ($type:tt: $boxed:ident ($sig:ident) [$unbox_method:ident]) => {
+    ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident]) => {
         impl<'env> JavaValue<'env> for $type {
             fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
                 env.call_static_method(concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";"), &[Into::into(self)]).unwrap().l().unwrap()
@@ -52,7 +52,7 @@ macro_rules! jvalue_types {
         }
     };
 
-    ($type:tt: $boxed:ident ($sig:ident) [$unbox_method:ident], $($rest:tt: $rest_boxed:ident ($rest_sig:ident) [$unbox_method_rest:ident]),+) => {
+    ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident], $($rest:ty: $rest_boxed:ident ($rest_sig:ident) [$unbox_method_rest:ident]),+) => {
         jvalue_types!($type: $boxed ($sig) [$unbox_method]);
 
         jvalue_types!($($rest: $rest_boxed ($rest_sig) [$unbox_method_rest]),+);
