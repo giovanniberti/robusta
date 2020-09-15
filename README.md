@@ -10,9 +10,9 @@ robusta = "0.0.1"
 ```
 
 ## Usage
-All that's needed is a couple of attribute in the right places.
+All that's needed is a couple of attributes in the right places.
 
-First, a `#[bridge]` attribute on a mod will enable it to be processed by `robusta`.
+First, a `#[bridge]` attribute on a module will enable it to be processed by `robusta`.
 
 Then, we will need a struct for every class with a native method that will be implemented in Rust,
 and each of these structs will have to be annotated with a `#[package]` attribute
@@ -74,19 +74,19 @@ however to provide maximum compatibility with `robusta`, we suggest using the re
 
 ### Conversion table
 
-| **Rust**       | **Java**                          |
-|----------------|-----------------------------------|
-| i32            | int                               |
-| bool           | boolean                           |
-| char           | char                              |
-| i8             | byte                              |
-| f32            | float                             |
-| f64            | double                            |
-| i64            | long                              |
-| i16            | short                             |
-| Vec\<T\>†      | ArrayList\<T\>                    |
-| JObject<'env>‡ | *(any Java object as input type)* |
-| jobject        | *(any Java object as output)*     |
+| **Rust**                                                                           | **Java**                          |
+|------------------------------------------------------------------------------------|-----------------------------------|
+| i32                                                                                | int                               |
+| bool                                                                               | boolean                           |
+| char                                                                               | char                              |
+| i8                                                                                 | byte                              |
+| f32                                                                                | float                             |
+| f64                                                                                | double                            |
+| i64                                                                                | long                              |
+| i16                                                                                | short                             |
+| Vec\<T\>†                                                                          | ArrayList\<T\>                    |
+| [jni::JObject<'env>](https://docs.rs/jni/0.17.0/jni/objects/struct.JObject.html) ‡ | *(any Java object as input type)* |
+| [jni::jobject](https://docs.rs/jni/0.17.0/jni/sys/type.jobject.html)               | *(any Java object as output)*     |
 
 † Type parameter `T` must implement proper conversion types
 
