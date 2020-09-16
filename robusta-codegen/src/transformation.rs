@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Abi, Attribute, Block, Expr, FnArg, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic};
+use syn::{Abi, Attribute, Block, Expr, FnArg, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Generics, GenericParam, LifetimeDef};
 use syn::fold::Fold;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -11,6 +11,8 @@ use syn::token::Extern;
 use crate::utils::unique_ident;
 use crate::validation::JNIBridgeModule;
 use std::str::FromStr;
+use std::collections::BTreeSet;
+use syn::visit::Visit;
 
 pub(crate) struct ModTransformer {
     module: JNIBridgeModule
@@ -33,7 +35,7 @@ impl ModTransformer {
             };
 
             let mut items_with_use: Vec<Item> = vec![
-                parse_quote! { use ::robusta::convert::{FromJavaValue, IntoJavaValue}; },
+                parse_quote! { use ::robusta::convert::{FromJavaValue, IntoJavaValue, TryFromJavaValue, TryIntoJavaValue}; },
                 syn::parse2(TokenStream::from_str(&format!("use {}::jni::JNIEnv;", jni_path_prefix)).unwrap()).unwrap(),
                 syn::parse2(TokenStream::from_str(&format!("use {}::jni::objects::JClass;", jni_path_prefix)).unwrap()).unwrap()
             ];
@@ -52,7 +54,7 @@ impl ModTransformer {
         let transformed_item_impl = if let Type::Path(p) = &*node.self_ty {
             let struct_name = p.path.segments.last().unwrap().ident.to_string();
             let struct_package = self.module.package_map[&struct_name].clone();
-            let mut impl_transformer = ImplFnTransformer { struct_name, package: struct_package };
+            let mut impl_transformer = ImplTransformer { struct_name, package: struct_package };
 
             impl_transformer.fold_item_impl(node)
         } else {
@@ -131,61 +133,220 @@ impl Fold for ModTransformer {
     }
 }
 
-struct ImplFnTransformer {
+#[derive(Copy, Clone)]
+enum CallType {
+    Safe,
+    Unchecked,
+}
+
+struct AttributeFilter<'ast> {
+    pub whitelist: BTreeSet<String>,
+    pub filtered_attributes: Vec<&'ast Attribute>
+}
+
+impl<'ast> AttributeFilter<'ast> {
+    fn with_whitelist(whitelist: BTreeSet<String>) -> Self {
+        AttributeFilter {
+            whitelist,
+            filtered_attributes: Vec::new()
+        }
+    }
+}
+
+impl<'ast> Visit<'ast> for AttributeFilter<'ast> {
+    fn visit_attribute(&mut self, attribute: &'ast Attribute) {
+        if self.whitelist.contains(&attribute.path.segments.first().unwrap().ident.to_string()) {
+            self.filtered_attributes.push(attribute);
+        }
+    }
+}
+
+struct ImplTransformer {
     pub(crate) struct_name: String,
     pub(crate) package: Option<String>,
 }
 
-impl ImplFnTransformer {
-    fn wrap_fn_block(&mut self, mut signature: Signature, node: Block) -> Block {
-        let call_inputs: Punctuated<Expr, Token![,]> = signature.inputs.iter()
-            .map(|a| self.make_arg_freestanding(a, signature.ident.clone()))
-            .map(|a| match a {
+impl Fold for ImplTransformer {
+    fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
+        let whitelist = {
+          let mut f = BTreeSet::new();
+            f.insert("call_type".into());
+            f
+        };
+
+        let mut attributes_collector = AttributeFilter::with_whitelist(whitelist);
+        attributes_collector.visit_impl_item_method(&node);
+
+        let call_type = if let Some(call_type_attr) = attributes_collector.filtered_attributes.first() {
+            let call_type_tokens = call_type_attr.parse_args::<Ident>().map(|i| i.to_string());
+
+            if let Err(_) = call_type_tokens {
+                emit_error!(call_type_attr.tokens, "Invalid parameter in `call_type` attribute. Allowed values are: `safe`, `unchecked`.");
+            }
+
+            let call_type_given = call_type_tokens.unwrap();
+            match call_type_given.as_str() {
+                "unchecked" => CallType::Unchecked,
+                "safe" => CallType::Safe,
+                _ => {
+                    emit_error!(call_type_attr.tokens, "Invalid parameter in `call_type` attribute. Allowed values are: `safe`, `unchecked`.");
+                    CallType::Safe
+                }
+            }
+        } else {
+            CallType::Safe
+        };
+
+        let mut impl_method_transformer = ImplMethodTransformer::new(self.struct_name.clone(), self.package.clone(), call_type);
+        impl_method_transformer.fold_impl_item_method(node)
+    }
+}
+
+struct ImplMethodTransformer {
+    struct_name: String,
+    package: Option<String>,
+    call_type: CallType,
+}
+
+impl ImplMethodTransformer {
+    fn new(struct_name: String, package: Option<String>, call_type: CallType) -> Self {
+        ImplMethodTransformer {
+            struct_name,
+            package,
+            call_type,
+        }
+    }
+}
+
+impl Fold for ImplMethodTransformer {
+    fn fold_impl_item_method(&mut self, mut node: ImplItemMethod) -> ImplItemMethod {
+        let signature = node.sig.clone();
+
+        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_name.clone(), signature.ident.to_string(), self.call_type);
+
+        let call_inputs_idents: Punctuated<Expr, Token![,]> = signature.inputs.iter().cloned()
+            .map(|arg| jni_signature_transformer.fold_fn_arg(arg))
+            .map::<Expr, _>(|a| match a {
                 FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
                 FnArg::Typed(t) => {
                     match &*t.pat {
                         Pat::Ident(ident) => {
-                            ident.ident.clone()
+                            let ident = ident.ident.clone();
+                            parse_quote!(#ident)
                         }
                         _ => panic!("Non-identifier argument pattern in function")
                     }
                 }
             })
-            .map(|i: Ident| {
-                let input_param: Expr = parse_quote! { FromJavaValue::from(#i, &env) };
+            .collect();
+
+        let outer_call_inputs = {
+            let mut result = call_inputs_idents.clone();
+
+            if let CallType::Safe = self.call_type {
+                result.push(parse_quote!(&env))
+            }
+
+            result
+        };
+
+        let inner_call_inputs: Punctuated<Expr, Token![,]> = call_inputs_idents.into_iter()
+            .map(|arg| {
+                let input_param: Expr = {
+                    match self.call_type {
+                        CallType::Safe => parse_quote! { TryFromJavaValue::try_from(#arg, &env)? },
+                        CallType::Unchecked => parse_quote! { FromJavaValue::from(#arg, &env) }
+                    }
+                };
                 input_param
             }).collect();
 
         let inner_fn_ident = Ident::new("inner", signature.span());
-        let inner_fn_inputs: Punctuated<FnArg, Token![,]> = signature.inputs.iter()
-            .map(|a| self.make_arg_freestanding(a, inner_fn_ident.clone()))
+
+        let mut freestanding_transformer = FreestandingTransformer::new(self.struct_name.clone(), inner_fn_ident.to_string());
+        let inner_fn_inputs: Punctuated<FnArg, Token![,]> = signature.inputs.iter().cloned()
+            .map(|a| freestanding_transformer.fold_fn_arg(a))
             .collect();
 
-        signature.ident = inner_fn_ident;
-        signature.inputs = inner_fn_inputs;
+        let inner_signature = {
+            let mut s = signature.clone();
+            s.ident = inner_fn_ident;
+            s.inputs = inner_fn_inputs;
+            s
+        };
 
-        let result: Block = parse_quote! {{
-            #signature
-                #node
+        let outer_signature = {
+            let mut s = jni_signature_transformer.fold_signature(signature.clone());
+            s.ident = Ident::new("outer", signature.ident.span());
 
-            IntoJavaValue::into(inner(#call_inputs), &env)
-        }};
+            if let CallType::Safe = self.call_type {
+                s.inputs.push(FnArg::Typed(PatType {
+                    attrs: vec![],
+                    pat: Box::new(Pat::Ident(PatIdent {
+                        attrs: vec![],
+                        by_ref: None,
+                        mutability: None,
+                        ident: Ident::new("env", s.inputs.span()),
+                        subpat: None
+                    })),
+                    colon_token: Token![:](s.inputs.span()),
+                    ty: Box::new(parse_quote! { &JNIEnv<'env> })
+                }))
+            }
 
-        result
-    }
-}
+            let outer_signature_span = s.span();
+            let outer_output_type: Type = match s.output {
+                ReturnType::Default => parse_quote!(()),
+                ReturnType::Type(_, ty) => *ty.clone()
+            };
 
-impl Fold for ImplFnTransformer {
-    fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
+            s.output = ReturnType::Type(Token![->](outer_signature_span), Box::new(parse_quote!(::jni::errors::Result<#outer_output_type>)));
+            s
+        };
+
+        let node_span = node.span();
+        let method_impl = node.block;
+
+        let new_block: Block = match self.call_type {
+            CallType::Unchecked => parse_quote! {{
+                #inner_signature
+                    #method_impl
+
+                IntoJavaValue::into(inner(#inner_call_inputs), &env)
+            }},
+            CallType::Safe => {
+                    parse_quote! {{
+                        #outer_signature {
+                            #inner_signature
+                                #method_impl
+
+                            TryIntoJavaValue::try_into(inner(#inner_call_inputs), &env)
+                        }
+
+                        match outer(#outer_call_inputs) {
+                            Ok(result) => result,
+                            Err(_) => {
+                                env.throw_new("java/lang/RuntimeException", "JNI conversion error!").unwrap();
+                                Default::default()
+                            }
+                        }
+                }}
+            }
+        };
+
+        // TODO: Remove known attributes with `visit_attribute` instead of clearing
         let no_mangle = parse_quote! { #[no_mangle] };
+        node.attrs.clear();
+        node.attrs.push(no_mangle);
+
         ImplItemMethod {
-            attrs: vec![no_mangle],
+            attrs: node.attrs,
             vis: Visibility::Public(VisPublic {
-                pub_token: Token![pub](node.span())
+                pub_token: Token![pub](node_span)
             }),
             defaultness: node.defaultness,
-            sig: self.fold_signature(node.sig.clone()),
-            block: self.wrap_fn_block(node.sig, node.block),
+            sig: self.fold_signature(node.sig),
+            block: new_block,
         }
     }
 
@@ -205,52 +366,22 @@ impl Fold for ImplFnTransformer {
             format!("Java_{}{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
         };
 
-        let jni_abi_inputs: Punctuated<FnArg, Token![,]> = {
-            let freestanding_inputs = node.inputs.iter()
-                .map(|arg| { self.make_arg_freestanding(arg, node.ident.clone()) });
+        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_name.clone(), node.ident.to_string(), self.call_type);
 
+        let jni_abi_inputs: Punctuated<FnArg, Token![,]> = {
             let mut res = Punctuated::new();
             res.push(parse_quote!(env: JNIEnv<'env>));
             res.push(parse_quote!(class: JClass));
 
-            let jni_compatible_inputs: Punctuated<_, Token![,]> = freestanding_inputs.map(|input| {
-                match input {
-                    FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
-                    FnArg::Typed(t) => {
-                        let original_input_type = t.ty;
-
-                        FnArg::Typed(PatType {
-                            attrs: t.attrs,
-                            pat: t.pat,
-                            colon_token: t.colon_token,
-                            ty: Box::new(syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap()),
-                        })
-                    }
-                }
+            let jni_compatible_inputs: Punctuated<_, Token![,]> = node.inputs.iter().cloned().map(|input| {
+                jni_signature_transformer.fold_fn_arg(input)
             }).collect();
 
             res.extend(jni_compatible_inputs);
             res
         };
 
-        let jni_output = match &node.output {
-            ReturnType::Default => node.output.clone(),
-            ReturnType::Type(arrow, rtype) => {
-                match &**rtype {
-                    Type::Path(p) => {
-                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
-                    }
-                    Type::Reference(r) => {
-                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { r.span() => <#r as IntoJavaValue<'env>>::Target }).unwrap())
-                    }
-                    _ => {
-                        let res = node.output.clone();
-                        emit_error!(res, "Only type or type paths are permitted as type ascriptions in function params");
-                        res
-                    }
-                }
-            }
-        };
+        let jni_output = jni_signature_transformer.fold_return_type(node.output.clone());
 
         Signature {
             constness: node.constness,
@@ -271,8 +402,22 @@ impl Fold for ImplFnTransformer {
     }
 }
 
-impl ImplFnTransformer {
-    fn make_arg_freestanding(&mut self, arg: &FnArg, fn_name: Ident) -> FnArg {
+struct FreestandingTransformer {
+    struct_name: String,
+    fn_name: String,
+}
+
+impl FreestandingTransformer {
+    fn new(struct_name: String, fn_name: String) -> Self {
+        FreestandingTransformer {
+            struct_name,
+            fn_name,
+        }
+    }
+}
+
+impl Fold for FreestandingTransformer {
+    fn fold_fn_arg(&mut self, arg: FnArg) -> FnArg {
         match arg {
             FnArg::Receiver(r) => {
                 let receiver_span = r.span();
@@ -297,7 +442,7 @@ impl ImplFnTransformer {
                         attrs: vec![],
                         by_ref: None,
                         mutability: None,
-                        ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, fn_name), receiver_span),
+                        ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, self.fn_name), receiver_span),
                         subpat: None,
                     })),
                     colon_token: Token![:](receiver_span),
@@ -305,7 +450,7 @@ impl ImplFnTransformer {
                 })
             }
 
-            FnArg::Typed(t) => {
+            FnArg::Typed(ref t) => {
                 if let Pat::Ident(ident) = &*t.pat {
                     if ident.ident == "self" {
                         FnArg::Typed(PatType {
@@ -314,7 +459,7 @@ impl ImplFnTransformer {
                                 attrs: ident.attrs.clone(),
                                 by_ref: ident.by_ref,
                                 mutability: ident.mutability,
-                                ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, fn_name), t.span()),
+                                ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, self.fn_name), t.span()),
                                 subpat: ident.subpat.clone(),
                             })),
                             colon_token: t.colon_token,
@@ -325,6 +470,90 @@ impl ImplFnTransformer {
                     }
                 } else {
                     arg.clone()
+                }
+            }
+        }
+    }
+}
+
+struct JNISignatureTransformer {
+    struct_name: String,
+    fn_name: String,
+    call_type: CallType,
+}
+
+impl JNISignatureTransformer {
+    fn new(struct_name: String, fn_name: String, call_type: CallType) -> Self {
+        JNISignatureTransformer {
+            struct_name,
+            fn_name,
+            call_type,
+        }
+    }
+}
+
+impl Fold for JNISignatureTransformer {
+    fn fold_fn_arg(&mut self, arg: FnArg) -> FnArg {
+        let mut freestanding_transformer = FreestandingTransformer::new(self.struct_name.clone(), self.fn_name.clone());
+
+        match freestanding_transformer.fold_fn_arg(arg) {
+            FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
+            FnArg::Typed(t) => {
+                let original_input_type = t.ty;
+
+                let jni_conversion_type: Type = match self.call_type {
+                    CallType::Safe => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as TryFromJavaValue<'env>>::Source }).unwrap(),
+                    CallType::Unchecked => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap(),
+                };
+
+                FnArg::Typed(PatType {
+                    attrs: t.attrs,
+                    pat: t.pat,
+                    colon_token: t.colon_token,
+                    ty: Box::new(jni_conversion_type),
+                })
+            }
+        }
+    }
+
+    fn fold_generics(&mut self, mut generics: Generics) -> Generics {
+        generics.params.push(GenericParam::Lifetime(LifetimeDef {
+            attrs: vec![],
+            lifetime: Lifetime {
+                apostrophe: generics.span(),
+                ident: Ident::new("env", generics.span())
+            },
+            colon_token: None,
+            bounds: Default::default()
+        }));
+
+        generics
+    }
+
+    fn fold_return_type(&mut self, return_type: ReturnType) -> ReturnType {
+        match return_type {
+            ReturnType::Default => return_type,
+            ReturnType::Type(ref arrow, ref rtype) => {
+                match (&**rtype, self.call_type) {
+                    (Type::Path(p), CallType::Unchecked) => {
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
+                    }
+
+                    (Type::Path(p), CallType::Safe) => {
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as TryIntoJavaValue<'env>>::Target }).unwrap())
+                    }
+
+                    (Type::Reference(r), CallType::Unchecked) => {
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { r.span() => <#r as IntoJavaValue<'env>>::Target }).unwrap())
+                    }
+
+                    (Type::Reference(r), CallType::Safe) => {
+                        ReturnType::Type(*arrow, syn::parse2(quote_spanned! { r.span() => <#r as TryIntoJavaValue<'env>>::Target }).unwrap())
+                    }
+                    _ => {
+                        emit_error!(return_type, "Only type or type paths are permitted as type ascriptions in function params");
+                        return_type
+                    }
                 }
             }
         }
