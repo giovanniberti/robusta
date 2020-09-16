@@ -203,10 +203,10 @@ impl Fold for ImplFnTransformer {
             format!("Java_{}{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
         };
 
-        let freestanding_inputs = node.inputs.iter()
-            .map(|arg| { self.make_arg_freestanding(arg, node.ident.clone()) });
-
         let jni_abi_inputs: Punctuated<FnArg, Token![,]> = {
+            let freestanding_inputs = node.inputs.iter()
+                .map(|arg| { self.make_arg_freestanding(arg, node.ident.clone()) });
+
             let mut res = Punctuated::new();
             res.push(parse_quote!(env: JNIEnv<'env>));
             res.push(parse_quote!(class: JClass));
