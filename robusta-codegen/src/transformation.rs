@@ -47,6 +47,7 @@ impl ModTransformer {
 }
 
 impl ModTransformer {
+    /// If the impl block is a stadard impl block for a type, makes every child item (i.e. every fn) a freestanding one
     fn transform_item_impl(&mut self, node: ItemImpl) -> TokenStream {
         let transformed_item_impl = if let Type::Path(p) = &*node.self_ty {
             let struct_name = p.path.segments.last().unwrap().ident.to_string();
@@ -188,6 +189,7 @@ impl Fold for ImplFnTransformer {
         }
     }
 
+    /// Transform original signature in JNI-ready one, including JClass and JNIEnv parameters into the function signature.
     fn fold_signature(&mut self, node: Signature) -> Signature {
         if node.ident.to_string().contains('_') {
             emit_error!(node.ident, "JNI methods cannot contain `_` character");
