@@ -2,14 +2,7 @@ use jni::JNIEnv;
 use jni::objects::{JString, JObject, JValue, JList};
 use jni::sys::{jboolean, jbooleanArray, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jstring, jobject};
 use paste::paste;
-
-/// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [`JObject`] and [`jobject`].
-/// User that wants automatic conversion should instead implement [`FromJavaValue`] and [`IntoJavaValue`]
-pub trait JavaValue<'env> {
-    fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env>;
-
-    fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self;
-}
+use crate::convert::JavaValue;
 
 /// Conversion trait from Rust values to Java values, analogous to [`Into`]. Used when converting types returned from JNI-available functions.
 pub trait IntoJavaValue<'env> {
@@ -211,35 +204,5 @@ impl<'env, T, U> FromJavaValue<'env> for Vec<T> where T: FromJavaValue<'env, Sou
                 T::from(U::unbox(el, env), env)
             })
             .collect()
-    }
-}
-
-/// Conversion trait from Rust values to Java values, analogous to [`TryInto`]. Used when converting types returned from JNI-available functions.
-pub trait TryIntoJavaValue<'env> where Self: Default {
-    type Target: JavaValue<'env>;
-
-    fn try_into(self, env: &JNIEnv<'env>) -> jni::errors::Result<Self::Target>;
-}
-
-/// Conversion trait from Rust values to Java values, analogous to [`TryFrom`]. Used when converting types that are input to JNI-available functions.
-pub trait TryFromJavaValue<'env> where Self: Sized {
-    type Source: JavaValue<'env>;
-
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> jni::errors::Result<Self>;
-}
-
-impl<'env, T> TryIntoJavaValue<'env> for T where T: JavaValue<'env> + Default {
-    type Target = T;
-
-    fn try_into(self, env: &JNIEnv<'env>) -> jni::errors::Result<Self::Target> {
-        Ok(IntoJavaValue::into(self, env))
-    }
-}
-
-impl<'env, T> TryFromJavaValue<'env> for T where T: JavaValue<'env> {
-    type Source = T;
-
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> jni::errors::Result<Self> {
-        Ok(FromJavaValue::from(s, env))
     }
 }
