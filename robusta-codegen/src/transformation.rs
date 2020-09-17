@@ -53,7 +53,7 @@ impl ModTransformer {
 }
 
 impl ModTransformer {
-    /// If the impl block is a stadard impl block for a type, makes every child item (i.e. every fn) a freestanding one
+    /// If the impl block is a standard impl block for a type, makes every child item (i.e. every fn) a freestanding one
     fn transform_item_impl(&mut self, node: ItemImpl) -> TokenStream {
         let transformed_item_impl = if let Type::Path(p) = &*node.self_ty {
             let struct_name = p.path.segments.last().unwrap().ident.to_string();
