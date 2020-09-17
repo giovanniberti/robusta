@@ -82,7 +82,7 @@
 //! | [`f64`]                                                                            | `double`                            |
 //! | [`i64`]                                                                            | `long`                              |
 //! | [`i16`]                                                                            | `short`                             |
-//! | [`Vec<T>`](std::vec::Vec)†                                                         | `ArrayList\<T\>`                    |
+//! | [`Vec<T>`](std::vec::Vec)†                                                         | `ArrayList<T>`                      |
 //! | [`JObject<'env>`](jni::objects::JObject)‡                                          | *(any Java object as input type)*   |
 //! | [`jobject`](jni::sys::jobject)                                                     | *(any Java object as output)*       |
 //!
