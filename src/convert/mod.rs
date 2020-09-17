@@ -1,8 +1,11 @@
 use jni::JNIEnv;
 use jni::objects::JObject;
 
-pub mod unchecked;
-pub mod safe;
+pub use safe::*;
+pub use unchecked::*;
+
+mod safe;
+mod unchecked;
 
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [`JObject`] and [`jobject`].
 /// User that wants automatic conversion should instead implement [`FromJavaValue`] and [`IntoJavaValue`]
