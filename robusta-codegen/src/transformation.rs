@@ -161,68 +161,69 @@ impl Parse for CallType {
 
         match args {
             Meta::List(args) => {
-                if args.path != parse_quote!(call_type) {
-                    Err(Error::new(args.path.span(), "expected `call_type` identifier on attribute"))
-                } else {
-                    args.nested.iter().next().map(|arg| {
-                        match arg {
-                            NestedMeta::Meta(arg) => {
-                                match arg {
-                                    Meta::Path(arg) => {
-                                        match arg.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
-                                            Some("unchecked") => Ok(CallType::Unchecked),
-                                            Some("safe") => Ok(CallType::Safe(None)),
-                                            _ => Err(Error::new(arg.span(), format!("expected one of `safe`, `unchecked`, found {}", arg.into_token_stream())))
-                                        }
-                                    }
-
-                                    Meta::List(arg) => {
-                                        match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
-                                            Some("safe") => {
-                                                let mut exception_class = None;
-                                                let mut message = None;
-
-                                                arg.nested.iter().for_each(|arg| {
-                                                    match arg {
-                                                        NestedMeta::Meta(arg) => {
-                                                            match arg {
-                                                                Meta::NameValue(arg) => {
-                                                                    match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
-                                                                        Some("message") => {
-                                                                            match &arg.lit {
-                                                                                Lit::Str(lit) => message = Some(lit.value()),
-                                                                                _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
-                                                                            }
-                                                                        }
-
-                                                                        Some("exception_class") => {
-                                                                            match &arg.lit {
-                                                                                Lit::Str(lit) => exception_class = Some(lit.value()),
-                                                                                _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
-                                                                            }
-                                                                        }
-
-                                                                        _ => emit_error!(arg, format!("invalid `safe` option: {}", arg.into_token_stream()))
-                                                                    }
-                                                                }
-                                                                _ => emit_error!(arg.span(), format!("expected name-value pair, found {}", arg.into_token_stream()))
-                                                            }
-                                                        }
-                                                        _ => emit_error!(arg.span(), format!("expected name-value pair, found nested {}", arg.into_token_stream()))
-                                                    }
-                                                });
-
-                                                Ok(CallType::Safe(Some(SafeParams { exception_class, message })))
+                match args.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                    Some("call_type") => {
+                        args.nested.iter().next().map(|arg| {
+                            match arg {
+                                NestedMeta::Meta(arg) => {
+                                    match arg {
+                                        Meta::Path(arg) => {
+                                            match arg.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                                Some("unchecked") => Ok(CallType::Unchecked),
+                                                Some("safe") => Ok(CallType::Safe(None)),
+                                                _ => Err(Error::new(arg.span(), format!("expected one of `safe`, `unchecked`, found {}", arg.into_token_stream())))
                                             }
-                                            _ => Err(Error::new(arg.span(), format!("expected `safe(..)`, found {}", arg.into_token_stream())))
                                         }
+
+                                        Meta::List(arg) => {
+                                            match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                                Some("safe") => {
+                                                    let mut exception_class = None;
+                                                    let mut message = None;
+
+                                                    arg.nested.iter().for_each(|arg| {
+                                                        match arg {
+                                                            NestedMeta::Meta(arg) => {
+                                                                match arg {
+                                                                    Meta::NameValue(arg) => {
+                                                                        match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                                                            Some("message") => {
+                                                                                match &arg.lit {
+                                                                                    Lit::Str(lit) => message = Some(lit.value()),
+                                                                                    _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
+                                                                                }
+                                                                            }
+
+                                                                            Some("exception_class") => {
+                                                                                match &arg.lit {
+                                                                                    Lit::Str(lit) => exception_class = Some(lit.value()),
+                                                                                    _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
+                                                                                }
+                                                                            }
+
+                                                                            _ => emit_error!(arg, format!("invalid `safe` option: {}", arg.into_token_stream()))
+                                                                        }
+                                                                    }
+                                                                    _ => emit_error!(arg.span(), format!("expected name-value pair, found {}", arg.into_token_stream()))
+                                                                }
+                                                            }
+                                                            _ => emit_error!(arg.span(), format!("expected name-value pair, found nested {}", arg.into_token_stream()))
+                                                        }
+                                                    });
+
+                                                    Ok(CallType::Safe(Some(SafeParams { exception_class, message })))
+                                                }
+                                                _ => Err(Error::new(arg.span(), format!("expected `safe(..)`, found {}", arg.into_token_stream())))
+                                            }
+                                        }
+                                        _ => Err(Error::new(arg.span(), "invalid argument options supplied"))
                                     }
-                                    _ => Err(Error::new(arg.span(), "invalid argument options supplied"))
                                 }
+                                _ => Err(Error::new(arg.span(), "invalid argument options format supplied"))
                             }
-                            _ => Err(Error::new(arg.span(), "invalid argument options format supplied"))
-                        }
-                    }).transpose().map(|i| i.unwrap())
+                        }).transpose().map(|i| i.unwrap())
+                    },
+                    _ => Err(Error::new(args.path.span(), "expected `call_type` identifier on attribute"))
                 }
             }
             _ => Err(Error::new(args.span(), "bug -- please report to library author. `call_type` parser supplied to invalid argument"))
