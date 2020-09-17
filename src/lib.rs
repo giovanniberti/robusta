@@ -72,19 +72,19 @@
 //!
 //! ### Conversion table
 //!
-//! | **Rust**                                                                           | **Java**                          |
-//! |------------------------------------------------------------------------------------|-----------------------------------|
-//! | [`i32`]                                                                            | int                               |
-//! | [`bool`]                                                                           | boolean                           |
-//! | [`char`]                                                                           | char                              |
-//! | [`i8`]                                                                             | byte                              |
-//! | [`f32`]                                                                            | float                             |
-//! | [`f64`]                                                                            | double                            |
-//! | [`i64`]                                                                            | long                              |
-//! | [`i16`]                                                                            | short                             |
-//! | [`Vec<T>`](std::vec::Vec)†                                                         | ArrayList\<T\>                    |
-//! | [`JObject<'env>`](jni::JObject)‡                                                   | *(any Java object as input type)* |
-//! | [`jobject`](jni::sys::jobject)                                                   | *(any Java object as output)*     |
+//! | **Rust**                                                                           | **Java**                            |
+//! |------------------------------------------------------------------------------------|-------------------------------------|
+//! | [`i32`]                                                                            | `int`                               |
+//! | [`bool`]                                                                           | `boolean`                           |
+//! | [`char`]                                                                           | `char`                              |
+//! | [`i8`]                                                                             | `byte`                              |
+//! | [`f32`]                                                                            | `float`                             |
+//! | [`f64`]                                                                            | `double`                            |
+//! | [`i64`]                                                                            | `long`                              |
+//! | [`i16`]                                                                            | `short`                             |
+//! | [`Vec<T>`](std::vec::Vec)†                                                         | `ArrayList\<T\>`                    |
+//! | [`JObject<'env>`](jni::objects::JObject)‡                                          | *(any Java object as input type)*   |
+//! | [`jobject`](jni::sys::jobject)                                                     | *(any Java object as output)*       |
 //!
 //! † Type parameter `T` must implement proper conversion types
 //!
