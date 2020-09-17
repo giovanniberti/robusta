@@ -1,18 +1,22 @@
+use std::collections::BTreeSet;
+use std::str::FromStr;
+
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Abi, Attribute, Block, Expr, FnArg, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Generics, GenericParam, LifetimeDef};
+use syn::{Lit, Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, NestedMeta};
 use syn::fold::Fold;
+use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Token;
 use syn::token::Extern;
+use syn::visit::Visit;
+
+use proc_macro_error::{emit_warning};
 
 use crate::utils::unique_ident;
 use crate::validation::JNIBridgeModule;
-use std::str::FromStr;
-use std::collections::BTreeSet;
-use syn::visit::Visit;
 
 pub(crate) struct ModTransformer {
     module: JNIBridgeModule
@@ -133,22 +137,109 @@ impl Fold for ModTransformer {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
+struct SafeParams {
+    exception_class: Option<String>,
+    message: Option<String>,
+}
+
+#[derive(Clone)]
 enum CallType {
-    Safe,
+    Safe(Option<SafeParams>),
     Unchecked,
+}
+
+impl Parse for CallType {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let attribute = input.call(Attribute::parse_outer)?.first().cloned().expect("Invalid parsing of `call_type` attribute ");
+
+        if attribute.path.get_ident().unwrap() != "call_type" {
+            panic!("expected identifier `call_type` for attribute")
+        }
+
+        let args = attribute.parse_meta().expect("Meta parsing of `call_type` attribute tokens failed");
+
+        match args {
+            Meta::List(args) => {
+                if args.path != parse_quote!(call_type) {
+                    Err(Error::new(args.path.span(), "expected `call_type` identifier on attribute"))
+                } else {
+                    args.nested.iter().next().map(|arg| {
+                        match arg {
+                            NestedMeta::Meta(arg) => {
+                                match arg {
+                                    Meta::Path(arg) => {
+                                        match arg.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                            Some("unchecked") => Ok(CallType::Unchecked),
+                                            Some("safe") => Ok(CallType::Safe(None)),
+                                            _ => Err(Error::new(arg.span(), format!("expected one of `safe`, `unchecked`, found {}", arg.into_token_stream())))
+                                        }
+                                    }
+
+                                    Meta::List(arg) => {
+                                        match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                            Some("safe") => {
+                                                let mut exception_class = None;
+                                                let mut message = None;
+
+                                                arg.nested.iter().for_each(|arg| {
+                                                    match arg {
+                                                        NestedMeta::Meta(arg) => {
+                                                            match arg {
+                                                                Meta::NameValue(arg) => {
+                                                                    match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                                                        Some("message") => {
+                                                                            match &arg.lit {
+                                                                                Lit::Str(lit) => message = Some(lit.value()),
+                                                                                _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
+                                                                            }
+                                                                        }
+
+                                                                        Some("exception_class") => {
+                                                                            match &arg.lit {
+                                                                                Lit::Str(lit) => exception_class = Some(lit.value()),
+                                                                                _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
+                                                                            }
+                                                                        }
+
+                                                                        _ => emit_error!(arg, format!("invalid `safe` option: {}", arg.into_token_stream()))
+                                                                    }
+                                                                }
+                                                                _ => emit_error!(arg.span(), format!("expected name-value pair, found {}", arg.into_token_stream()))
+                                                            }
+                                                        }
+                                                        _ => emit_error!(arg.span(), format!("expected name-value pair, found nested {}", arg.into_token_stream()))
+                                                    }
+                                                });
+
+                                                Ok(CallType::Safe(Some(SafeParams { exception_class, message })))
+                                            }
+                                            _ => Err(Error::new(arg.span(), format!("expected `safe(..)`, found {}", arg.into_token_stream())))
+                                        }
+                                    }
+                                    _ => Err(Error::new(arg.span(), "invalid argument options supplied"))
+                                }
+                            }
+                            _ => Err(Error::new(arg.span(), "invalid argument options format supplied"))
+                        }
+                    }).transpose().map(|i| i.unwrap())
+                }
+            }
+            _ => Err(Error::new(args.span(), "bug -- please report to library author. `call_type` parser supplied to invalid argument"))
+        }
+    }
 }
 
 struct AttributeFilter<'ast> {
     pub whitelist: BTreeSet<String>,
-    pub filtered_attributes: Vec<&'ast Attribute>
+    pub filtered_attributes: Vec<&'ast Attribute>,
 }
 
 impl<'ast> AttributeFilter<'ast> {
     fn with_whitelist(whitelist: BTreeSet<String>) -> Self {
         AttributeFilter {
             whitelist,
-            filtered_attributes: Vec::new()
+            filtered_attributes: Vec::new(),
         }
     }
 }
@@ -169,7 +260,7 @@ struct ImplTransformer {
 impl Fold for ImplTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
         let whitelist = {
-          let mut f = BTreeSet::new();
+            let mut f = BTreeSet::new();
             f.insert("call_type".into());
             f
         };
@@ -177,27 +268,14 @@ impl Fold for ImplTransformer {
         let mut attributes_collector = AttributeFilter::with_whitelist(whitelist);
         attributes_collector.visit_impl_item_method(&node);
 
-        let call_type = if let Some(call_type_attr) = attributes_collector.filtered_attributes.first() {
-            let call_type_tokens = call_type_attr.parse_args::<Ident>().map(|i| i.to_string());
+        let call_type_attribute = attributes_collector.filtered_attributes.first().and_then(|call_type_attr| {
+            syn::parse2(call_type_attr.to_token_stream()).map_err(|e| {
+                emit_warning!(call_type_attr, format!("invalid parsing of `call_type` attribute, defaulting to #[call_type(safe)]. Error in lifted args parsing: {}", e));
+                e
+            }).ok()
+        }).unwrap_or(CallType::Safe(None));
 
-            if let Err(_) = call_type_tokens {
-                emit_error!(call_type_attr.tokens, "Invalid parameter in `call_type` attribute. Allowed values are: `safe`, `unchecked`.");
-            }
-
-            let call_type_given = call_type_tokens.unwrap();
-            match call_type_given.as_str() {
-                "unchecked" => CallType::Unchecked,
-                "safe" => CallType::Safe,
-                _ => {
-                    emit_error!(call_type_attr.tokens, "Invalid parameter in `call_type` attribute. Allowed values are: `safe`, `unchecked`.");
-                    CallType::Safe
-                }
-            }
-        } else {
-            CallType::Safe
-        };
-
-        let mut impl_method_transformer = ImplMethodTransformer::new(self.struct_name.clone(), self.package.clone(), call_type);
+        let mut impl_method_transformer = ImplMethodTransformer::new(self.struct_name.clone(), self.package.clone(), call_type_attribute);
         impl_method_transformer.fold_impl_item_method(node)
     }
 }
@@ -222,7 +300,7 @@ impl Fold for ImplMethodTransformer {
     fn fold_impl_item_method(&mut self, mut node: ImplItemMethod) -> ImplItemMethod {
         let signature = node.sig.clone();
 
-        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_name.clone(), signature.ident.to_string(), self.call_type);
+        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_name.clone(), signature.ident.to_string(), self.call_type.clone());
 
         let call_inputs_idents: Punctuated<Expr, Token![,]> = signature.inputs.iter().cloned()
             .map(|arg| jni_signature_transformer.fold_fn_arg(arg))
@@ -243,7 +321,7 @@ impl Fold for ImplMethodTransformer {
         let outer_call_inputs = {
             let mut result = call_inputs_idents.clone();
 
-            if let CallType::Safe = self.call_type {
+            if let CallType::Safe(_) = self.call_type {
                 result.push(parse_quote!(&env))
             }
 
@@ -254,7 +332,7 @@ impl Fold for ImplMethodTransformer {
             .map(|arg| {
                 let input_param: Expr = {
                     match self.call_type {
-                        CallType::Safe => parse_quote! { TryFromJavaValue::try_from(#arg, &env)? },
+                        CallType::Safe(_) => parse_quote! { TryFromJavaValue::try_from(#arg, &env)? },
                         CallType::Unchecked => parse_quote! { FromJavaValue::from(#arg, &env) }
                     }
                 };
@@ -279,7 +357,7 @@ impl Fold for ImplMethodTransformer {
             let mut s = jni_signature_transformer.fold_signature(signature.clone());
             s.ident = Ident::new("outer", signature.ident.span());
 
-            if let CallType::Safe = self.call_type {
+            if let CallType::Safe(_) = self.call_type {
                 s.inputs.push(FnArg::Typed(PatType {
                     attrs: vec![],
                     pat: Box::new(Pat::Ident(PatIdent {
@@ -287,10 +365,10 @@ impl Fold for ImplMethodTransformer {
                         by_ref: None,
                         mutability: None,
                         ident: Ident::new("env", s.inputs.span()),
-                        subpat: None
+                        subpat: None,
                     })),
                     colon_token: Token![:](s.inputs.span()),
-                    ty: Box::new(parse_quote! { &JNIEnv<'env> })
+                    ty: Box::new(parse_quote! { &JNIEnv<'env> }),
                 }))
             }
 
@@ -307,29 +385,36 @@ impl Fold for ImplMethodTransformer {
         let node_span = node.span();
         let method_impl = node.block;
 
-        let new_block: Block = match self.call_type {
+        let new_block: Block = match &self.call_type {
             CallType::Unchecked => parse_quote! {{
                 #inner_signature
                     #method_impl
 
                 IntoJavaValue::into(inner(#inner_call_inputs), &env)
             }},
-            CallType::Safe => {
-                    parse_quote! {{
-                        #outer_signature {
-                            #inner_signature
-                                #method_impl
 
-                            TryIntoJavaValue::try_into(inner(#inner_call_inputs), &env)
-                        }
+            CallType::Safe(exception_details) => {
+                let default_params = SafeParams { exception_class: Some("java/lang/RuntimeException".into()), message: Some("JNI conversion error!".into()) };
+                let (exception_class, message) = {
+                    let SafeParams { exception_class: e, message: m } = exception_details.clone().unwrap_or(default_params.clone());
+                    (e.unwrap_or(default_params.exception_class.unwrap()), m.unwrap_or(default_params.message.unwrap()))
+                };
 
-                        match outer(#outer_call_inputs) {
-                            Ok(result) => result,
-                            Err(_) => {
-                                env.throw_new("java/lang/RuntimeException", "JNI conversion error!").unwrap();
-                                Default::default()
-                            }
+                parse_quote! {{
+                    #outer_signature {
+                        #inner_signature
+                            #method_impl
+
+                        TryIntoJavaValue::try_into(inner(#inner_call_inputs), &env)
+                    }
+
+                    match outer(#outer_call_inputs) {
+                        Ok(result) => result,
+                        Err(_) => {
+                            env.throw_new(#exception_class, #message).unwrap();
+                            Default::default()
                         }
+                    }
                 }}
             }
         };
@@ -366,7 +451,7 @@ impl Fold for ImplMethodTransformer {
             format!("Java_{}{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
         };
 
-        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_name.clone(), node.ident.to_string(), self.call_type);
+        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_name.clone(), node.ident.to_string(), self.call_type.clone());
 
         let jni_abi_inputs: Punctuated<FnArg, Token![,]> = {
             let mut res = Punctuated::new();
@@ -502,7 +587,7 @@ impl Fold for JNISignatureTransformer {
                 let original_input_type = t.ty;
 
                 let jni_conversion_type: Type = match self.call_type {
-                    CallType::Safe => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as TryFromJavaValue<'env>>::Source }).unwrap(),
+                    CallType::Safe(_) => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as TryFromJavaValue<'env>>::Source }).unwrap(),
                     CallType::Unchecked => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap(),
                 };
 
@@ -521,10 +606,10 @@ impl Fold for JNISignatureTransformer {
             attrs: vec![],
             lifetime: Lifetime {
                 apostrophe: generics.span(),
-                ident: Ident::new("env", generics.span())
+                ident: Ident::new("env", generics.span()),
             },
             colon_token: None,
-            bounds: Default::default()
+            bounds: Default::default(),
         }));
 
         generics
@@ -534,12 +619,12 @@ impl Fold for JNISignatureTransformer {
         match return_type {
             ReturnType::Default => return_type,
             ReturnType::Type(ref arrow, ref rtype) => {
-                match (&**rtype, self.call_type) {
+                match (&**rtype, self.call_type.clone()) {
                     (Type::Path(p), CallType::Unchecked) => {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
                     }
 
-                    (Type::Path(p), CallType::Safe) => {
+                    (Type::Path(p), CallType::Safe(_)) => {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as TryIntoJavaValue<'env>>::Target }).unwrap())
                     }
 
@@ -547,7 +632,7 @@ impl Fold for JNISignatureTransformer {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned! { r.span() => <#r as IntoJavaValue<'env>>::Target }).unwrap())
                     }
 
-                    (Type::Reference(r), CallType::Safe) => {
+                    (Type::Reference(r), CallType::Safe(_)) => {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned! { r.span() => <#r as TryIntoJavaValue<'env>>::Target }).unwrap())
                     }
                     _ => {
