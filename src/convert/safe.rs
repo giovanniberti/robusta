@@ -7,7 +7,7 @@ use crate::convert::JavaValue;
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
 
 /// Conversion trait from Rust values to Java values, analogous to [`std::convert::TryInto`]. Used when converting types returned from JNI-available functions.
-pub trait TryIntoJavaValue<'env> where Self: Default {
+pub trait TryIntoJavaValue<'env> {
     type Target: JavaValue<'env>;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target>;
@@ -20,7 +20,7 @@ pub trait TryFromJavaValue<'env> where Self: Sized {
     fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self>;
 }
 
-impl<'env, T> TryIntoJavaValue<'env> for T where T: JavaValue<'env> + Default {
+impl<'env, T> TryIntoJavaValue<'env> for T where T: JavaValue<'env> {
     type Target = T;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {

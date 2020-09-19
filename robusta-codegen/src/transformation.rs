@@ -413,7 +413,14 @@ impl Fold for ImplMethodTransformer {
                         Ok(result) => result,
                         Err(_) => {
                             env.throw_new(#exception_class, #message).unwrap();
-                            Default::default()
+
+                            /* We never hand out Rust references and the object returned is ignored
+                             * by the JVM, so it should be safe to just return zeroed memory.
+                             * Also, all primitives have a valid zero representation and because objects
+                             * are represented as pointers this should not have any unsafe side effects.
+                             * (Uninitialized memory would probably work as well)
+                             */
+                            unsafe { ::std::mem::zeroed() }
                         }
                     }
                 }}
