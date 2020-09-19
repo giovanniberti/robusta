@@ -1,5 +1,7 @@
 use jni::JNIEnv;
 use jni::objects::{JString, JObject, JValue, JList};
+use jni::signature::JavaType;
+use std::str::FromStr;
 use jni::sys::{jboolean, jbooleanArray, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jstring, jobject};
 use paste::paste;
 use crate::convert::JavaValue;
@@ -38,11 +40,14 @@ macro_rules! jvalue_types {
     ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident]) => {
         impl<'env> JavaValue<'env> for $type {
             fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
-                env.call_static_method(concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";"), &[Into::into(self)]).unwrap().l().unwrap()
+                env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
+                    (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
+                    JavaType::from_str(concat!("java/lang/", stringify!($boxed))).unwrap(),
+                    &[Into::into(self)]).unwrap().l().unwrap()
             }
 
             fn unbox(s: JObject<'env>, env:&JNIEnv<'env>) -> Self {
-                paste!(Into::into(env.call_method(s, stringify!($unbox_method), concat!("()", stringify!($sig)), &[])
+                paste!(Into::into(env.call_method_unchecked(s, (concat!("java/lang/", stringify!($boxed)), stringify!($unbox_method), concat!("()", stringify!($sig))), JavaType::from_str(stringify!($sig)).unwrap(), &[])
                     .unwrap().[<$sig:lower>]()
                     .unwrap()))
             }
@@ -60,7 +65,7 @@ jvalue_types! {
     jboolean: Boolean (Z) [booleanValue],
     jbyte: Byte (B) [byteValue],
     jchar: Character (C) [charValue],
-    jdouble: Double(D) [doubleValue],
+    jdouble: Double (D) [doubleValue],
     jfloat: Float (F) [floatValue],
     jint: Integer (I) [intValue],
     jlong: Long (J) [longValue],
