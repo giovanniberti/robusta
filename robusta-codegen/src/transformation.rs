@@ -159,6 +159,7 @@ impl Parse for CallType {
 
         let args = attribute.parse_meta().expect("Meta parsing of `call_type` attribute tokens failed");
 
+        // TODO: Replace this manual, incomplete argument parsing monster with something sensible that can accept something like #[call_type(safe(exception_class = "java.io.IOException", message = "foobar"))]
         match args {
             Meta::List(args) => {
                 match args.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
@@ -196,7 +197,8 @@ impl Parse for CallType {
 
                                                                             Some("exception_class") => {
                                                                                 match &arg.lit {
-                                                                                    Lit::Str(lit) => exception_class = Some(lit.value()),
+                                                                                    // TODO: Proper parsing of java paths
+                                                                                    Lit::Str(lit) => exception_class = Some(lit.value().replace('.', "/")),
                                                                                     _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
                                                                                 }
                                                                             }
