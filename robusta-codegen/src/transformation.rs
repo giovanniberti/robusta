@@ -162,14 +162,14 @@ impl Parse for CallType {
         // TODO: Replace this manual, incomplete argument parsing monster with something sensible that can accept something like #[call_type(safe(exception_class = "java.io.IOException", message = "foobar"))]
         match args {
             Meta::List(args) => {
-                match args.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                match args.path.get_ident().map(ToString::to_string).as_deref() {
                     Some("call_type") => {
                         args.nested.iter().next().map(|arg| {
                             match arg {
                                 NestedMeta::Meta(arg) => {
                                     match arg {
                                         Meta::Path(arg) => {
-                                            match arg.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                            match args.path.get_ident().map(ToString::to_string).as_deref() {
                                                 Some("unchecked") => Ok(CallType::Unchecked),
                                                 Some("safe") => Ok(CallType::Safe(None)),
                                                 _ => Err(Error::new(arg.span(), format!("expected one of `safe`, `unchecked`, found {}", arg.into_token_stream())))
@@ -177,7 +177,7 @@ impl Parse for CallType {
                                         }
 
                                         Meta::List(arg) => {
-                                            match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                            match args.path.get_ident().map(ToString::to_string).as_deref() {
                                                 Some("safe") => {
                                                     let mut exception_class = None;
                                                     let mut message = None;
@@ -187,7 +187,7 @@ impl Parse for CallType {
                                                             NestedMeta::Meta(arg) => {
                                                                 match arg {
                                                                     Meta::NameValue(arg) => {
-                                                                        match arg.path.get_ident().map(ToString::to_string).as_ref().map(String::as_str) {
+                                                                        match args.path.get_ident().map(ToString::to_string).as_deref() {
                                                                             Some("message") => {
                                                                                 match &arg.lit {
                                                                                     Lit::Str(lit) => message = Some(lit.value()),
@@ -378,7 +378,7 @@ impl Fold for ImplMethodTransformer {
             let outer_signature_span = s.span();
             let outer_output_type: Type = match s.output {
                 ReturnType::Default => parse_quote!(()),
-                ReturnType::Type(_, ty) => *ty.clone()
+                ReturnType::Type(_, ty) => *ty
             };
 
             s.output = ReturnType::Type(Token![->](outer_signature_span), Box::new(parse_quote!(::jni::errors::Result<#outer_output_type>)));
@@ -399,8 +399,9 @@ impl Fold for ImplMethodTransformer {
             CallType::Safe(exception_details) => {
                 let default_params = SafeParams { exception_class: Some("java/lang/RuntimeException".into()), message: Some("JNI conversion error!".into()) };
                 let (exception_class, message) = {
-                    let SafeParams { exception_class: e, message: m } = exception_details.clone().unwrap_or(default_params.clone());
-                    (e.unwrap_or(default_params.exception_class.unwrap()), m.unwrap_or(default_params.message.unwrap()))
+                    let SafeParams { exception_class: e, message: m } = exception_details.clone().unwrap_or_else(|| default_params.clone());
+                    let (default_exception_class, default_message) = (default_params.exception_class, default_params.message);
+                    (e.unwrap_or_else(|| default_exception_class.unwrap()), m.unwrap_or_else(|| default_message.unwrap()))
                 };
 
                 parse_quote! {{
@@ -456,7 +457,7 @@ impl Fold for ImplMethodTransformer {
                 let mut s = s.replace('.', "_");
                 s.push('_');
                 s
-            }).unwrap_or("".into());
+            }).unwrap_or_else(|| "".into());
 
             format!("Java_{}{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
         };
@@ -532,7 +533,7 @@ impl Fold for FreestandingTransformer {
                 };
 
                 FnArg::Typed(PatType {
-                    attrs: r.attrs.clone(),
+                    attrs: r.attrs,
                     pat: Box::new(Pat::Ident(PatIdent {
                         attrs: vec![],
                         by_ref: None,
