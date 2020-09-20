@@ -1,17 +1,30 @@
+//! Infallible conversion traits.
+//!
+//! These traits allow for a leaner generated glue code, with possibly some performance benefits.
+//!
+//! These conversion traits can be enabled to be used during code generation with the `unchecked` option on the `call_type` attribute, as so:
+//!
+//! ```
+//! #[call_type(unchecked)]
+//! ```
+//!
+//! **These functions *will* panic should any conversion fail.**
+//!
+
 use jni::JNIEnv;
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
 
 use crate::convert::JavaValue;
 
-/// Conversion trait from Rust values to Java values, analogous to [`Into`]. Used when converting types returned from JNI-available functions.
+/// Conversion trait from Rust values to Java values, analogous to [Into]. Used when converting types returned from JNI-available functions.
 pub trait IntoJavaValue<'env> {
     type Target: JavaValue<'env>;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target;
 }
 
-/// Conversion trait from Rust values to Java values, analogous to [`From`]. Used when converting types that are input to JNI-available functions.
+/// Conversion trait from Java values to Rust values, analogous to [From]. Used when converting types that are input to JNI-available functions.
 pub trait FromJavaValue<'env> {
     type Source: JavaValue<'env>;
 

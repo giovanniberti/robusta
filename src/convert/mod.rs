@@ -1,3 +1,31 @@
+//! Conversion facilities.
+//! This module provides two trait families: [FromJavaValue]/[IntoJavaValue] (infallible conversions) and [TryFromJavaValue]/[TryIntoJavaValue] (fallible conversions),
+//! similar to the ones found in the standard library.
+//!
+//! The `call_type` attribute controls which of the two conversion families is selected during code generation.
+//! `call_type` is a per-function attribute.
+//! Specific parameters that can be given to `call_type` can be found in the module documentation relative to the trait family ([safe] module for fallible conversions and [unchecked] module for infallible conversions)
+//!
+//! **If the `call_type` attribute is omitted, the fallible conversion trait family is chosen.**
+//!
+//! Example usage:
+//! ```
+//! #[bridge]
+//! mod jni {
+//!     #[package(com.example.robusta)]
+//!     struct HelloWorld;
+//!
+//!     impl HelloWorld {
+//!         #[call_type(unchecked)]
+//!         fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
+//!             input1.push(input2);
+//!             input1.iter().map(ToString::to_string).collect()
+//!         }
+//!     }
+//! }
+//! ```
+//!
+
 use std::str::FromStr;
 
 use jni::JNIEnv;
@@ -9,11 +37,11 @@ use paste::paste;
 pub use safe::*;
 pub use unchecked::*;
 
-mod safe;
-mod unchecked;
+pub mod safe;
+pub mod unchecked;
 
-/// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [`jni::objects::JObject`] and [`jni::sys::jobject`].
-/// User that wants automatic conversion should instead implement [`FromJavaValue`] and [`IntoJavaValue`]
+/// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JOBject](jni::objects::JObject) and [jobject](jni::sys::jobject).
+/// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
 pub trait JavaValue<'env> {
     fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env>;
 

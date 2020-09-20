@@ -1,3 +1,21 @@
+//! Fallible conversions traits.
+//!
+//! These are the traits selected if `call_type` is omitted or if specified with a `safe` parameter.
+//!
+//! ```
+//! #[call_type(safe)]
+//! ```
+//!
+//! If any conversion fails, e.g. while converting input parameters or return arguments a Java exception is thrown.
+//! Exception class and exception message can be customized with the `exception_class` and `message` parameters of the `safe` option, as such:
+//!
+//! ```
+//! #[call_type(safe(exception_class = "java.io.IOException", message = "Error while calling JNI function!"))]
+//! ```
+//!
+//! Both of these parameters are optional. By default, the exception class is `java.lang.RuntimeException`.
+//!
+
 use jni::errors::{Result as Result};
 use jni::JNIEnv;
 use jni::objects::{JList, JObject, JString, JValue};
@@ -6,14 +24,14 @@ use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
 use crate::convert::JavaValue;
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
 
-/// Conversion trait from Rust values to Java values, analogous to [`std::convert::TryInto`]. Used when converting types returned from JNI-available functions.
+/// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
 pub trait TryIntoJavaValue<'env> {
     type Target: JavaValue<'env>;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target>;
 }
 
-/// Conversion trait from Rust values to Java values, analogous to [`std::convert::TryFrom`]. Used when converting types that are input to JNI-available functions.
+/// Conversion trait from Java values to Rust values, analogous to [TryFrom](std::convert::TryInto). Used when converting types that are input to JNI-available functions.
 pub trait TryFromJavaValue<'env> where Self: Sized {
     type Source: JavaValue<'env>;
 
