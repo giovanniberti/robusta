@@ -1,6 +1,6 @@
 [package]
 name = "robusta-codegen"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
 description = "Procedural macro crate to support `robusta`"
 keywords = ["proc_macro", "procmacro", "robusta"]

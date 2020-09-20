@@ -6,7 +6,7 @@ It can perform automatic conversion of Rust-y input and output types (see the [l
 
 ```toml
 [dependencies]
-robusta = "0.0.1"
+robusta = "0.0.2"
 ```
 
 ## Usage

@@ -4,7 +4,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! robusta = "0.0.1"
+//! robusta = "0.0.2"
 //! ```
 //!
 //! ## Usage
