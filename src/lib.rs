@@ -100,6 +100,8 @@
 //!  * Automatic type conversion is limited to the table outlined above, though easily extendable if needed.
 //!
 
+#![crate_name = "robusta"]
+
 pub use robusta_codegen::bridge;
 
 pub mod convert;
