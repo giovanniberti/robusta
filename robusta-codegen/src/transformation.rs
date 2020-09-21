@@ -4,7 +4,7 @@ use std::str::FromStr;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Lit, Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, NestedMeta};
+use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta};
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
@@ -13,10 +13,13 @@ use syn::Token;
 use syn::token::Extern;
 use syn::visit::Visit;
 
+use darling::FromMeta;
+
 use proc_macro_error::{emit_warning};
 
 use crate::utils::unique_ident;
 use crate::validation::JNIBridgeModule;
+use darling::util::Flag;
 
 pub(crate) struct ModTransformer {
     module: JNIBridgeModule
@@ -137,98 +140,35 @@ impl Fold for ModTransformer {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default, FromMeta)]
+#[darling(default)]
 struct SafeParams {
     exception_class: Option<String>,
     message: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, FromMeta)]
 enum CallType {
     Safe(Option<SafeParams>),
-    Unchecked,
+    Unchecked(Flag),
 }
 
 impl Parse for CallType {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let attribute = input.call(Attribute::parse_outer)?.first().cloned().expect("Invalid parsing of `call_type` attribute ");
+        let attribute = input.call(Attribute::parse_outer)?.first().cloned().ok_or_else(|| Error::new(input.span(), "Invalid parsing of `call_type` attribute "))?;
 
-        if attribute.path.get_ident().unwrap() != "call_type" {
-            panic!("expected identifier `call_type` for attribute")
+        if attribute.path.get_ident().ok_or_else(|| Error::new(attribute.path.span(), "expected identifier for attribute"))? != "call_type" {
+            return Err(Error::new(attribute.path.span(), "expected identifier `call_type` for attribute"));
         }
 
-        let args = attribute.parse_meta().expect("Meta parsing of `call_type` attribute tokens failed");
+        let attr_meta: Meta = attribute.parse_meta()?;
 
-        // TODO: Replace this manual, incomplete argument parsing monster with something sensible that can accept something like #[call_type(safe(exception_class = "java.io.IOException", message = "foobar"))]
-        match args {
-            Meta::List(args) => {
-                match args.path.get_ident().map(ToString::to_string).as_deref() {
-                    Some("call_type") => {
-                        args.nested.iter().next().map(|arg| {
-                            match arg {
-                                NestedMeta::Meta(arg) => {
-                                    match arg {
-                                        Meta::Path(arg) => {
-                                            match args.path.get_ident().map(ToString::to_string).as_deref() {
-                                                Some("unchecked") => Ok(CallType::Unchecked),
-                                                Some("safe") => Ok(CallType::Safe(None)),
-                                                _ => Err(Error::new(arg.span(), format!("expected one of `safe`, `unchecked`, found {}", arg.into_token_stream())))
-                                            }
-                                        }
-
-                                        Meta::List(arg) => {
-                                            match args.path.get_ident().map(ToString::to_string).as_deref() {
-                                                Some("safe") => {
-                                                    let mut exception_class = None;
-                                                    let mut message = None;
-
-                                                    arg.nested.iter().for_each(|arg| {
-                                                        match arg {
-                                                            NestedMeta::Meta(arg) => {
-                                                                match arg {
-                                                                    Meta::NameValue(arg) => {
-                                                                        match args.path.get_ident().map(ToString::to_string).as_deref() {
-                                                                            Some("message") => {
-                                                                                match &arg.lit {
-                                                                                    Lit::Str(lit) => message = Some(lit.value()),
-                                                                                    _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
-                                                                                }
-                                                                            }
-
-                                                                            Some("exception_class") => {
-                                                                                match &arg.lit {
-                                                                                    // TODO: Proper parsing of java paths
-                                                                                    Lit::Str(lit) => exception_class = Some(lit.value().replace('.', "/")),
-                                                                                    _ => emit_error!(arg.lit, format!("expected string literal, found {}", arg.lit.to_token_stream()))
-                                                                                }
-                                                                            }
-
-                                                                            _ => emit_error!(arg, format!("invalid `safe` option: {}", arg.into_token_stream()))
-                                                                        }
-                                                                    }
-                                                                    _ => emit_error!(arg.span(), format!("expected name-value pair, found {}", arg.into_token_stream()))
-                                                                }
-                                                            }
-                                                            _ => emit_error!(arg.span(), format!("expected name-value pair, found nested {}", arg.into_token_stream()))
-                                                        }
-                                                    });
-
-                                                    Ok(CallType::Safe(Some(SafeParams { exception_class, message })))
-                                                }
-                                                _ => Err(Error::new(arg.span(), format!("expected `safe(..)`, found {}", arg.into_token_stream())))
-                                            }
-                                        }
-                                        _ => Err(Error::new(arg.span(), "invalid argument options supplied"))
-                                    }
-                                }
-                                _ => Err(Error::new(arg.span(), "invalid argument options format supplied"))
-                            }
-                        }).transpose().map(|i| i.unwrap())
-                    },
-                    _ => Err(Error::new(args.path.span(), "expected `call_type` identifier on attribute"))
-                }
-            }
-            _ => Err(Error::new(args.span(), "bug -- please report to library author. `call_type` parser supplied to invalid argument"))
+        // Special-case `call_type(safe)` without further parentheses
+        // TODO: Find out if it's possible to use darling to allow `call_type(safe)` *and* `call_type(safe(message = "foo"))` etc.
+        if attr_meta.to_token_stream().to_string() == "call_type(safe)" {
+            Ok(CallType::Safe(None))
+        } else {
+            CallType::from_meta(&attr_meta).map_err(|e| Error::new(attr_meta.span(), format!("invalid `call_type` attribute options ({})", e)))
         }
     }
 }
@@ -273,7 +213,7 @@ impl Fold for ImplTransformer {
 
         let call_type_attribute = attributes_collector.filtered_attributes.first().and_then(|call_type_attr| {
             syn::parse2(call_type_attr.to_token_stream()).map_err(|e| {
-                emit_warning!(call_type_attr, format!("invalid parsing of `call_type` attribute, defaulting to #[call_type(safe)]. Error in lifted args parsing: {}", e));
+                emit_warning!(e.span(), format!("invalid parsing of `call_type` attribute, defaulting to #[call_type(safe)]. {}", e));
                 e
             }).ok()
         }).unwrap_or(CallType::Safe(None));
@@ -336,7 +276,7 @@ impl Fold for ImplMethodTransformer {
                 let input_param: Expr = {
                     match self.call_type {
                         CallType::Safe(_) => parse_quote! { TryFromJavaValue::try_from(#arg, &env)? },
-                        CallType::Unchecked => parse_quote! { FromJavaValue::from(#arg, &env) }
+                        CallType::Unchecked { .. } => parse_quote! { FromJavaValue::from(#arg, &env) }
                     }
                 };
                 input_param
@@ -389,7 +329,7 @@ impl Fold for ImplMethodTransformer {
         let method_impl = node.block;
 
         let new_block: Block = match &self.call_type {
-            CallType::Unchecked => parse_quote! {{
+            CallType::Unchecked { .. } => parse_quote! {{
                 #inner_signature
                     #method_impl
 
@@ -599,7 +539,7 @@ impl Fold for JNISignatureTransformer {
 
                 let jni_conversion_type: Type = match self.call_type {
                     CallType::Safe(_) => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as TryFromJavaValue<'env>>::Source }).unwrap(),
-                    CallType::Unchecked => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap(),
+                    CallType::Unchecked { .. } => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap(),
                 };
 
                 FnArg::Typed(PatType {
@@ -631,7 +571,7 @@ impl Fold for JNISignatureTransformer {
             ReturnType::Default => return_type,
             ReturnType::Type(ref arrow, ref rtype) => {
                 match (&**rtype, self.call_type.clone()) {
-                    (Type::Path(p), CallType::Unchecked) => {
+                    (Type::Path(p), CallType::Unchecked { .. }) => {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as IntoJavaValue<'env>>::Target }).unwrap())
                     }
 
@@ -639,7 +579,7 @@ impl Fold for JNISignatureTransformer {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned! { p.span() => <#p as TryIntoJavaValue<'env>>::Target }).unwrap())
                     }
 
-                    (Type::Reference(r), CallType::Unchecked) => {
+                    (Type::Reference(r), CallType::Unchecked { .. }) => {
                         ReturnType::Type(*arrow, syn::parse2(quote_spanned! { r.span() => <#r as IntoJavaValue<'env>>::Target }).unwrap())
                     }
 
