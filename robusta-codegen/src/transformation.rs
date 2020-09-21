@@ -1,10 +1,10 @@
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta};
+use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, Path};
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
@@ -59,7 +59,7 @@ impl ModTransformer {
     /// If the impl block is a standard impl block for a type, makes every child item (i.e. every fn) a freestanding one
     fn transform_item_impl(&mut self, node: ItemImpl) -> TokenStream {
         let transformed_item_impl = if let Type::Path(p) = &*node.self_ty {
-            let struct_name = p.path.segments.last().unwrap().ident.to_string();
+            let struct_name = p.path.get_ident().expect(&format!("expected identifier in item impl, got: {}", p.path.to_token_stream())).to_string();
             let struct_package = self.module.package_map[&struct_name].clone();
             let mut impl_transformer = ImplTransformer { struct_name, package: struct_package };
 
@@ -174,12 +174,12 @@ impl Parse for CallType {
 }
 
 struct AttributeFilter<'ast> {
-    pub whitelist: BTreeSet<String>,
+    pub whitelist: HashSet<Path>,
     pub filtered_attributes: Vec<&'ast Attribute>,
 }
 
 impl<'ast> AttributeFilter<'ast> {
-    fn with_whitelist(whitelist: BTreeSet<String>) -> Self {
+    fn with_whitelist(whitelist: HashSet<Path>) -> Self {
         AttributeFilter {
             whitelist,
             filtered_attributes: Vec::new(),
@@ -189,7 +189,7 @@ impl<'ast> AttributeFilter<'ast> {
 
 impl<'ast> Visit<'ast> for AttributeFilter<'ast> {
     fn visit_attribute(&mut self, attribute: &'ast Attribute) {
-        if self.whitelist.contains(&attribute.path.segments.first().unwrap().ident.to_string()) {
+        if self.whitelist.contains(&attribute.path) {
             self.filtered_attributes.push(attribute);
         }
     }
@@ -203,8 +203,8 @@ struct ImplTransformer {
 impl Fold for ImplTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
         let whitelist = {
-            let mut f = BTreeSet::new();
-            f.insert("call_type".into());
+            let mut f = HashSet::new();
+            f.insert(syn::parse2(TokenStream::from_str("call_type").unwrap()).unwrap());
             f
         };
 
@@ -337,11 +337,15 @@ impl Fold for ImplMethodTransformer {
             }},
 
             CallType::Safe(exception_details) => {
-                let default_params = SafeParams { exception_class: Some("java/lang/RuntimeException".into()), message: Some("JNI conversion error!".into()) };
-                let (exception_class, message) = {
-                    let SafeParams { exception_class: e, message: m } = exception_details.clone().unwrap_or_else(|| default_params.clone());
-                    let (default_exception_class, default_message) = (default_params.exception_class, default_params.message);
-                    (e.unwrap_or_else(|| default_exception_class.unwrap()), m.unwrap_or_else(|| default_message.unwrap()))
+                let (default_exception_class, default_message) = ("java/lang/RuntimeException", "JNI conversion error!");
+                let (exception_class, message) = match exception_details {
+                    Some(SafeParams { exception_class, message }) => {
+                        let exception_class_result = exception_class.as_ref().map(AsRef::as_ref).unwrap_or(default_exception_class);
+                        let message_result = message.as_ref().map(AsRef::as_ref).unwrap_or(default_message);
+
+                        (exception_class_result, message_result)
+                    }
+                    None => (default_exception_class, default_message)
                 };
 
                 parse_quote! {{
