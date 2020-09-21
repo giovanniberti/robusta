@@ -2,14 +2,14 @@
 //!
 //! These are the traits selected if `call_type` is omitted or if specified with a `safe` parameter.
 //!
-//! ```
+//! ```ignore
 //! #[call_type(safe)]
 //! ```
 //!
 //! If any conversion fails, e.g. while converting input parameters or return arguments a Java exception is thrown.
 //! Exception class and exception message can be customized with the `exception_class` and `message` parameters of the `safe` option, as such:
 //!
-//! ```
+//! ```ignore
 //! #[call_type(safe(exception_class = "java.io.IOException", message = "Error while calling JNI function!"))]
 //! ```
 //!

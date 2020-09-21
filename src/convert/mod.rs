@@ -10,6 +10,8 @@
 //!
 //! Example usage:
 //! ```
+//! use robusta::bridge;
+//!
 //! #[bridge]
 //! mod jni {
 //!     #[package(com.example.robusta)]

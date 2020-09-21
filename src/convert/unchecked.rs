@@ -4,7 +4,7 @@
 //!
 //! These conversion traits can be enabled to be used during code generation with the `unchecked` option on the `call_type` attribute, as so:
 //!
-//! ```
+//! ```ignore
 //! #[call_type(unchecked)]
 //! ```
 //!
