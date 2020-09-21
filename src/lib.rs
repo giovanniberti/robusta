@@ -17,7 +17,7 @@
 //! with the name of the Java package the corresponding class belongs to.
 //!
 //! After that, the functions implemented can be written as ordinary Rust functions, and the macro will
-//! take care of converting to and from Java types.
+//! take care of converting to and from Java types. By default if a conversion fails a Java exception is thrown.
 //!
 //! **NOTE: This library currently supports static methods only.**
 //!
@@ -61,11 +61,13 @@
 //! ```
 //!
 //! ## Type conversion details and extension to custom types
-//! There are two traits that control how Rust types are converted to/from Java types:
-//! `FromJavaValue` and `IntoJavaValue`.
+//! There are four traits that control how Rust types are converted to/from Java types:
+//! `(Try)FromJavaValue` and `(Try)IntoJavaValue`.
 //!
 //! These traits are used for input and output types respectively, and implementing them
-//! is necessary to allow the library perform automatic type conversion.
+//! is necessary to allow the library to perform automatic type conversion. By default, the `Try` variants are used,
+//! all of which throw a Java exception upon failure. This behaviour can be changed via the `call_type` attribute
+//! (see the `convert` module documentation for more details).
 //!
 //! These traits make use of type provided by the  [`jni`](https://crates.io/crates/jni) crate,
 //! however to provide maximum compatibility with `robusta`, we suggest using the re-exported version under `robusta::jni`.

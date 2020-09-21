@@ -21,6 +21,9 @@
 //!             input1.push(input2);
 //!             input1.iter().map(ToString::to_string).collect()
 //!         }
+//!
+//!         #[call_type(safe(exception_class = "java.lang.IllegalArgumentException", message = "invalid value"))]
+//!         fn bar(foo: i32) -> i32 { foo }
 //!     }
 //! }
 //! ```
