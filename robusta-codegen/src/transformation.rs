@@ -4,9 +4,9 @@ use std::str::FromStr;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, Path};
+use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, Path};
 use syn::fold::Fold;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Token;
@@ -140,10 +140,33 @@ impl Fold for ModTransformer {
     }
 }
 
+#[derive(Clone)]
+struct JavaPath(String);
+
+impl FromMeta for JavaPath {
+    fn from_value(value: &Lit) -> darling::Result<Self> {
+        use darling::Error;
+
+        if let Lit::Str(literal) = value {
+            let path = literal.value();
+            if path.contains('-') {
+                Err(Error::custom("invalid path: packages and classes cannot contain dashes"))
+            } else {
+                let tokens = TokenStream::from_str(&path).map_err(|_| Error::custom("cannot create token stream for java path parsing"))?;
+                let _parsed: Punctuated<Ident, Token![.]> = Punctuated::<Ident, Token![.]>::parse_separated_nonempty.parse(tokens.into()).map_err(|e| Error::custom(format!("cannot parse java path ({})", e)))?;
+
+                Ok(JavaPath(path.to_string()))
+            }
+        } else {
+            Err(Error::custom("invalid type"))
+        }
+    }
+}
+
 #[derive(Clone, Default, FromMeta)]
 #[darling(default)]
 struct SafeParams {
-    exception_class: Option<String>,
+    exception_class: Option<JavaPath>,
     message: Option<String>,
 }
 
@@ -340,7 +363,7 @@ impl Fold for ImplMethodTransformer {
                 let (default_exception_class, default_message) = ("java/lang/RuntimeException", "JNI conversion error!");
                 let (exception_class, message) = match exception_details {
                     Some(SafeParams { exception_class, message }) => {
-                        let exception_class_result = exception_class.as_ref().map(AsRef::as_ref).unwrap_or(default_exception_class);
+                        let exception_class_result = exception_class.as_ref().map(|v| &v.0).map(AsRef::as_ref).unwrap_or(default_exception_class);
                         let message_result = message.as_ref().map(AsRef::as_ref).unwrap_or(default_message);
 
                         (exception_class_result, message_result)
