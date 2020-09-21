@@ -8,5 +8,5 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-robusta = { path = "../" }
+robusta_jni = { path = "../" }
 jni = "0.17.0"

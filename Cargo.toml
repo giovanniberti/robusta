@@ -1,5 +1,5 @@
 [package]
-name = "robusta"
+name = "robusta_jni"
 version = "0.0.3"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
 repository = "https://github.com/giovanniberti/robusta"

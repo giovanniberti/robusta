@@ -4,7 +4,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! robusta = "0.0.2"
+//! robusta_jni = "0.0.3"
 //! ```
 //!
 //! ## Usage
@@ -24,7 +24,7 @@
 //! ## Example
 //! ### Rust side
 //! ```rust
-//! use robusta::bridge;
+//! use robusta_jni::bridge;
 //!
 //! #[bridge]
 //! mod jni {
@@ -70,7 +70,7 @@
 //! (see the `convert` module documentation for more details).
 //!
 //! These traits make use of type provided by the  [`jni`](https://crates.io/crates/jni) crate,
-//! however to provide maximum compatibility with `robusta`, we suggest using the re-exported version under `robusta::jni`.
+//! however to provide maximum compatibility with `robusta`, we suggest using the re-exported version under `robusta_jni::jni`.
 //!
 //! ### Conversion table
 //!
@@ -99,8 +99,6 @@
 //!  * Boxed types are supported only through the opaque `JObject`/`jobject` types
 //!  * Automatic type conversion is limited to the table outlined above, though easily extendable if needed.
 //!
-
-#![crate_name = "robusta"]
 
 pub use robusta_codegen::bridge;
 

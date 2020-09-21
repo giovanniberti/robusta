@@ -6,7 +6,7 @@ It can perform automatic conversion of Rust-y input and output types (see the [l
 
 ```toml
 [dependencies]
-robusta = "0.0.2"
+robusta_jni = "0.0.3"
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ take care of converting to and from Java types. By default if a conversion fails
 ## Example
 ### Rust side
 ```rust
-use robusta::bridge;
+use robusta_jni::bridge;
 
 #[bridge]
 mod jni {
@@ -70,7 +70,7 @@ These traits are used for input and output types respectively, and implementing 
 is necessary to allow the library to perform automatic type conversion.
 
 These traits make use of type provided by the  [`jni`](https://crates.io/crates/jni) crate,
-however to provide maximum compatibility with `robusta`, we suggest using the re-exported version under `robusta::jni`.
+however to provide maximum compatibility with `robusta`, we suggest using the re-exported version under `robusta_jni::jni`.
 
 ### Conversion table
 

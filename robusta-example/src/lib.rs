@@ -1,4 +1,4 @@
-use robusta::bridge;
+use robusta_jni::bridge;
 
 #[bridge]
 mod jni {

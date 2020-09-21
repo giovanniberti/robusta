@@ -38,11 +38,11 @@ impl ModTransformer {
             let jni_path_prefix = if cfg!(feature = "no_jni") {
                 ""
             } else {
-                "::robusta"
+                "::robusta_jni"
             };
 
             let mut items_with_use: Vec<Item> = vec![
-                parse_quote! { use ::robusta::convert::{FromJavaValue, IntoJavaValue, TryFromJavaValue, TryIntoJavaValue}; },
+                parse_quote! { use ::robusta_jni::convert::{FromJavaValue, IntoJavaValue, TryFromJavaValue, TryIntoJavaValue}; },
                 syn::parse2(TokenStream::from_str(&format!("use {}::jni::JNIEnv;", jni_path_prefix)).unwrap()).unwrap(),
                 syn::parse2(TokenStream::from_str(&format!("use {}::jni::objects::JClass;", jni_path_prefix)).unwrap()).unwrap()
             ];
