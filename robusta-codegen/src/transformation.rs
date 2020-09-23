@@ -142,12 +142,14 @@ impl Fold for ModTransformer {
         }
     }
 
-    fn fold_item_mod(&mut self, node: ItemMod) -> ItemMod {
+    fn fold_item_mod(&mut self, mut node: ItemMod) -> ItemMod {
         let allow_non_snake_case: Attribute = parse_quote! { #![allow(non_snake_case)] };
         let allow_unused: Attribute = parse_quote! { #![allow(unused)] };
 
+        node.attrs.extend_from_slice(&[allow_non_snake_case, allow_unused]);
+
         ItemMod {
-            attrs: vec![allow_non_snake_case, allow_unused],
+            attrs: node.attrs,
             vis: self.fold_visibility(node.vis),
             mod_token: node.mod_token,
             ident: self.fold_ident(node.ident),
@@ -157,8 +159,19 @@ impl Fold for ModTransformer {
     }
 
     fn fold_item_struct(&mut self, node: ItemStruct) -> ItemStruct {
+        let discarded_known_attributes = {
+            let mut known = HashSet::new();
+            known.insert("package");
+            known
+        };
+
+        let struct_attributes = {
+            let attributes = node.attrs;
+            attributes.into_iter().filter(|a| !discarded_known_attributes.contains(&a.path.to_token_stream().to_string().as_str())).collect()
+        };
+
         ItemStruct {
-            attrs: vec![],
+            attrs: struct_attributes,
             vis: node.vis,
             struct_token: node.struct_token,
             ident: node.ident,
@@ -298,7 +311,7 @@ impl ImplMethodTransformer {
 }
 
 impl Fold for ImplMethodTransformer {
-    fn fold_impl_item_method(&mut self, mut node: ImplItemMethod) -> ImplItemMethod {
+    fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
         let signature = node.sig.clone();
 
         let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_name.clone(), signature.ident.to_string(), self.call_type.clone());
@@ -434,13 +447,24 @@ impl Fold for ImplMethodTransformer {
             }
         };
 
-        // TODO: Remove known attributes with `visit_attribute` instead of clearing
         let no_mangle = parse_quote! { #[no_mangle] };
-        node.attrs.clear();
-        node.attrs.push(no_mangle);
+        let impl_item_attributes = {
+            let mut attributes = node.attrs;
+            attributes.push(no_mangle);
+
+            let discarded_known_attributes: HashSet<&str> = {
+                let mut h = HashSet::new();
+                h.insert("call_type");
+                h
+            };
+
+            attributes.into_iter().filter(|a| {
+                !discarded_known_attributes.contains(&a.path.segments.to_token_stream().to_string().as_str())
+            }).collect()
+        };
 
         ImplItemMethod {
-            attrs: node.attrs,
+            attrs: impl_item_attributes,
             vis: Visibility::Public(VisPublic {
                 pub_token: Token![pub](node_span)
             }),
@@ -550,26 +574,25 @@ impl Fold for FreestandingTransformer {
                 })
             }
 
-            FnArg::Typed(ref t) => {
-                if let Pat::Ident(ident) = &*t.pat {
-                    if ident.ident == "self" {
+            FnArg::Typed(t) => {
+                match &*t.pat {
+                    Pat::Ident(ident) if ident.ident == "self" => {
+                        let pat_span = t.span();
                         FnArg::Typed(PatType {
-                            attrs: vec![],
+                            attrs: t.attrs,
                             pat: Box::new(Pat::Ident(PatIdent {
                                 attrs: ident.attrs.clone(),
                                 by_ref: ident.by_ref,
                                 mutability: ident.mutability,
-                                ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, self.fn_name), t.span()),
+                                ident: unique_ident(&format!("receiver_{}_{}", self.struct_name, self.fn_name), pat_span),
                                 subpat: ident.subpat.clone(),
                             })),
                             colon_token: t.colon_token,
                             ty: t.ty.clone(),
                         })
-                    } else {
-                        arg.clone()
-                    }
-                } else {
-                    arg.clone()
+                    },
+
+                    _ => FnArg::Typed(t)
                 }
             }
         }
