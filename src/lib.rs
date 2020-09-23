@@ -17,7 +17,7 @@
 //! with the name of the Java package the corresponding class belongs to.
 //!
 //! After that, the functions implemented can be written as ordinary Rust functions, and the macro will
-//! take care of converting to and from Java types. By default if a conversion fails a Java exception is thrown.
+//! take care of converting to and from Java types for functions marked public and with a `"jni"` abi. By default if a conversion fails a Java exception is thrown.
 //!
 //! **NOTE: This library currently supports static methods only.**
 //!

@@ -19,13 +19,13 @@
 //!
 //!     impl HelloWorld {
 //!         #[call_type(unchecked)]
-//!         fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
+//!         pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
 //!             input1.push(input2);
 //!             input1.iter().map(ToString::to_string).collect()
 //!         }
 //!
 //!         #[call_type(safe(exception_class = "java.lang.IllegalArgumentException", message = "invalid value"))]
-//!         fn bar(foo: i32) -> i32 { foo }
+//!         pub extern "jni" fn bar(foo: i32) -> i32 { foo }
 //!     }
 //! }
 //! ```

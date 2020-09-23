@@ -4,7 +4,7 @@ use std::str::FromStr;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, Path};
+use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, Path, ImplItem};
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
@@ -20,6 +20,27 @@ use proc_macro_error::{emit_warning};
 use crate::utils::unique_ident;
 use crate::validation::JNIBridgeModule;
 use darling::util::Flag;
+
+#[derive(Default)]
+struct ImplExportVisitor<'ast> {
+    exported: Vec<&'ast ImplItem>,
+    unexported: Vec<&'ast ImplItem>
+}
+
+impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
+    fn visit_impl_item(&mut self, node: &'ast ImplItem) {
+        match node {
+            ImplItem::Method(method) => {
+                if let Some("jni") = method.sig.abi.as_ref().and_then(|a| a.name.as_ref().map(|l| l.value())).as_deref() {
+                    self.exported.push(node)
+                } else {
+                    self.unexported.push(node)
+                }
+            }
+            _ => self.unexported.push(node)
+        }
+    }
+}
 
 pub(crate) struct ModTransformer {
     module: JNIBridgeModule
@@ -56,31 +77,39 @@ impl ModTransformer {
 }
 
 impl ModTransformer {
-    /// If the impl block is a standard impl block for a type, makes every child item (i.e. every fn) a freestanding one
+    /// If the impl block is a standard impl block for a type, makes every exported fn a freestanding one
     fn transform_item_impl(&mut self, node: ItemImpl) -> TokenStream {
-        let transformed_item_impl = if let Type::Path(p) = &*node.self_ty {
+        let mut impl_export_visitor = ImplExportVisitor::default();
+        impl_export_visitor.visit_item_impl(&node);
+
+        let (preserved_items, transformed_items) = if let Type::Path(p) = &*node.self_ty {
             let struct_name = p.path.get_ident().expect(&format!("expected identifier in item impl, got: {}", p.path.to_token_stream())).to_string();
             let struct_package = self.module.package_map[&struct_name].clone();
             let mut impl_transformer = ImplTransformer { struct_name, package: struct_package };
 
-            impl_transformer.fold_item_impl(node)
+            let preserved = impl_export_visitor.unexported.into_iter().cloned().collect();
+            let transformed = impl_export_visitor.exported.into_iter().cloned().map(|i| impl_transformer.fold_impl_item(i)).collect();
+
+            (preserved, transformed)
         } else {
-            ItemImpl {
-                attrs: node.attrs.into_iter().map(|a| self.fold_attribute(a)).collect(),
-                defaultness: node.defaultness,
-                unsafety: node.unsafety,
-                impl_token: node.impl_token,
-                generics: self.fold_generics(node.generics),
-                trait_: node.trait_,
-                self_ty: Box::new(self.fold_type(*node.self_ty)),
-                brace_token: node.brace_token,
-                items: node.items.into_iter().map(|i| self.fold_impl_item(i)).collect(),
-            }
+            (node.items, Vec::new())
         };
 
-        transformed_item_impl.items.iter()
+        let preserved_impl = ItemImpl {
+            attrs: node.attrs.into_iter().map(|a| self.fold_attribute(a)).collect(),
+            defaultness: node.defaultness,
+            unsafety: node.unsafety,
+            impl_token: node.impl_token,
+            generics: self.fold_generics(node.generics),
+            trait_: node.trait_,
+            self_ty: Box::new(self.fold_type(*node.self_ty)),
+            brace_token: node.brace_token,
+            items: preserved_items.into_iter().map(|i| self.fold_impl_item(i)).collect(),
+        };
+
+        transformed_items.iter()
             .map(|i| i.to_token_stream())
-            .fold(TokenStream::new(), |item, mut stream| {
+            .fold(preserved_impl.into_token_stream(), |item, mut stream| {
                 item.to_tokens(&mut stream);
                 stream
             })
@@ -155,7 +184,7 @@ impl FromMeta for JavaPath {
                 let tokens = TokenStream::from_str(&path).map_err(|_| Error::custom("cannot create token stream for java path parsing"))?;
                 let _parsed: Punctuated<Ident, Token![.]> = Punctuated::<Ident, Token![.]>::parse_separated_nonempty.parse(tokens.into()).map_err(|e| Error::custom(format!("cannot parse java path ({})", e)))?;
 
-                Ok(JavaPath(path.to_string()))
+                Ok(JavaPath(path))
             }
         } else {
             Err(Error::custom("invalid type"))
@@ -225,24 +254,30 @@ struct ImplTransformer {
 
 impl Fold for ImplTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
-        let whitelist = {
-            let mut f = HashSet::new();
-            f.insert(syn::parse2(TokenStream::from_str("call_type").unwrap()).unwrap());
-            f
-        };
+        let abi = node.sig.abi.as_ref().and_then(|l| l.name.as_ref().map(|n| n.value()));
+        match (&node.vis, &abi.as_deref()) {
+            (Visibility::Public(_), Some("jni")) => {
+                let whitelist = {
+                    let mut f = HashSet::new();
+                    f.insert(syn::parse2(TokenStream::from_str("call_type").unwrap()).unwrap());
+                    f
+                };
 
-        let mut attributes_collector = AttributeFilter::with_whitelist(whitelist);
-        attributes_collector.visit_impl_item_method(&node);
+                let mut attributes_collector = AttributeFilter::with_whitelist(whitelist);
+                attributes_collector.visit_impl_item_method(&node);
 
-        let call_type_attribute = attributes_collector.filtered_attributes.first().and_then(|call_type_attr| {
-            syn::parse2(call_type_attr.to_token_stream()).map_err(|e| {
-                emit_warning!(e.span(), format!("invalid parsing of `call_type` attribute, defaulting to #[call_type(safe)]. {}", e));
-                e
-            }).ok()
-        }).unwrap_or(CallType::Safe(None));
+                let call_type_attribute = attributes_collector.filtered_attributes.first().and_then(|call_type_attr| {
+                    syn::parse2(call_type_attr.to_token_stream()).map_err(|e| {
+                        emit_warning!(e.span(), format!("invalid parsing of `call_type` attribute, defaulting to #[call_type(safe)]. {}", e));
+                        e
+                    }).ok()
+                }).unwrap_or(CallType::Safe(None));
 
-        let mut impl_method_transformer = ImplMethodTransformer::new(self.struct_name.clone(), self.package.clone(), call_type_attribute);
-        impl_method_transformer.fold_impl_item_method(node)
+                let mut impl_method_transformer = ImplMethodTransformer::new(self.struct_name.clone(), self.package.clone(), call_type_attribute);
+                impl_method_transformer.fold_impl_item_method(node)
+            },
+            _ => node
+        }
     }
 }
 
@@ -316,6 +351,7 @@ impl Fold for ImplMethodTransformer {
             let mut s = signature.clone();
             s.ident = inner_fn_ident;
             s.inputs = inner_fn_inputs;
+            s.abi = None;
             s
         };
 
@@ -345,6 +381,7 @@ impl Fold for ImplMethodTransformer {
             };
 
             s.output = ReturnType::Type(Token![->](outer_signature_span), Box::new(parse_quote!(::jni::errors::Result<#outer_output_type>)));
+            s.abi = None;
             s
         };
 

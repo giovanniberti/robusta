@@ -19,7 +19,7 @@ and each of these structs will have to be annotated with a `#[package]` attribut
 with the name of the Java package the corresponding class belongs to.
 
 After that, the functions implemented can be written as ordinary Rust functions, and the macro will
-take care of converting to and from Java types. By default if a conversion fails a Java exception is thrown.
+take care of converting to and from Java types for functions marked public and with a `"jni"` abi. By default if a conversion fails a Java exception is thrown.
 
 **NOTE: This library currently supports static methods only.**
 
@@ -34,7 +34,7 @@ mod jni {
     struct HelloWorld;
 
     impl HelloWorld {
-        fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
+        pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
             input1.push(input2);
             input1.iter().map(ToString::to_string).collect()
         }
