@@ -1,30 +1,28 @@
 use std::collections::HashSet;
 use std::str::FromStr;
 
+use darling::FromMeta;
+use darling::util::Flag;
 use proc_macro2::{Ident, TokenStream};
+use proc_macro_error::emit_warning;
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
-use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, LitStr, parse_quote, Pat, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic, Meta, Path, ImplItem};
+use syn::{Abi, Attribute, Block, Error, Expr, FnArg, GenericParam, Generics, ImplItem, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, LitStr, Meta, parse_quote, Pat, Path, PatIdent, PatType, ReturnType, Signature, Type, TypeReference, Visibility, VisPublic};
 use syn::fold::Fold;
-use syn::parse::{Parse, ParseStream, Parser};
+use syn::parse::{Parse, Parser, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Token;
 use syn::token::Extern;
 use syn::visit::Visit;
 
-use darling::FromMeta;
-
-use proc_macro_error::{emit_warning};
-
 use crate::utils::unique_ident;
 use crate::validation::JNIBridgeModule;
-use darling::util::Flag;
 
 #[derive(Default)]
 struct ImplExportVisitor<'ast> {
     exported: Vec<&'ast ImplItem>,
-    unexported: Vec<&'ast ImplItem>
+    unexported: Vec<&'ast ImplItem>,
 }
 
 impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
@@ -86,8 +84,10 @@ impl ModTransformer {
             let struct_name = p.path.get_ident().expect(&format!("expected identifier in item impl, got: {}", p.path.to_token_stream())).to_string();
             let struct_package = self.module.package_map[&struct_name].clone();
             let mut impl_transformer = ImplTransformer { struct_name, package: struct_package };
+            let mut impl_cleaner = ImplCleaner;
 
-            let preserved = impl_export_visitor.unexported.into_iter().cloned().collect();
+            let cleaned_impls = impl_export_visitor.exported.iter().cloned().cloned().map(|i| impl_cleaner.fold_impl_item(i));
+            let preserved = impl_export_visitor.unexported.into_iter().cloned().chain(cleaned_impls.into_iter()).collect();
             let transformed = impl_export_visitor.exported.into_iter().cloned().map(|i| impl_transformer.fold_impl_item(i)).collect();
 
             (preserved, transformed)
@@ -260,6 +260,24 @@ impl<'ast> Visit<'ast> for AttributeFilter<'ast> {
     }
 }
 
+struct ImplCleaner;
+
+impl Fold for ImplCleaner {
+    fn fold_impl_item_method(&mut self, mut node: ImplItemMethod) -> ImplItemMethod {
+        let abi = node.sig.abi.as_ref().and_then(|l| l.name.as_ref().map(|n| n.value()));
+
+        match (&node.vis, &abi.as_deref()) {
+            (Visibility::Public(_), Some("jni")) => {
+                node.sig.abi = None;
+                node.attrs = node.attrs.into_iter().filter(|a| a.path.get_ident().map_or(false, |i| i != "call_type")).collect();
+
+                node
+            }
+            (_, _) => node
+        }
+    }
+}
+
 struct ImplTransformer {
     pub(crate) struct_name: String,
     pub(crate) package: Option<String>,
@@ -288,7 +306,7 @@ impl Fold for ImplTransformer {
 
                 let mut impl_method_transformer = ImplMethodTransformer::new(self.struct_name.clone(), self.package.clone(), call_type_attribute);
                 impl_method_transformer.fold_impl_item_method(node)
-            },
+            }
             _ => node
         }
     }
@@ -342,7 +360,7 @@ impl Fold for ImplMethodTransformer {
             result
         };
 
-        let inner_call_inputs: Punctuated<Expr, Token![,]> = call_inputs_idents.into_iter()
+        let method_call_inputs: Punctuated<Expr, Token![,]> = call_inputs_idents.into_iter()
             .map(|arg| {
                 let input_param: Expr = {
                     match self.call_type {
@@ -352,21 +370,6 @@ impl Fold for ImplMethodTransformer {
                 };
                 input_param
             }).collect();
-
-        let inner_fn_ident = Ident::new("inner", signature.span());
-
-        let mut freestanding_transformer = FreestandingTransformer::new(self.struct_name.clone(), inner_fn_ident.to_string());
-        let inner_fn_inputs: Punctuated<FnArg, Token![,]> = signature.inputs.iter().cloned()
-            .map(|a| freestanding_transformer.fold_fn_arg(a))
-            .collect();
-
-        let inner_signature = {
-            let mut s = signature.clone();
-            s.ident = inner_fn_ident;
-            s.inputs = inner_fn_inputs;
-            s.abi = None;
-            s
-        };
 
         let outer_signature = {
             let mut s = jni_signature_transformer.fold_signature(signature.clone());
@@ -399,15 +402,15 @@ impl Fold for ImplMethodTransformer {
         };
 
         let node_span = node.span();
-        let method_impl = node.block;
+        let struct_name = Ident::new(&self.struct_name, node_span);
+        let method_name = signature.ident;
 
         let new_block: Block = match &self.call_type {
-            CallType::Unchecked { .. } => parse_quote! {{
-                #inner_signature
-                    #method_impl
-
-                IntoJavaValue::into(inner(#inner_call_inputs), &env)
-            }},
+            CallType::Unchecked { .. } => {
+                parse_quote! {{
+                    IntoJavaValue::into(#struct_name::#method_name(#method_call_inputs), &env)
+                }}
+            }
 
             CallType::Safe(exception_details) => {
                 let (default_exception_class, default_message) = ("java/lang/RuntimeException", "JNI conversion error!");
@@ -423,10 +426,7 @@ impl Fold for ImplMethodTransformer {
 
                 parse_quote! {{
                     #outer_signature {
-                        #inner_signature
-                            #method_impl
-
-                        TryIntoJavaValue::try_into(inner(#inner_call_inputs), &env)
+                        TryIntoJavaValue::try_into(#struct_name::#method_name(#method_call_inputs), &env)
                     }
 
                     match outer(#outer_call_inputs) {
@@ -590,7 +590,7 @@ impl Fold for FreestandingTransformer {
                             colon_token: t.colon_token,
                             ty: t.ty.clone(),
                         })
-                    },
+                    }
 
                     _ => FnArg::Typed(t)
                 }
