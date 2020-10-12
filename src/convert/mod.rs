@@ -31,10 +31,12 @@
 //! ```
 //!
 
+use std::convert::TryFrom;
 use std::str::FromStr;
 
+use jni::errors::ErrorKind;
 use jni::JNIEnv;
-use jni::objects::{JObject, JString};
+use jni::objects::{JObject, JString, JValue};
 use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 use paste::paste;
@@ -48,14 +50,23 @@ pub mod unchecked;
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JOBject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
 pub trait JavaValue<'env> {
+    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
+
     fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env>;
 
     fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self;
 }
 
+/// A trait for types that can provide a reference to a [JNIEnv](jni::JNIEnv) object. Used when generating Java methods that take a "self" parameter.
+pub trait JNIEnvLink<'env> {
+    fn get_env(&self) -> &JNIEnv<'env>;
+}
+
 macro_rules! jvalue_types {
     ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident]) => {
         impl<'env> JavaValue<'env> for $type {
+            const SIG_TYPE: &'static str = stringify!($sig);
+
             fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
                 env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
                     (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
@@ -63,7 +74,7 @@ macro_rules! jvalue_types {
                     &[Into::into(self)]).unwrap().l().unwrap()
             }
 
-            fn unbox(s: JObject<'env>, env:&JNIEnv<'env>) -> Self {
+            fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self {
                 paste!(Into::into(env.call_method_unchecked(s, (concat!("java/lang/", stringify!($boxed)), stringify!($unbox_method), concat!("()", stringify!($sig))), JavaType::from_str(stringify!($sig)).unwrap(), &[])
                     .unwrap().[<$sig:lower>]()
                     .unwrap()))
@@ -110,11 +121,126 @@ impl<'env> JavaValue<'env> for jobject {
 }
 
 impl<'env> JavaValue<'env> for JString<'env> {
+    const SIG_TYPE: &'static str = "Ljava/lang/String;";
+
     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
         Into::into(self)
     }
 
     fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
         From::from(s)
+    }
+}
+
+pub struct JValueWrapper<'a>(JValue<'a>);
+
+impl<'a> From<JValue<'a>> for JValueWrapper<'a> {
+    fn from(v: JValue<'a>) -> Self {
+        JValueWrapper(v)
+    }
+}
+
+impl<'a> From<JValueWrapper<'a>> for JValue<'a> {
+    fn from(v: JValueWrapper<'a>) -> Self {
+        v.0
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jboolean {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Bool(b) => Ok(b),
+            _ => Err(ErrorKind::WrongJValueType("bool", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jbyte {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Byte(b) => Ok(b),
+            _ => Err(ErrorKind::WrongJValueType("byte", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jchar {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Char(c) => Ok(c),
+            _ => Err(ErrorKind::WrongJValueType("char", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jdouble {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Double(d) => Ok(d),
+            _ => Err(ErrorKind::WrongJValueType("double", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jfloat {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Float(f) => Ok(f),
+            _ => Err(ErrorKind::WrongJValueType("float", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jint {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Int(i) => Ok(i),
+            _ => Err(ErrorKind::WrongJValueType("int", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jshort {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Short(s) => Ok(s),
+            _ => Err(ErrorKind::WrongJValueType("short", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for jlong {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Long(l) => Ok(l),
+            _ => Err(ErrorKind::WrongJValueType("long", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for () {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Void => Ok(()),
+            _ => Err(ErrorKind::WrongJValueType("void", value.0.type_name()).into()),
+        }
     }
 }

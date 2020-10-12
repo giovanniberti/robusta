@@ -22,3 +22,4 @@ syn = { version = "1.0", features = ["full", "visit", "fold"] }
 proc-macro-error = { version = "1", default-features = false }
 rand = "0.7.3"
 darling = "0.10.2"
+Inflector = "0.11.4"

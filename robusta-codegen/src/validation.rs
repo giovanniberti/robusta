@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use proc_macro_error::{emit_error, emit_warning};
 use quote::ToTokens;
-use syn::{Attribute, Error, Ident, Item, ItemMod, ItemStruct, Result, Type, ItemImpl};
+use syn::{Attribute, Error, Ident, Item, ItemMod, ItemStruct, Result, Type, ItemImpl, GenericParam};
 use syn::parse::{Parse, ParseBuffer, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -217,12 +217,23 @@ impl Parse for JNIBridgeModule {
             .filter(|i| {
                 if let Type::Path(p) = &*i.self_ty {
                     let impl_struct_name = p.path.segments.last().unwrap().ident.to_string();
+                    let has_generics = i.generics.params.iter().filter_map(|g| match g {
+                        GenericParam::Type(t) => Some(&t.ident),
+                        _ => None
+                    }).next().is_some();
+
                     !bridged_impls.iter()
                         .map(|(_, i)| i)
                         .filter_map(|i| {
-                            match &*i.self_ty {
-                                Type::Path(p) => Some(p.path.segments.last().unwrap().ident.to_string()),
-                                _ => None
+                            // *Very* conservative check to avoid hassles with checking struct name in where clauses
+                            // Should refactor into something proper or just delete this
+                            if !has_generics {
+                                match &*i.self_ty {
+                                    Type::Path(p) => Some(p.path.segments.last().unwrap().ident.to_string()),
+                                    _ => None
+                                }
+                            } else {
+                                Some(impl_struct_name.clone()) // ignore this impl item
                             }
                         })
                         .any(|struct_name| struct_name == impl_struct_name)
@@ -230,7 +241,7 @@ impl Parse for JNIBridgeModule {
                     false
                 }
         }).for_each(|lone_impl| {
-            emit_error!(lone_impl, "impl declared without corresponding struct");
+            emit_error!(lone_impl, "impl declared without corresponding struct \"{}\"", lone_impl.self_ty.to_token_stream());
             valid_input = false;
         });
 

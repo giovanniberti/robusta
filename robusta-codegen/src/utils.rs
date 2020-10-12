@@ -1,4 +1,4 @@
-use syn::Ident;
+use syn::{Ident, Path, PathArguments};
 use rand::{SeedableRng, Rng};
 use rand::rngs::StdRng;
 use rand::distributions::Alphanumeric;
@@ -15,4 +15,14 @@ pub fn unique_ident(prefix: &str, span: Span) -> Ident {
     };
 
     format_ident!("__{}_{}", prefix, StdRng::from_seed(seed).sample_iter(&Alphanumeric).take(5).collect::<String>(), span = span)
+}
+
+pub fn canonicalize_path(path: &Path) -> Path {
+    let mut result = path.clone();
+    result.segments = result.segments.into_iter().map(|mut seg| {
+        seg.arguments = PathArguments::None;
+        seg
+    }).collect();
+
+    result
 }

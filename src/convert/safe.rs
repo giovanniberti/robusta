@@ -27,6 +27,7 @@ use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
 pub trait TryIntoJavaValue<'env> {
     type Target: JavaValue<'env>;
+    const SIG_TYPE: &'static str = <Self::Target as JavaValue>::SIG_TYPE;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target>;
 }
@@ -34,6 +35,7 @@ pub trait TryIntoJavaValue<'env> {
 /// Conversion trait from Java values to Rust values, analogous to [TryFrom](std::convert::TryInto). Used when converting types that are input to JNI-available functions.
 pub trait TryFromJavaValue<'env> where Self: Sized {
     type Source: JavaValue<'env>;
+    const SIG_TYPE: &'static str = <Self::Source as JavaValue>::SIG_TYPE;
 
     fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self>;
 }
