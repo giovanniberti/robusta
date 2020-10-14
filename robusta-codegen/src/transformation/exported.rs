@@ -171,20 +171,18 @@ impl Fold for ExternJNIMethodTransformer {
             let mut s = jni_signature_transformer.fold_signature(signature.clone());
             s.ident = Ident::new("outer", signature.ident.span());
 
-            if let CallType::Safe(_) = self.call_type {
-                s.inputs.push(FnArg::Typed(PatType {
+            s.inputs.push(FnArg::Typed(PatType {
+                attrs: vec![],
+                pat: Box::new(Pat::Ident(PatIdent {
                     attrs: vec![],
-                    pat: Box::new(Pat::Ident(PatIdent {
-                        attrs: vec![],
-                        by_ref: None,
-                        mutability: None,
-                        ident: Ident::new("env", s.inputs.span()),
-                        subpat: None,
-                    })),
-                    colon_token: Token![:](s.inputs.span()),
-                    ty: Box::new(parse_quote! { &::robusta_jni::jni::JNIEnv<'env> }),
-                }))
-            }
+                    by_ref: None,
+                    mutability: None,
+                    ident: Ident::new("env", s.inputs.span()),
+                    subpat: None,
+                })),
+                colon_token: Token![:](s.inputs.span()),
+                ty: Box::new(parse_quote! { &::robusta_jni::jni::JNIEnv<'env> }),
+            }));
 
             let outer_signature_span = s.span();
             let outer_output_type: Type = match s.output {
