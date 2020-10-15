@@ -17,7 +17,7 @@ use syn::visit::Visit;
 use exported::{CallType, ExportedMethodTransformer, ImplExportVisitor};
 use imported::ImportedMethodTransformer;
 
-use crate::utils::{canonicalize_path, unique_ident};
+use crate::utils::{canonicalize_path, unique_ident, is_self_method};
 use crate::validation::JNIBridgeModule;
 
 mod imported;
@@ -415,7 +415,6 @@ impl JNISignatureTransformer {
     }
 }
 
-// TODO: Add struct lifetimes only on self methods
 impl Fold for JNISignatureTransformer {
     fn fold_fn_arg(&mut self, arg: FnArg) -> FnArg {
         let mut freestanding_transformer = FreestandingTransformer::new(self.struct_type.clone(), self.struct_name.clone(), self.fn_name.clone());
@@ -470,15 +469,7 @@ impl Fold for JNISignatureTransformer {
     }
 
     fn fold_signature(&mut self, node: Signature) -> Signature {
-        let self_method = node.inputs.iter().any(|i| match i {
-            FnArg::Receiver(_) => true,
-            FnArg::Typed(t) => {
-                match &*t.pat {
-                    Pat::Ident(PatIdent { ident, .. }) => ident == "self",
-                    _ => false
-                }
-            }
-        });
+        let self_method = is_self_method(&node);
 
         Signature {
             abi: node.abi.map(|a| self.fold_abi(a)),

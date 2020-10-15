@@ -1,4 +1,4 @@
-use syn::{Ident, Path, PathArguments};
+use syn::{Ident, Path, PathArguments, Signature, FnArg, Pat, PatIdent};
 use rand::{SeedableRng, Rng};
 use rand::rngs::StdRng;
 use rand::distributions::Alphanumeric;
@@ -25,4 +25,16 @@ pub fn canonicalize_path(path: &Path) -> Path {
     }).collect();
 
     result
+}
+
+pub fn is_self_method(signature: &Signature) -> bool {
+    signature.inputs.iter().any(|i| match i {
+        FnArg::Receiver(_) => true,
+        FnArg::Typed(t) => {
+            match &*t.pat {
+                Pat::Ident(PatIdent { ident, .. }) => ident == "self",
+                _ => false
+            }
+        }
+    })
 }

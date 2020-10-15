@@ -1,4 +1,4 @@
-use syn::{ImplItem, Attribute, Error, Meta, Path, ImplItemMethod, Visibility, Expr, FnArg, Pat, PatType, PatIdent, Type, ReturnType, Block, VisPublic, Signature, Abi, Generics, LitStr};
+use syn::{ImplItem, Attribute, Error, Meta, Path, ImplItemMethod, Visibility, Expr, FnArg, Pat, PatType, PatIdent, Type, ReturnType, Block, VisPublic, Signature, Abi, Generics, LitStr, TypeReference};
 use crate::transformation::{ImplItemType, JavaPath, AttributeFilter, JNISignatureTransformer};
 use darling::util::Flag;
 use syn::parse::{Parse, ParseStream};
@@ -15,6 +15,9 @@ use darling::FromMeta;
 use proc_macro_error::{emit_error, emit_warning};
 use syn::parse_quote;
 use std::str::FromStr;
+use std::iter;
+use std::iter::FromIterator;
+use crate::utils::{canonicalize_path, is_self_method};
 
 #[derive(Default)]
 pub struct ImplExportVisitor<'ast> {
@@ -126,12 +129,55 @@ impl ExternJNIMethodTransformer {
 
 impl Fold for ExternJNIMethodTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
-        let signature = node.sig.clone();
+        let original_signature = node.sig.clone();
 
-        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_type.clone(), self.struct_name.clone(), signature.ident.to_string(), self.call_type.clone());
+        let mut jni_signature_transformer = JNISignatureTransformer::new(self.struct_type.clone(), self.struct_name.clone(), original_signature.ident.to_string(), self.call_type.clone());
 
-        let call_inputs_idents: Punctuated<Expr, Token![,]> = signature.inputs.iter().cloned()
-            .map(|arg| jni_signature_transformer.fold_fn_arg(arg))
+        let self_method = is_self_method(&node.sig);
+
+        // Check whether second argument (first exluding self) is of type &JNIEnv, if so we don't transform it
+        let possible_env_arg = if !self_method {
+            original_signature.inputs.iter().next()
+        } else {
+            original_signature.inputs.iter().nth(1)
+        };
+
+        let has_explicit_env_arg = if let Some(FnArg::Typed(PatType { ty, ..})) = possible_env_arg {
+            if let Type::Reference(TypeReference { elem, .. }) = &**ty {
+                if let Type::Path(t) = &**elem {
+                    let full_path: Path = parse_quote! { ::robusta_jni::jni::JNIEnv };
+                    let imported_path: Path = parse_quote! { JNIEnv };
+                    let canonicalized_type_path = canonicalize_path(&t.path);
+
+                    canonicalized_type_path == imported_path || canonicalized_type_path == full_path
+                } else { false }
+            } else { false }
+        } else { false };
+
+        let (signature, explicit_env_arg): (Signature, Option<FnArg>) = if has_explicit_env_arg {
+            let mut inner_signature = original_signature;
+
+            let mut iter = inner_signature.inputs.into_iter();
+
+            if self_method {
+                let self_arg = iter.next();
+                let env_arg = iter.next();
+
+                inner_signature.inputs = iter::once(self_arg.unwrap()).chain(iter).collect();
+                (inner_signature, env_arg)
+            } else {
+                let env_arg = iter.next();
+                inner_signature.inputs = iter.collect();
+
+                (inner_signature, env_arg)
+            }
+        } else {
+            (original_signature, None)
+        };
+
+        let transformed_jni_signature = jni_signature_transformer.fold_signature(signature.clone());
+
+        let call_inputs_idents: Punctuated<Expr, Token![,]> = transformed_jni_signature.inputs.iter().cloned()
             .map::<Expr, _>(|a| match a {
                 FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
                 FnArg::Typed(t) => {
@@ -156,19 +202,37 @@ impl Fold for ExternJNIMethodTransformer {
             result
         };
 
-        let method_call_inputs: Punctuated<Expr, Token![,]> = call_inputs_idents.into_iter()
-            .map(|arg| {
-                let input_param: Expr = {
-                    match self.call_type {
-                        CallType::Safe(_) => parse_quote! { TryFromJavaValue::try_from(#arg, &env)? },
-                        CallType::Unchecked { .. } => parse_quote! { FromJavaValue::from(#arg, &env) }
+        let method_call_inputs: Punctuated<Expr, Token![,]> = {
+            let mut result: Vec<_> = transformed_jni_signature.inputs.iter()
+                .map(|arg| {
+                    if let FnArg::Typed(PatType { pat, .. }) = arg {
+                        if let Pat::Ident(PatIdent { ident, .. }) = &**pat {
+                            let input_param: Expr = {
+                                match self.call_type {
+                                    CallType::Safe(_) => parse_quote! { TryFromJavaValue::try_from(#ident, &env)? },
+                                    CallType::Unchecked { .. } => parse_quote! { FromJavaValue::from(#ident, &env) }
+                                }
+                            };
+                            input_param
+                        } else {
+                            panic!("Bug -- please report to library author. Found non-ident FnArg pattern");
+                        }
+                    } else {
+                        panic!("Bug -- please report to library author. Found receiver FnArg after freestanding transform");
                     }
-                };
-                input_param
-            }).collect();
+                }).collect();
+
+            if explicit_env_arg.is_some() {
+                // because `self` is kept in the transformed JNI signature, if this is a `self` method we put `env` *after* self, otherwise the env parameter must be first
+                let idx = if self_method { 1 } else { 0 };
+                result.insert(idx, parse_quote!(&env));
+            }
+
+            Punctuated::from_iter(result.into_iter())
+        };
 
         let outer_signature = {
-            let mut s = jni_signature_transformer.fold_signature(signature.clone());
+            let mut s = transformed_jni_signature;
             s.ident = Ident::new("outer", signature.ident.span());
 
             s.inputs.push(FnArg::Typed(PatType {
@@ -197,7 +261,7 @@ impl Fold for ExternJNIMethodTransformer {
 
         let node_span = node.span();
         let struct_name = Ident::new(&self.struct_name, node_span);
-        let method_name = signature.ident;
+        let method_name = signature.ident.clone();
 
         let new_block: Block = match &self.call_type {
             CallType::Unchecked { .. } => {
@@ -263,7 +327,7 @@ impl Fold for ExternJNIMethodTransformer {
                 pub_token: Token![pub](node_span)
             }),
             defaultness: node.defaultness,
-            sig: self.fold_signature(node.sig),
+            sig: self.fold_signature(signature),
             block: new_block,
         }
     }
@@ -301,15 +365,7 @@ impl Fold for ExternJNIMethodTransformer {
 
         let jni_output = jni_signature_transformer.fold_return_type(node.output.clone());
 
-        let self_method = node.inputs.iter().any(|i| match i {
-            FnArg::Receiver(_) => true,
-            FnArg::Typed(t) => {
-                match &*t.pat {
-                    Pat::Ident(PatIdent { ident, .. }) => ident == "self",
-                    _ => false
-                }
-            }
-        });
+        let self_method = is_self_method(&node);
 
         Signature {
             constness: node.constness,

@@ -54,11 +54,16 @@ mod jni {
         }
 
         #[call_type(unchecked)]
-        pub extern "jni" fn nativeFun(self) -> i32 {
-            self.javaAdd(1, 2)
+        pub extern "jni" fn nativeFun(self, _env: &JNIEnv, static_call: bool) -> i32 {
+            if static_call {
+                HelloWorld::staticJavaAdd(_env, 1, 2)
+            } else {
+                self.javaAdd(1, 2)
+            }
         }
 
         pub extern "java" fn javaAdd(&self, i: i32, u: i32) -> i32 {}
+
+        pub extern "java" fn staticJavaAdd(env: &JNIEnv, i: i32, u: i32) -> i32 {}
     }
 }
-
