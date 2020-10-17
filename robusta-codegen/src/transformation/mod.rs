@@ -371,7 +371,7 @@ impl JNISignatureTransformer {
         }
     }
 
-    fn fold_generics(&mut self, mut generics: Generics, self_method: bool) -> Generics {
+    fn transform_generics(&mut self, mut generics: Generics, self_method: bool) -> Generics {
         if self_method {
             let struct_lifetimes: Vec<&Lifetime> = self.struct_type.segments.iter().filter_map(|s| {
                 match &s.arguments {
@@ -474,7 +474,7 @@ impl Fold for JNISignatureTransformer {
         Signature {
             abi: node.abi.map(|a| self.fold_abi(a)),
             ident: self.fold_ident(node.ident),
-            generics: self.fold_generics(node.generics, self_method),
+            generics: self.transform_generics(node.generics, self_method),
             inputs: node.inputs.into_iter().map(|f| self.fold_fn_arg(f)).collect(),
             variadic: node.variadic.map(|v| self.fold_variadic(v)),
             output: self.fold_return_type(node.output),

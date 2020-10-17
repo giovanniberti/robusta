@@ -377,7 +377,7 @@ impl Fold for ExternJNIMethodTransformer {
             }),
             fn_token: node.fn_token,
             ident: Ident::new(&jni_method_name, node.ident.span()),
-            generics: jni_signature_transformer.fold_generics(Generics::default(), self_method),
+            generics: jni_signature_transformer.transform_generics(Generics::default(), self_method),
             paren_token: node.paren_token,
             inputs: jni_abi_inputs,
             variadic: node.variadic,
