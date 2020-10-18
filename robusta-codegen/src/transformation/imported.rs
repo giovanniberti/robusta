@@ -1,13 +1,12 @@
-use crate::utils::{canonicalize_path, is_self_method};
 use inflector::cases::camelcase::to_camel_case;
 use proc_macro2::TokenStream;
 use proc_macro_error::emit_error;
 use quote::{quote, ToTokens};
 use syn::fold::Fold;
 use syn::parse_quote;
-use syn::{
-    FnArg, ImplItemMethod, Pat, PatIdent, PatType, Path, ReturnType, Signature, Type, TypeReference,
-};
+use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
+
+use crate::utils::{get_env_arg, is_self_method};
 
 pub struct ImportedMethodTransformer {
     pub(crate) struct_name: String,
@@ -31,58 +30,24 @@ impl Fold for ImportedMethodTransformer {
                 }
 
                 let original_signature = node.sig.clone();
+                let self_method = is_self_method(&node.sig);
+                let (signature, env_arg) = get_env_arg(node.sig);
 
-                // Check whether first argument is of type &JNIEnv, if so we don't transform it
-                let has_explicit_env_arg = if let Some(FnArg::Typed(PatType { ty, .. })) =
-                    original_signature.inputs.iter().next()
-                {
-                    if let Type::Reference(TypeReference { elem, .. }) = &**ty {
-                        if let Type::Path(t) = &**elem {
-                            let full_path: Path = parse_quote! { ::robusta_jni::jni::JNIEnv };
-                            let imported_path: Path = parse_quote! { JNIEnv };
-                            let canonicalized_type_path = canonicalize_path(&t.path);
-
-                            canonicalized_type_path == imported_path
-                                || canonicalized_type_path == full_path
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                };
-
-                if !is_self_method(&node.sig) && !has_explicit_env_arg {
+                if !self_method && env_arg.is_none() {
                     emit_error!(
-                        node.sig,
+                        original_signature,
                         "static methods must have a parameter of type `&JNIEnv` as first parameter"
                     );
                     let dummy = ImplItemMethod {
                         sig: Signature {
                             abi: None,
-                            ..node.sig
+                            ..original_signature
                         },
                         ..node
                     };
 
                     return dummy;
                 }
-
-                let (signature, explicit_env_arg): (Signature, Option<FnArg>) =
-                    if has_explicit_env_arg {
-                        let mut inner_signature = node.sig;
-                        let mut iter = inner_signature.inputs.into_iter();
-                        let env_arg = iter.next();
-                        inner_signature.inputs = iter.collect();
-
-                        (inner_signature, env_arg)
-                    } else {
-                        (node.sig, None)
-                    };
-
-                let self_method = is_self_method(&signature);
 
                 let jni_package_path = self
                     .package
@@ -149,7 +114,7 @@ impl Fold for ImportedMethodTransformer {
                             TryInto::try_into(JValueWrapper::from(res)).unwrap()
                         }}
                     } else {
-                        let env_ident = match explicit_env_arg.unwrap() {
+                        let env_ident = match env_arg.unwrap() {
                             FnArg::Typed(t) => {
                                 match *t.pat {
                                     Pat::Ident(PatIdent { ident, .. }) => ident,
