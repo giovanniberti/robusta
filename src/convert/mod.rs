@@ -35,10 +35,10 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use jni::errors::ErrorKind;
-use jni::JNIEnv;
 use jni::objects::{JObject, JString, JValue};
 use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
+use jni::JNIEnv;
 use paste::paste;
 
 pub use safe::*;

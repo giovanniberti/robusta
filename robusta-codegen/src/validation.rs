@@ -4,28 +4,29 @@ use std::collections::BTreeMap;
 
 use proc_macro_error::{emit_error, emit_warning};
 use quote::ToTokens;
-use syn::{Attribute, Error, Ident, Item, ItemMod, ItemStruct, Result, Type, ItemImpl, GenericParam};
 use syn::parse::{Parse, ParseBuffer, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::Token;
+use syn::{
+    Attribute, Error, GenericParam, Ident, Item, ItemImpl, ItemMod, ItemStruct, Result, Type,
+};
 
 struct AttribItemChecker {
-    valid: bool
+    valid: bool,
 }
 
 impl AttribItemChecker {
     fn new() -> Self {
-        AttribItemChecker {
-            valid: true
-        }
+        AttribItemChecker { valid: true }
     }
 }
 
 impl<'ast> Visit<'ast> for AttribItemChecker {
     fn visit_item(&mut self, node: &'ast Item) {
-        let has_package_attribute = |a: &Attribute| a.path.segments.first().unwrap().ident == "package";
+        let has_package_attribute =
+            |a: &Attribute| a.path.segments.first().unwrap().ident == "package";
         match node {
             Item::Struct(_) => {}
             Item::Const(i) if i.attrs.iter().any(has_package_attribute) => {
@@ -96,7 +97,7 @@ impl<'ast> Visit<'ast> for AttribItemChecker {
 
 #[derive(Default)]
 struct ImplAccumulator<'ast> {
-    impls: Vec<&'ast ItemImpl>
+    impls: Vec<&'ast ItemImpl>,
 }
 
 impl<'ast> Visit<'ast> for ImplAccumulator<'ast> {
@@ -134,13 +135,18 @@ impl<'ast> StructDeclVisitor<'ast> {
 impl<'ast> Visit<'ast> for StructDeclVisitor<'ast> {
     fn visit_item_struct(&mut self, node: &'ast ItemStruct) {
         let struct_name = node.ident.to_string();
-        let has_package_attrib = node.attrs.iter().any(|a| a.path.segments.first().unwrap().ident == "package");
-        let has_impl = self.module_impls.iter().filter_map(|i| {
-            match &*i.self_ty {
+        let has_package_attrib = node
+            .attrs
+            .iter()
+            .any(|a| a.path.segments.first().unwrap().ident == "package");
+        let has_impl = self
+            .module_impls
+            .iter()
+            .filter_map(|i| match &*i.self_ty {
                 Type::Path(p) => Some(p.path.segments.last().unwrap().ident.to_string()),
-                _ => None
-            }
-        }).any(|s| s == struct_name);
+                _ => None,
+            })
+            .any(|s| s == struct_name);
 
         let declaration_kind = match (has_package_attrib, has_impl) {
             (true, true) => StructDeclarationKind::Bridged,
@@ -161,7 +167,12 @@ pub(crate) struct JNIBridgeModule {
 impl Parse for JNIBridgeModule {
     fn parse(input: &ParseBuffer) -> Result<Self> {
         let mut valid_input;
-        let module_decl: ItemMod = input.parse().map_err(|e| Error::new(e.span(), "`bridge` attribute is supported on mod items only"))?;
+        let module_decl: ItemMod = input.parse().map_err(|e| {
+            Error::new(
+                e.span(),
+                "`bridge` attribute is supported on mod items only",
+            )
+        })?;
 
         let mut attribute_checker = AttribItemChecker::new();
         attribute_checker.visit_item_mod(&module_decl);
@@ -197,40 +208,54 @@ impl Parse for JNIBridgeModule {
             .collect();
 
         let structs_idents: Vec<_> = bridged_structs.iter().map(|s| &s.ident).collect();
-        let bridged_impls: Vec<_> = mod_visitor.module_impls.iter()
-            .filter_map(|item_impl| {
-                match &*item_impl.self_ty {
-                    Type::Path(p) => {
-                        if let Some(pos) = structs_idents.iter().position(|id| *id == &p.path.segments.last().unwrap().ident) {
-                            Some((bridged_structs[pos], *item_impl))
-                        } else {
-                            None
-                        }
+        let bridged_impls: Vec<_> = mod_visitor
+            .module_impls
+            .iter()
+            .filter_map(|item_impl| match &*item_impl.self_ty {
+                Type::Path(p) => {
+                    if let Some(pos) = structs_idents
+                        .iter()
+                        .position(|id| *id == &p.path.segments.last().unwrap().ident)
+                    {
+                        Some((bridged_structs[pos], *item_impl))
+                    } else {
+                        None
                     }
-                    _ => None
                 }
+                _ => None,
             })
             .map(|(s, i)| (s.clone(), i.clone()))
             .collect();
 
-        mod_visitor.module_impls.into_iter()
+        mod_visitor
+            .module_impls
+            .into_iter()
             .filter(|i| {
                 if let Type::Path(p) = &*i.self_ty {
                     let impl_struct_name = p.path.segments.last().unwrap().ident.to_string();
-                    let has_generics = i.generics.params.iter().filter_map(|g| match g {
-                        GenericParam::Type(t) => Some(&t.ident),
-                        _ => None
-                    }).next().is_some();
+                    let has_generics = i
+                        .generics
+                        .params
+                        .iter()
+                        .filter_map(|g| match g {
+                            GenericParam::Type(t) => Some(&t.ident),
+                            _ => None,
+                        })
+                        .next()
+                        .is_some();
 
-                    !bridged_impls.iter()
+                    !bridged_impls
+                        .iter()
                         .map(|(_, i)| i)
                         .filter_map(|i| {
                             // *Very* conservative check to avoid hassles with checking struct name in where clauses
                             // Should refactor into something proper or just delete this
                             if !has_generics {
                                 match &*i.self_ty {
-                                    Type::Path(p) => Some(p.path.segments.last().unwrap().ident.to_string()),
-                                    _ => None
+                                    Type::Path(p) => {
+                                        Some(p.path.segments.last().unwrap().ident.to_string())
+                                    }
+                                    _ => None,
                                 }
                             } else {
                                 Some(impl_struct_name.clone()) // ignore this impl item
@@ -240,33 +265,52 @@ impl Parse for JNIBridgeModule {
                 } else {
                     false
                 }
-        }).for_each(|lone_impl| {
-            emit_error!(lone_impl, "impl declared without corresponding struct \"{}\"", lone_impl.self_ty.to_token_stream());
-            valid_input = false;
-        });
+            })
+            .for_each(|lone_impl| {
+                emit_error!(
+                    lone_impl,
+                    "impl declared without corresponding struct \"{}\"",
+                    lone_impl.self_ty.to_token_stream()
+                );
+                valid_input = false;
+            });
 
-        let package_map: BTreeMap<String, Option<String>> = bridged_structs.iter()
+        let package_map: BTreeMap<String, Option<String>> = bridged_structs
+            .iter()
             .map(|s| {
                 let name = s.ident.to_string();
-                let package_string = s.attrs.iter()
+                let package_string = s
+                    .attrs
+                    .iter()
                     .filter(|a| a.path.segments.last().unwrap().ident == "package")
                     .map(|a| {
-                        a.parse_args_with(|t: ParseStream| { Punctuated::<Ident, Token![.]>::parse_terminated(t) })
-                            .map_err(|_| emit_error!(a, "invalid package name"))
-                            .unwrap()
-                            .to_token_stream()
-                            .to_string().replace(' ', "")
+                        a.parse_args_with(|t: ParseStream| {
+                            Punctuated::<Ident, Token![.]>::parse_terminated(t)
+                        })
+                        .map_err(|_| emit_error!(a, "invalid package name"))
+                        .unwrap()
+                        .to_token_stream()
+                        .to_string()
+                        .replace(' ', "")
                     })
-                    .next().unwrap();
+                    .next()
+                    .unwrap();
 
-                let package = if package_string.is_empty() { None } else { Some(package_string) };
+                let package = if package_string.is_empty() {
+                    None
+                } else {
+                    Some(package_string)
+                };
 
                 (name, package)
             })
             .collect();
 
         if !valid_input {
-            Err(Error::new(module_decl.span(), "`bridge` macro expansion failed due to previous errors"))
+            Err(Error::new(
+                module_decl.span(),
+                "`bridge` macro expansion failed due to previous errors",
+            ))
         } else {
             Ok(JNIBridgeModule {
                 module_decl,
@@ -275,4 +319,3 @@ impl Parse for JNIBridgeModule {
         }
     }
 }
-

@@ -1,23 +1,24 @@
-use robusta_jni ::bridge;
+use robusta_jni::bridge;
 
 #[bridge]
 mod jni {
-    use robusta_jni::jni::JNIEnv;
-    use robusta_jni::convert::{JNIEnvLink};
     use jni::objects::JObject;
+    use robusta_jni::convert::JNIEnvLink;
+    use robusta_jni::jni::JNIEnv;
     use std::marker::PhantomData;
 
     #[package(com.example.robusta)]
     pub struct HelloWorld<'e, 'a> {
         env: JNIEnv<'e>,
-        marker: PhantomData<&'a ()>
+        marker: PhantomData<&'a ()>,
     }
 
     impl<'e, 'a> ::robusta_jni::convert::IntoJavaValue<'e> for HelloWorld<'e, 'a> {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
-            env.new_object("com/example/robusta/HelloWorld", "()V", &[]).unwrap()
+            env.new_object("com/example/robusta/HelloWorld", "()V", &[])
+                .unwrap()
         }
     }
 
@@ -25,7 +26,8 @@ mod jni {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
-            env.new_object("com/example/robusta/HelloWorld", "()V", &[]).unwrap()
+            env.new_object("com/example/robusta/HelloWorld", "()V", &[])
+                .unwrap()
         }
     }
 
@@ -35,7 +37,7 @@ mod jni {
         fn from(s: Self::Source, env: &JNIEnv<'e>) -> Self {
             HelloWorld {
                 env: env.clone(),
-                marker: PhantomData
+                marker: PhantomData,
             }
         }
     }

@@ -16,13 +16,13 @@
 //! Both of these parameters are optional. By default, the exception class is `java.lang.RuntimeException`.
 //!
 
-use jni::errors::{Result as Result};
-use jni::JNIEnv;
+use jni::errors::Result;
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
+use jni::JNIEnv;
 
-use crate::convert::JavaValue;
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
+use crate::convert::JavaValue;
 
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
 pub trait TryIntoJavaValue<'env> {
@@ -33,14 +33,19 @@ pub trait TryIntoJavaValue<'env> {
 }
 
 /// Conversion trait from Java values to Rust values, analogous to [TryFrom](std::convert::TryInto). Used when converting types that are input to JNI-available functions.
-pub trait TryFromJavaValue<'env> where Self: Sized {
+pub trait TryFromJavaValue<'env>
+where
+    Self: Sized, {
     type Source: JavaValue<'env>;
     const SIG_TYPE: &'static str = <Self::Source as JavaValue>::SIG_TYPE;
 
     fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self>;
 }
 
-impl<'env, T> TryIntoJavaValue<'env> for T where T: JavaValue<'env> {
+impl<'env, T> TryIntoJavaValue<'env> for T
+where
+    T: JavaValue<'env>,
+{
     type Target = T;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
@@ -48,7 +53,10 @@ impl<'env, T> TryIntoJavaValue<'env> for T where T: JavaValue<'env> {
     }
 }
 
-impl<'env, T> TryFromJavaValue<'env> for T where T: JavaValue<'env> {
+impl<'env, T> TryFromJavaValue<'env> for T
+where
+    T: JavaValue<'env>,
+{
     type Source = T;
 
     fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self> {
@@ -120,44 +128,58 @@ impl<'env> TryIntoJavaValue<'env> for Box<[bool]> {
 impl<'env> TryFromJavaValue<'env> for Box<[bool]> {
     type Source = jbooleanArray;
 
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self>{
+    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self> {
         let len = env.get_array_length(s)?;
         let mut buf = Vec::with_capacity(len as usize).into_boxed_slice();
         env.get_boolean_array_region(s, 0, &mut *buf)?;
 
-        buf.iter().map(|&b| TryFromJavaValue::try_from(b, &env)).collect()
+        buf.iter()
+            .map(|&b| TryFromJavaValue::try_from(b, &env))
+            .collect()
     }
 }
 
-impl<'env, T> TryIntoJavaValue<'env> for Vec<T> where T: TryIntoJavaValue<'env> {
+impl<'env, T> TryIntoJavaValue<'env> for Vec<T>
+where
+    T: TryIntoJavaValue<'env>,
+{
     type Target = jobject;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        let obj = env.new_object("java/util/ArrayList", "(I)V", &[JValue::Int(self.len() as i32)])?;
+        let obj = env.new_object(
+            "java/util/ArrayList",
+            "(I)V",
+            &[JValue::Int(self.len() as i32)],
+        )?;
         let list = JList::from_env(&env, obj)?;
 
-        let _: Result<Vec<_>> = self.into_iter()
-            .map::<Result<_>, _>(|el| Ok(JavaValue::autobox(TryIntoJavaValue::try_into(el, &env)?, &env)))
-            .map(|el| {
-                Ok(list.add(el?))
+        let _: Result<Vec<_>> = self
+            .into_iter()
+            .map::<Result<_>, _>(|el| {
+                Ok(JavaValue::autobox(
+                    TryIntoJavaValue::try_into(el, &env)?,
+                    &env,
+                ))
             })
+            .map(|el| Ok(list.add(el?)))
             .collect();
 
         Ok(list.into_inner())
     }
 }
 
-impl<'env, T, U> TryFromJavaValue<'env> for Vec<T> where T: TryFromJavaValue<'env, Source=U>, U: JavaValue<'env> {
+impl<'env, T, U> TryFromJavaValue<'env> for Vec<T>
+where
+    T: TryFromJavaValue<'env, Source = U>,
+    U: JavaValue<'env>,
+{
     type Source = JObject<'env>;
 
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self>{
+    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self> {
         let list = JList::from_env(env, s)?;
 
         list.iter()?
-            .map(|el| {
-                Ok(T::try_from(U::unbox(el, env), env)?)
-            })
+            .map(|el| Ok(T::try_from(U::unbox(el, env), env)?))
             .collect()
     }
 }
-

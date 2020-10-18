@@ -1,39 +1,47 @@
-use syn::{ImplItem, Attribute, Error, Meta, Path, ImplItemMethod, Visibility, Expr, FnArg, Pat, PatType, PatIdent, Type, ReturnType, Block, VisPublic, Signature, Abi, LitStr};
-use crate::transformation::{ImplItemType, JavaPath, AttributeFilter, JNISignature};
+use crate::transformation::{AttributeFilter, ImplItemType, JNISignature, JavaPath};
 use darling::util::Flag;
-use syn::parse::{Parse, ParseStream};
-use syn::fold::Fold;
+use darling::FromMeta;
+use proc_macro2::{Ident, TokenStream};
+use proc_macro_error::{emit_error, emit_warning};
+use quote::ToTokens;
 use std::collections::HashSet;
-use proc_macro2::{TokenStream, Ident};
+use std::str::FromStr;
+use syn::fold::Fold;
+use syn::parse::{Parse, ParseStream};
+use syn::parse_quote;
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::token::Extern;
 use syn::visit::Visit;
-use quote::ToTokens;
-use syn::spanned::Spanned;
 use syn::Token;
-use darling::FromMeta;
-use proc_macro_error::{emit_error, emit_warning};
-use syn::parse_quote;
-use std::str::FromStr;
+use syn::{
+    Abi, Attribute, Block, Error, Expr, FnArg, ImplItem, ImplItemMethod, LitStr, Meta, Pat,
+    PatIdent, PatType, Path, ReturnType, Signature, Type, VisPublic, Visibility,
+};
 
 #[derive(Default)]
 pub struct ImplExportVisitor<'ast> {
-    pub(crate) items: Vec<(&'ast ImplItem, ImplItemType)>
+    pub(crate) items: Vec<(&'ast ImplItem, ImplItemType)>,
 }
 
 impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
     fn visit_impl_item(&mut self, node: &'ast ImplItem) {
         match node {
             ImplItem::Method(method) => {
-                let abi = method.sig.abi.as_ref().and_then(|a| a.name.as_ref()).map(|a| a.value());
+                let abi = method
+                    .sig
+                    .abi
+                    .as_ref()
+                    .and_then(|a| a.name.as_ref())
+                    .map(|a| a.value());
 
                 match abi.as_deref() {
                     Some("jni") => self.items.push((node, ImplItemType::Exported)),
                     Some("java") => self.items.push((node, ImplItemType::Imported)),
-                    _ => self.items.push((node, ImplItemType::Unexported))
+                    _ => self.items.push((node, ImplItemType::Unexported)),
                 }
             }
-            _ => self.items.push((node, ImplItemType::Unexported))
+            _ => self.items.push((node, ImplItemType::Unexported)),
         }
     }
 }
@@ -53,10 +61,22 @@ pub(crate) enum CallType {
 
 impl Parse for CallType {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let attribute = input.call(Attribute::parse_outer)?.first().cloned().ok_or_else(|| Error::new(input.span(), "Invalid parsing of `call_type` attribute "))?;
+        let attribute = input
+            .call(Attribute::parse_outer)?
+            .first()
+            .cloned()
+            .ok_or_else(|| Error::new(input.span(), "Invalid parsing of `call_type` attribute "))?;
 
-        if attribute.path.get_ident().ok_or_else(|| Error::new(attribute.path.span(), "expected identifier for attribute"))? != "call_type" {
-            return Err(Error::new(attribute.path.span(), "expected identifier `call_type` for attribute"));
+        if attribute
+            .path
+            .get_ident()
+            .ok_or_else(|| Error::new(attribute.path.span(), "expected identifier for attribute"))?
+            != "call_type"
+        {
+            return Err(Error::new(
+                attribute.path.span(),
+                "expected identifier `call_type` for attribute",
+            ));
         }
 
         let attr_meta: Meta = attribute.parse_meta()?;
@@ -66,7 +86,12 @@ impl Parse for CallType {
         if attr_meta.to_token_stream().to_string() == "call_type(safe)" {
             Ok(CallType::Safe(None))
         } else {
-            CallType::from_meta(&attr_meta).map_err(|e| Error::new(attr_meta.span(), format!("invalid `call_type` attribute options ({})", e)))
+            CallType::from_meta(&attr_meta).map_err(|e| {
+                Error::new(
+                    attr_meta.span(),
+                    format!("invalid `call_type` attribute options ({})", e),
+                )
+            })
         }
     }
 }
@@ -79,7 +104,11 @@ pub struct ExportedMethodTransformer {
 
 impl Fold for ExportedMethodTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
-        let abi = node.sig.abi.as_ref().and_then(|l| l.name.as_ref().map(|n| n.value()));
+        let abi = node
+            .sig
+            .abi
+            .as_ref()
+            .and_then(|l| l.name.as_ref().map(|n| n.value()));
         match (&node.vis, &abi.as_deref()) {
             (Visibility::Public(_), Some("jni")) => {
                 let whitelist = {
@@ -98,10 +127,15 @@ impl Fold for ExportedMethodTransformer {
                     }).ok()
                 }).unwrap_or(CallType::Safe(None));
 
-                let mut jni_method_transformer = ExternJNIMethodTransformer::new(self.struct_type.clone(), self.struct_name.clone(), self.package.clone(), call_type_attribute);
+                let mut jni_method_transformer = ExternJNIMethodTransformer::new(
+                    self.struct_type.clone(),
+                    self.struct_name.clone(),
+                    self.package.clone(),
+                    call_type_attribute,
+                );
                 jni_method_transformer.fold_impl_item_method(node)
             }
-            _ => node
+            _ => node,
         }
     }
 }
@@ -114,7 +148,12 @@ struct ExternJNIMethodTransformer {
 }
 
 impl ExternJNIMethodTransformer {
-    fn new(struct_type: Path, struct_name: String, package: Option<String>, call_type: CallType) -> Self {
+    fn new(
+        struct_type: Path,
+        struct_name: String,
+        package: Option<String>,
+        call_type: CallType,
+    ) -> Self {
         ExternJNIMethodTransformer {
             struct_type,
             struct_name,
@@ -126,7 +165,12 @@ impl ExternJNIMethodTransformer {
 
 impl Fold for ExternJNIMethodTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
-        let jni_signature = JNISignature::new(node.sig.clone(), self.struct_type.clone(), self.struct_name.clone(), self.call_type.clone());
+        let jni_signature = JNISignature::new(
+            node.sig.clone(),
+            self.struct_type.clone(),
+            self.struct_name.clone(),
+            self.call_type.clone(),
+        );
 
         let transformed_jni_signature = jni_signature.transformed_signature();
         let method_call = jni_signature.signature_call();
@@ -177,23 +221,37 @@ impl Fold for ExternJNIMethodTransformer {
                     let outer_signature_span = s.span();
                     let outer_output_type: Type = match s.output {
                         ReturnType::Default => parse_quote!(()),
-                        ReturnType::Type(_, ty) => *ty
+                        ReturnType::Type(_, ty) => *ty,
                     };
 
-                    s.output = ReturnType::Type(Token![->](outer_signature_span), Box::new(parse_quote!(::jni::errors::Result<#outer_output_type>)));
+                    s.output = ReturnType::Type(
+                        Token![->](outer_signature_span),
+                        Box::new(parse_quote!(::jni::errors::Result<#outer_output_type>)),
+                    );
                     s.abi = None;
                     s
                 };
 
-                let (default_exception_class, default_message) = ("java/lang/RuntimeException", "JNI conversion error!");
+                let (default_exception_class, default_message) =
+                    ("java/lang/RuntimeException", "JNI conversion error!");
                 let (exception_class, message) = match exception_details {
-                    Some(SafeParams { exception_class, message }) => {
-                        let exception_class_result = exception_class.as_ref().map(|v| &v.0).map(AsRef::as_ref).unwrap_or(default_exception_class);
-                        let message_result = message.as_ref().map(AsRef::as_ref).unwrap_or(default_message);
+                    Some(SafeParams {
+                        exception_class,
+                        message,
+                    }) => {
+                        let exception_class_result = exception_class
+                            .as_ref()
+                            .map(|v| &v.0)
+                            .map(AsRef::as_ref)
+                            .unwrap_or(default_exception_class);
+                        let message_result = message
+                            .as_ref()
+                            .map(AsRef::as_ref)
+                            .unwrap_or(default_message);
 
                         (exception_class_result, message_result)
                     }
-                    None => (default_exception_class, default_message)
+                    None => (default_exception_class, default_message),
                 };
 
                 parse_quote! {{
@@ -230,16 +288,20 @@ impl Fold for ExternJNIMethodTransformer {
                 h
             };
 
-            attributes.into_iter().filter(|a| {
-                !discarded_known_attributes.contains(&a.path.segments.to_token_stream().to_string().as_str())
-            }).collect()
+            attributes
+                .into_iter()
+                .filter(|a| {
+                    !discarded_known_attributes
+                        .contains(&a.path.segments.to_token_stream().to_string().as_str())
+                })
+                .collect()
         };
 
         let node_span = node.span();
         ImplItemMethod {
             attrs: impl_item_attributes,
             vis: Visibility::Public(VisPublic {
-                pub_token: Token![pub](node_span)
+                pub_token: Token![pub](node_span),
             }),
             defaultness: node.defaultness,
             sig: self.fold_signature(transformed_jni_signature.clone()),
@@ -254,13 +316,22 @@ impl Fold for ExternJNIMethodTransformer {
         }
 
         let jni_method_name = {
-            let snake_case_package = self.package.clone().map(|s| {
-                let mut s = s.replace('.', "_");
-                s.push('_');
-                s
-            }).unwrap_or_else(|| "".into());
+            let snake_case_package = self
+                .package
+                .clone()
+                .map(|s| {
+                    let mut s = s.replace('.', "_");
+                    s.push('_');
+                    s
+                })
+                .unwrap_or_else(|| "".into());
 
-            format!("Java_{}{}_{}", snake_case_package, self.struct_name, node.ident.to_string())
+            format!(
+                "Java_{}{}_{}",
+                snake_case_package,
+                self.struct_name,
+                node.ident.to_string()
+            )
         };
 
         node.inputs = {
@@ -281,4 +352,3 @@ impl Fold for ExternJNIMethodTransformer {
         node
     }
 }
-

@@ -7,9 +7,9 @@ use validation::JNIBridgeModule;
 
 use crate::transformation::ModTransformer;
 
-mod validation;
 mod transformation;
 mod utils;
+mod validation;
 
 #[proc_macro_error]
 #[proc_macro_attribute]

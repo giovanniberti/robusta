@@ -11,9 +11,9 @@
 //! **These functions *will* panic should any conversion fail.**
 //!
 
-use jni::JNIEnv;
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
+use jni::JNIEnv;
 
 use crate::convert::JavaValue;
 
@@ -31,7 +31,10 @@ pub trait FromJavaValue<'env> {
     fn from(s: Self::Source, env: &JNIEnv<'env>) -> Self;
 }
 
-impl<'env, T> IntoJavaValue<'env> for T where T: JavaValue<'env> {
+impl<'env, T> IntoJavaValue<'env> for T
+where
+    T: JavaValue<'env>,
+{
     type Target = T;
 
     fn into(self, _: &JNIEnv<'env>) -> Self::Target {
@@ -39,7 +42,10 @@ impl<'env, T> IntoJavaValue<'env> for T where T: JavaValue<'env> {
     }
 }
 
-impl<'env, T> FromJavaValue<'env> for T where T: JavaValue<'env> {
+impl<'env, T> FromJavaValue<'env> for T
+where
+    T: JavaValue<'env>,
+{
     type Source = T;
 
     fn from(t: Self::Source, _: &JNIEnv<'env>) -> Self {
@@ -96,9 +102,7 @@ impl<'env> FromJavaValue<'env> for char {
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
         // TODO: Check validity of this unsafe block
-        unsafe {
-            std::mem::transmute(s as u32)
-        }
+        unsafe { std::mem::transmute(s as u32) }
     }
 }
 
@@ -126,11 +130,20 @@ impl<'env> FromJavaValue<'env> for Box<[bool]> {
     }
 }
 
-impl<'env, T> IntoJavaValue<'env> for Vec<T> where T: IntoJavaValue<'env> {
+impl<'env, T> IntoJavaValue<'env> for Vec<T>
+where
+    T: IntoJavaValue<'env>,
+{
     type Target = jobject;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
-        let obj = env.new_object("java/util/ArrayList", "(I)V", &[JValue::Int(self.len() as i32)]).unwrap();
+        let obj = env
+            .new_object(
+                "java/util/ArrayList",
+                "(I)V",
+                &[JValue::Int(self.len() as i32)],
+            )
+            .unwrap();
         let list = JList::from_env(&env, obj).unwrap();
 
         self.into_iter()
@@ -143,16 +156,19 @@ impl<'env, T> IntoJavaValue<'env> for Vec<T> where T: IntoJavaValue<'env> {
     }
 }
 
-impl<'env, T, U> FromJavaValue<'env> for Vec<T> where T: FromJavaValue<'env, Source=U>, U: JavaValue<'env> {
+impl<'env, T, U> FromJavaValue<'env> for Vec<T>
+where
+    T: FromJavaValue<'env, Source = U>,
+    U: JavaValue<'env>,
+{
     type Source = JObject<'env>;
 
     fn from(s: Self::Source, env: &JNIEnv<'env>) -> Self {
         let list = JList::from_env(env, s).unwrap();
 
-        list.iter().unwrap()
-            .map(|el| {
-                T::from(U::unbox(el, env), env)
-            })
+        list.iter()
+            .unwrap()
+            .map(|el| T::from(U::unbox(el, env), env))
             .collect()
     }
 }
