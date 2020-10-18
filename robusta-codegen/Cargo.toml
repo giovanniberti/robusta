@@ -18,7 +18,7 @@ no_jni = []
 [dependencies]
 quote = "1"
 proc-macro2 = { version = "1.0.21", features = ["span-locations"]}
-syn = { version = "1.0", features = ["full", "visit", "fold"] }
+syn = { version = "1.0", features = ["visit", "fold"] }
 proc-macro-error = { version = "1", default-features = false }
 rand = "0.7.3"
 darling = "0.10.2"
