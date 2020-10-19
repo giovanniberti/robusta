@@ -1,11 +1,10 @@
-use crate::transformation::{AttributeFilter, ImplItemType, JNISignature, JavaPath};
+use crate::transformation::{ImplItemType, JNISignature, JavaPath};
 use darling::util::Flag;
 use darling::FromMeta;
-use proc_macro2::{Ident, TokenStream};
-use proc_macro_error::{emit_error, emit_warning};
+use proc_macro2::Ident;
+use proc_macro_error::emit_error;
 use quote::ToTokens;
 use std::collections::HashSet;
-use std::str::FromStr;
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream};
 use syn::parse_quote;
@@ -18,6 +17,7 @@ use syn::{
     Abi, Attribute, Block, Error, Expr, FnArg, ImplItem, ImplItemMethod, LitStr, Meta, Pat,
     PatIdent, PatType, Path, ReturnType, Signature, Type, VisPublic, Visibility,
 };
+use crate::transformation::utils::get_call_type;
 
 #[derive(Default)]
 pub struct ImplExportVisitor<'ast> {
@@ -48,13 +48,13 @@ impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
 
 #[derive(Clone, Default, FromMeta)]
 #[darling(default)]
-pub(crate) struct SafeParams {
+pub struct SafeParams {
     exception_class: Option<JavaPath>,
     message: Option<String>,
 }
 
 #[derive(Clone, FromMeta)]
-pub(crate) enum CallType {
+pub enum CallType {
     Safe(Option<SafeParams>),
     Unchecked(Flag),
 }
@@ -111,21 +111,7 @@ impl Fold for ExportedMethodTransformer {
             .and_then(|l| l.name.as_ref().map(|n| n.value()));
         match (&node.vis, &abi.as_deref()) {
             (Visibility::Public(_), Some("jni")) => {
-                let whitelist = {
-                    let mut f = HashSet::new();
-                    f.insert(syn::parse2(TokenStream::from_str("call_type").unwrap()).unwrap());
-                    f
-                };
-
-                let mut attributes_collector = AttributeFilter::with_whitelist(whitelist);
-                attributes_collector.visit_impl_item_method(&node);
-
-                let call_type_attribute = attributes_collector.filtered_attributes.first().and_then(|call_type_attr| {
-                    syn::parse2(call_type_attr.to_token_stream()).map_err(|e| {
-                        emit_warning!(e.span(), format!("invalid parsing of `call_type` attribute, defaulting to #[call_type(safe)]. {}", e));
-                        e
-                    }).ok()
-                }).unwrap_or(CallType::Safe(None));
+                let call_type_attribute = get_call_type(&node).unwrap_or(CallType::Safe(None));
 
                 let mut jni_method_transformer = ExternJNIMethodTransformer::new(
                     self.struct_type.clone(),

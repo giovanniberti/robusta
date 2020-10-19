@@ -27,6 +27,7 @@ use std::iter::FromIterator;
 
 mod exported;
 mod imported;
+mod utils;
 
 #[derive(Copy, Clone)]
 pub(crate) enum ImplItemType {
@@ -264,13 +265,13 @@ impl FromMeta for JavaPath {
     }
 }
 
-struct AttributeFilter<'ast> {
+pub(crate) struct AttributeFilter<'ast> {
     pub whitelist: HashSet<Path>,
     pub filtered_attributes: Vec<&'ast Attribute>,
 }
 
 impl<'ast> AttributeFilter<'ast> {
-    fn with_whitelist(whitelist: HashSet<Path>) -> Self {
+    pub(crate) fn with_whitelist(whitelist: HashSet<Path>) -> Self {
         AttributeFilter {
             whitelist,
             filtered_attributes: Vec::new(),
