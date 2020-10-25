@@ -1,12 +1,15 @@
 use inflector::cases::camelcase::to_camel_case;
 use proc_macro2::TokenStream;
-use proc_macro_error::emit_error;
+use proc_macro_error::{abort, emit_error};
 use quote::{quote, ToTokens};
 use syn::fold::Fold;
-use syn::parse_quote;
+use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
 use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
 
 use crate::utils::{get_env_arg, is_self_method};
+use crate::transformation::utils::get_call_type;
+use crate::transformation::exported::CallType;
+use std::collections::HashSet;
 
 pub struct ImportedMethodTransformer {
     pub(crate) struct_name: String,
@@ -31,7 +34,7 @@ impl Fold for ImportedMethodTransformer {
 
                 let original_signature = node.sig.clone();
                 let self_method = is_self_method(&node.sig);
-                let (signature, env_arg) = get_env_arg(node.sig);
+                let (signature, env_arg) = get_env_arg(node.sig.clone());
 
                 if !self_method && env_arg.is_none() {
                     emit_error!(
@@ -48,6 +51,8 @@ impl Fold for ImportedMethodTransformer {
 
                     return dummy;
                 }
+
+                let call_type = get_call_type(&node).unwrap_or(CallType::Safe(None));
 
                 let jni_package_path = self
                     .package
@@ -72,7 +77,11 @@ impl Fold for ImportedMethodTransformer {
                         FnArg::Receiver(_) => None,
                     })
                     .map(|t| {
-                        quote! { <#t as TryIntoJavaValue>::SIG_TYPE, }
+                        if let CallType::Safe(_) = call_type {
+                            quote! { <#t as TryIntoJavaValue>::SIG_TYPE, }
+                        } else {
+                            quote! { <#t as IntoJavaValue>::SIG_TYPE, }
+                        }
                     })
                     .fold(TokenStream::new(), |t, mut tok| {
                         t.to_tokens(&mut tok);
@@ -82,7 +91,26 @@ impl Fold for ImportedMethodTransformer {
                 let output_conversion = match signature.output {
                     ReturnType::Default => quote!(""),
                     ReturnType::Type(_arrow, ref ty) => {
-                        quote! { <#ty as TryIntoJavaValue>::SIG_TYPE }
+                        if let CallType::Safe(_) = call_type {
+                            let inner_result_ty = match &**ty {
+                                Type::Path(TypePath { path, .. }) => {
+                                    path.segments.last().map(|s| match &s.arguments {
+                                        PathArguments::AngleBracketed(a) => {
+                                            match &a.args.first().expect("return type must be `::robusta_jni::jni::errors::Result`") {
+                                                GenericArgument::Type(t) => t,
+                                                _ => abort!(a, "first generic argument in return type must be a type")
+                                            }
+                                        },
+                                        _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result`")
+                                    })
+                                },
+                                _ => abort!(ty, "return type must be a `Result`")
+                            }.unwrap();
+
+                            quote! { <#inner_result_ty as TryIntoJavaValue>::SIG_TYPE }
+                        } else {
+                            quote! { <#ty as IntoJavaValue>::SIG_TYPE }
+                        }
                     }
                 };
 
@@ -95,24 +123,61 @@ impl Fold for ImportedMethodTransformer {
                         FnArg::Typed(t) => {
                             let pat = &t.pat;
                             let ty = &t.ty;
-                            let conversion: TokenStream = quote! { TryInto::try_into(<#ty as IntoJavaValue>::into(#pat, &env)).unwrap(), };
+                            let conversion: TokenStream = if let CallType::Safe(_) = call_type {
+                                quote! { Into::into(<#ty as TryIntoJavaValue>::try_into(#pat, &env)?), }
+                            } else {
+                                quote! { Into::into(<#ty as IntoJavaValue>::into(#pat, &env)), }
+                            };
                             conversion.to_tokens(&mut tok);
                             tok
                         }
                     }
                 });
 
+                let return_expr= if let CallType::Safe(_) = call_type {
+                    quote! { res.and_then(|v| TryInto::try_into(JValueWrapper::from(v))) }
+                } else {
+                    quote! { TryInto::try_into(JValueWrapper::from(res)).unwrap() }
+                };
+
+                let impl_item_attributes = {
+                    let discarded_known_attributes: HashSet<&str> = {
+                        let mut h = HashSet::new();
+                        h.insert("call_type");
+                        h
+                    };
+
+                    node.attrs
+                        .into_iter()
+                        .filter(|a| {
+                            !discarded_known_attributes
+                                .contains(&a.path.segments.to_token_stream().to_string().as_str())
+                        })
+                        .collect()
+                };
+
                 ImplItemMethod {
                     sig: Signature {
                         abi: None,
-                        ..original_signature
+                        ..original_signature.clone()
                     },
                     block: if self_method {
-                        parse_quote! {{
-                            let env: ::robusta_jni::jni::JNIEnv = <Self as JNIEnvLink>::get_env(&self).clone();
-                            let res = env.call_method(IntoJavaValue::into(self, &env).autobox(&env), #java_method_name, #java_signature, &[#input_conversions]).unwrap();
-                            TryInto::try_into(JValueWrapper::from(res)).unwrap()
-                        }}
+                        match call_type {
+                            CallType::Safe(_) => {
+                                parse_quote! {{
+                                    let env: ::robusta_jni::jni::JNIEnv = <Self as JNIEnvLink>::get_env(&self).clone();
+                                    let res = env.call_method(IntoJavaValue::into(self, &env).autobox(&env), #java_method_name, #java_signature, &[#input_conversions]);
+                                    #return_expr
+                                }}
+                            }
+                            CallType::Unchecked(_) => {
+                                parse_quote! {{
+                                    let env: ::robusta_jni::jni::JNIEnv = <Self as JNIEnvLink>::get_env(&self).clone();
+                                    let res = env.call_method(IntoJavaValue::into(self, &env).autobox(&env), #java_method_name, #java_signature, &[#input_conversions]).unwrap();
+                                    #return_expr
+                                }}
+                            }
+                        }
                     } else {
                         let env_ident = match env_arg.unwrap() {
                             FnArg::Typed(t) => {
@@ -124,12 +189,24 @@ impl Fold for ImportedMethodTransformer {
                             _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
                         };
 
-                        parse_quote! {{
-                            let env: &::robusta_jni::jni::JNIEnv = #env_ident;
-                            let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]).unwrap();
-                            TryInto::try_into(JValueWrapper::from(res)).unwrap()
-                        }}
+                        match call_type {
+                            CallType::Safe(_) => {
+                                parse_quote! {{
+                                    let env: &::robusta_jni::jni::JNIEnv = #env_ident;
+                                    let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]);
+                                    #return_expr
+                                }}
+                            },
+                            CallType::Unchecked(_) => {
+                                parse_quote! {{
+                                    let env: &::robusta_jni::jni::JNIEnv = #env_ident;
+                                    let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]).unwrap();
+                                    #return_expr
+                                }}
+                            }
+                        }
                     },
+                    attrs: impl_item_attributes,
                     ..node
                 }
             }

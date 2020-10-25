@@ -20,6 +20,7 @@ use crate::convert::JavaValue;
 /// Conversion trait from Rust values to Java values, analogous to [Into]. Used when converting types returned from JNI-available functions.
 pub trait IntoJavaValue<'env> {
     type Target: JavaValue<'env>;
+    const SIG_TYPE: &'static str = <Self::Target as JavaValue>::SIG_TYPE;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target;
 }
@@ -27,6 +28,7 @@ pub trait IntoJavaValue<'env> {
 /// Conversion trait from Java values to Rust values, analogous to [From]. Used when converting types that are input to JNI-available functions.
 pub trait FromJavaValue<'env> {
     type Source: JavaValue<'env>;
+    const SIG_TYPE: &'static str = <Self::Source as JavaValue>::SIG_TYPE;
 
     fn from(s: Self::Source, env: &JNIEnv<'env>) -> Self;
 }

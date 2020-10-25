@@ -60,12 +60,22 @@ mod jni {
             if static_call {
                 HelloWorld::staticJavaAdd(_env, 1, 2)
             } else {
-                self.javaAdd(1, 2)
+                self.javaAdd(1, 2).unwrap()
             }
         }
 
-        pub extern "java" fn javaAdd(&self, i: i32, u: i32) -> i32 {}
+        #[call_type(safe)]
+        pub extern "java" fn javaAdd(
+            &self,
+            i: i32,
+            u: i32,
+        ) -> ::robusta_jni::jni::errors::Result<i32> {}
 
-        pub extern "java" fn staticJavaAdd(env: &JNIEnv, i: i32, u: i32) -> i32 {}
+        #[call_type(unchecked)]
+        pub extern "java" fn staticJavaAdd(
+            env: &JNIEnv,
+            i: i32,
+            u: i32,
+        ) -> i32 {}
     }
 }

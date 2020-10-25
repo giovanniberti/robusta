@@ -55,7 +55,7 @@ impl ModTransformer {
             };
 
             let mut items_with_use: Vec<Item> = vec![
-                syn::parse2(TokenStream::from_str("use std::convert::TryInto;").unwrap()).unwrap(),
+                syn::parse2(TokenStream::from_str("use std::convert::{TryFrom, TryInto};").unwrap()).unwrap(),
                 parse_quote! { use ::robusta_jni::convert::{FromJavaValue, IntoJavaValue, TryFromJavaValue, TryIntoJavaValue, JValueWrapper, JavaValue}; },
                 syn::parse2(
                     TokenStream::from_str(&format!(
