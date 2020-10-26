@@ -6,7 +6,7 @@ use syn::fold::Fold;
 use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
 use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
 
-use crate::utils::{get_env_arg, is_self_method};
+use crate::utils::{get_abi, get_env_arg, is_self_method};
 use crate::transformation::utils::get_call_type;
 use crate::transformation::exported::CallType;
 use std::collections::HashSet;
@@ -18,11 +18,7 @@ pub struct ImportedMethodTransformer {
 
 impl Fold for ImportedMethodTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
-        let abi = node
-            .sig
-            .abi
-            .as_ref()
-            .and_then(|l| l.name.as_ref().map(|n| n.value()));
+        let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (_, Some("java")) => {
                 if !node.block.stmts.is_empty() {

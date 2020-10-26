@@ -110,3 +110,10 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
 
     (transformed_signature, env_arg)
 }
+
+pub fn get_abi(sig: &Signature) -> Option<String> {
+    sig
+        .abi
+        .as_ref()
+        .and_then(|l| l.name.as_ref().map(|n| n.value()))
+}

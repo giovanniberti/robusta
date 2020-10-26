@@ -18,6 +18,7 @@ use syn::{
     PatIdent, PatType, Path, ReturnType, Signature, Type, VisPublic, Visibility,
 };
 use crate::transformation::utils::get_call_type;
+use crate::utils::get_abi;
 
 #[derive(Default)]
 pub struct ImplExportVisitor<'ast> {
@@ -28,12 +29,7 @@ impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
     fn visit_impl_item(&mut self, node: &'ast ImplItem) {
         match node {
             ImplItem::Method(method) => {
-                let abi = method
-                    .sig
-                    .abi
-                    .as_ref()
-                    .and_then(|a| a.name.as_ref())
-                    .map(|a| a.value());
+                let abi = get_abi(&method.sig);
 
                 match abi.as_deref() {
                     Some("jni") => self.items.push((node, ImplItemType::Exported)),
@@ -104,11 +100,7 @@ pub struct ExportedMethodTransformer {
 
 impl Fold for ExportedMethodTransformer {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
-        let abi = node
-            .sig
-            .abi
-            .as_ref()
-            .and_then(|l| l.name.as_ref().map(|n| n.value()));
+        let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (Visibility::Public(_), Some("jni")) => {
                 let call_type_attribute = get_call_type(&node).unwrap_or(CallType::Safe(None));
