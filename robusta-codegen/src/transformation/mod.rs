@@ -49,22 +49,15 @@ impl ModTransformer {
         let mut module_decl = self.module.module_decl.clone();
         if let Some((brace, mut items)) = module_decl.content {
             let jni_path_prefix = if cfg!(feature = "no_jni") {
-                ""
+                TokenStream::from_str("").unwrap()
             } else {
-                "::robusta_jni"
+                TokenStream::from_str("::robusta_jni").unwrap()
             };
 
             let mut items_with_use: Vec<Item> = vec![
-                syn::parse2(TokenStream::from_str("use std::convert::{TryFrom, TryInto};").unwrap()).unwrap(),
+                parse_quote! { use std::convert::{TryFrom, TryInto}; },
                 parse_quote! { use ::robusta_jni::convert::{FromJavaValue, IntoJavaValue, TryFromJavaValue, TryIntoJavaValue, JValueWrapper, JavaValue}; },
-                syn::parse2(
-                    TokenStream::from_str(&format!(
-                        "use {}::jni::objects::{{JClass, JValue}};",
-                        jni_path_prefix
-                    ))
-                    .unwrap(),
-                )
-                .unwrap(),
+                parse_quote! { use ::jni::objects::{JClass, JValue}; },
             ];
             items_with_use.append(&mut items);
 
