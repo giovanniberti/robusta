@@ -8,7 +8,7 @@ use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
 
 use crate::utils::{get_abi, get_env_arg, is_self_method};
 use crate::transformation::utils::get_call_type;
-use crate::transformation::exported::CallType;
+use crate::transformation::CallType;
 use std::collections::HashSet;
 
 pub struct ImportedMethodTransformer {

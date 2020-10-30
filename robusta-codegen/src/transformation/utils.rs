@@ -1,4 +1,4 @@
-use crate::transformation::exported::CallType;
+use crate::transformation::CallType;
 use std::collections::HashSet;
 use syn::ImplItemMethod;
 

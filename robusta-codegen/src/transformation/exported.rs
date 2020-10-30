@@ -1,96 +1,20 @@
-use crate::transformation::{ImplItemType, JNISignature, JavaPath};
-use darling::util::Flag;
-use darling::FromMeta;
+use crate::transformation::{JNISignature, CallType, SafeParams};
 use proc_macro2::Ident;
 use proc_macro_error::emit_error;
 use quote::ToTokens;
 use std::collections::HashSet;
 use syn::fold::Fold;
-use syn::parse::{Parse, ParseStream};
 use syn::parse_quote;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Extern;
-use syn::visit::Visit;
 use syn::Token;
 use syn::{
-    Abi, Attribute, Block, Error, Expr, FnArg, ImplItem, ImplItemMethod, LitStr, Meta, Pat,
+    Abi, Block, Expr, FnArg, ImplItemMethod, LitStr, Pat,
     PatIdent, PatType, Path, ReturnType, Signature, Type, VisPublic, Visibility,
 };
 use crate::transformation::utils::get_call_type;
 use crate::utils::get_abi;
-
-#[derive(Default)]
-pub struct ImplExportVisitor<'ast> {
-    pub(crate) items: Vec<(&'ast ImplItem, ImplItemType)>,
-}
-
-impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
-    fn visit_impl_item(&mut self, node: &'ast ImplItem) {
-        match node {
-            ImplItem::Method(method) => {
-                let abi = get_abi(&method.sig);
-
-                match abi.as_deref() {
-                    Some("jni") => self.items.push((node, ImplItemType::Exported)),
-                    Some("java") => self.items.push((node, ImplItemType::Imported)),
-                    _ => self.items.push((node, ImplItemType::Unexported)),
-                }
-            }
-            _ => self.items.push((node, ImplItemType::Unexported)),
-        }
-    }
-}
-
-#[derive(Clone, Default, FromMeta)]
-#[darling(default)]
-pub struct SafeParams {
-    exception_class: Option<JavaPath>,
-    message: Option<String>,
-}
-
-#[derive(Clone, FromMeta)]
-pub enum CallType {
-    Safe(Option<SafeParams>),
-    Unchecked(Flag),
-}
-
-impl Parse for CallType {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let attribute = input
-            .call(Attribute::parse_outer)?
-            .first()
-            .cloned()
-            .ok_or_else(|| Error::new(input.span(), "Invalid parsing of `call_type` attribute "))?;
-
-        if attribute
-            .path
-            .get_ident()
-            .ok_or_else(|| Error::new(attribute.path.span(), "expected identifier for attribute"))?
-            != "call_type"
-        {
-            return Err(Error::new(
-                attribute.path.span(),
-                "expected identifier `call_type` for attribute",
-            ));
-        }
-
-        let attr_meta: Meta = attribute.parse_meta()?;
-
-        // Special-case `call_type(safe)` without further parentheses
-        // TODO: Find out if it's possible to use darling to allow `call_type(safe)` *and* `call_type(safe(message = "foo"))` etc.
-        if attr_meta.to_token_stream().to_string() == "call_type(safe)" {
-            Ok(CallType::Safe(None))
-        } else {
-            CallType::from_meta(&attr_meta).map_err(|e| {
-                Error::new(
-                    attr_meta.span(),
-                    format!("invalid `call_type` attribute options ({})", e),
-                )
-            })
-        }
-    }
-}
 
 pub struct ExportedMethodTransformer {
     pub(crate) struct_type: Path,
