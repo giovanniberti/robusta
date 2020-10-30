@@ -12,9 +12,6 @@ repository = "https://github.com/giovanniberti/robusta/robusta-codegen"
 [lib]
 proc-macro = true
 
-[features]
-no_jni = []
-
 [dependencies]
 quote = "1"
 proc-macro2 = { version = "1.0.21", features = ["span-locations"]}
