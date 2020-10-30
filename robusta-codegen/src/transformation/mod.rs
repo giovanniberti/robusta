@@ -670,7 +670,12 @@ pub enum CallType {
     Unchecked(Flag),
 }
 
-impl Parse for CallType {
+pub struct CallTypeAttribute {
+    pub(crate) attr: Attribute,
+    pub(crate) call_type: CallType
+}
+
+impl Parse for CallTypeAttribute {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let attribute = input
             .call(Attribute::parse_outer)?
@@ -695,14 +700,20 @@ impl Parse for CallType {
         // Special-case `call_type(safe)` without further parentheses
         // TODO: Find out if it's possible to use darling to allow `call_type(safe)` *and* `call_type(safe(message = "foo"))` etc.
         if attr_meta.to_token_stream().to_string() == "call_type(safe)" {
-            Ok(CallType::Safe(None))
+            Ok(CallTypeAttribute {
+                attr: attribute,
+                call_type: CallType::Safe(None)
+            })
         } else {
             CallType::from_meta(&attr_meta).map_err(|e| {
                 Error::new(
                     attr_meta.span(),
                     format!("invalid `call_type` attribute options ({})", e),
                 )
-            })
+            }).and_then(|c| Ok(CallTypeAttribute {
+                attr: attribute,
+                call_type: c
+            }))
         }
     }
 }

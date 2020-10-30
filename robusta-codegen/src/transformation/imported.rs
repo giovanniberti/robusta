@@ -8,7 +8,7 @@ use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
 
 use crate::utils::{get_abi, get_env_arg, is_self_method};
 use crate::transformation::utils::get_call_type;
-use crate::transformation::CallType;
+use crate::transformation::{CallType, CallTypeAttribute, SafeParams};
 use std::collections::HashSet;
 
 pub struct ImportedMethodTransformer {
@@ -48,7 +48,16 @@ impl Fold for ImportedMethodTransformer {
                     return dummy;
                 }
 
-                let call_type = get_call_type(&node).unwrap_or(CallType::Safe(None));
+                let call_type_attribute = get_call_type(&node);
+                let call_type = call_type_attribute.as_ref().map(|c| &c.call_type).unwrap_or(&CallType::Safe(None));
+
+                if let Some(CallTypeAttribute { attr, ..}) = &call_type_attribute {
+                    if let CallType::Safe(Some(params)) = call_type {
+                        if let SafeParams { message: Some(_), .. } | SafeParams { exception_class: Some(_), .. } = params {
+                            abort!(attr, "can't have exception message or exception class for imported methods")
+                        }
+                    }
+                }
 
                 let jni_package_path = self
                     .package

@@ -27,7 +27,7 @@ impl Fold for ExportedMethodTransformer {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (Visibility::Public(_), Some("jni")) => {
-                let call_type_attribute = get_call_type(&node).unwrap_or(CallType::Safe(None));
+                let call_type_attribute = get_call_type(&node).map(|c| c.call_type).unwrap_or(CallType::Safe(None));
 
                 let mut jni_method_transformer = ExternJNIMethodTransformer::new(
                     self.struct_type.clone(),

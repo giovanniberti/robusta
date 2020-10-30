@@ -1,4 +1,4 @@
-use crate::transformation::CallType;
+use crate::transformation::CallTypeAttribute;
 use std::collections::HashSet;
 use syn::ImplItemMethod;
 
@@ -9,7 +9,7 @@ use quote::ToTokens;
 use std::str::FromStr;
 use syn::visit::Visit;
 
-pub(crate) fn get_call_type(node: &ImplItemMethod) -> Option<CallType> {
+pub(crate) fn get_call_type(node: &ImplItemMethod) -> Option<CallTypeAttribute> {
     let whitelist = {
         let mut f = HashSet::new();
         f.insert(syn::parse2(TokenStream::from_str("call_type").unwrap()).unwrap());
