@@ -64,7 +64,7 @@ mod jni {
             }
         }
 
-        #[call_type(safe)]
+
         pub extern "java" fn javaAdd(
             &self,
             i: i32,
