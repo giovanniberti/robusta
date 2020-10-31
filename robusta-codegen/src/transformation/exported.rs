@@ -80,7 +80,7 @@ impl Fold for ExternJNIMethodTransformer {
         let new_block: Block = match &self.call_type {
             CallType::Unchecked { .. } => {
                 parse_quote! {{
-                    IntoJavaValue::into(#method_call, &env)
+                    ::robusta_jni::convert::IntoJavaValue::into(#method_call, &env)
                 }}
             }
 
@@ -158,7 +158,7 @@ impl Fold for ExternJNIMethodTransformer {
 
                 parse_quote! {{
                     #outer_signature {
-                        TryIntoJavaValue::try_into(#method_call, &env)
+                        ::robusta_jni::convert::TryIntoJavaValue::try_into(#method_call, &env)
                     }
 
                     match outer(#outer_call_inputs) {
@@ -239,7 +239,7 @@ impl Fold for ExternJNIMethodTransformer {
         node.inputs = {
             let mut res = Punctuated::new();
             res.push(parse_quote!(env: ::robusta_jni::jni::JNIEnv<'env>));
-            res.push(parse_quote!(class: JClass));
+            res.push(parse_quote!(class: ::robusta_jni::jni::objects::JClass));
 
             res.extend(node.inputs);
             res

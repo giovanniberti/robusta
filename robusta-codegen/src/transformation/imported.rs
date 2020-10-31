@@ -83,9 +83,9 @@ impl Fold for ImportedMethodTransformer {
                     })
                     .map(|t| {
                         if let CallType::Safe(_) = call_type {
-                            quote! { <#t as TryIntoJavaValue>::SIG_TYPE, }
+                            quote! { <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
                         } else {
-                            quote! { <#t as IntoJavaValue>::SIG_TYPE, }
+                            quote! { <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
                         }
                     })
                     .fold(TokenStream::new(), |t, mut tok| {
@@ -112,9 +112,9 @@ impl Fold for ImportedMethodTransformer {
                                 _ => abort!(ty, "return type must be a `Result`")
                             }.unwrap();
 
-                            quote! { <#inner_result_ty as TryIntoJavaValue>::SIG_TYPE }
+                            quote! { <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
                         } else {
-                            quote! { <#ty as IntoJavaValue>::SIG_TYPE }
+                            quote! { <#ty as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE }
                         }
                     }
                 };
@@ -129,9 +129,9 @@ impl Fold for ImportedMethodTransformer {
                             let pat = &t.pat;
                             let ty = &t.ty;
                             let conversion: TokenStream = if let CallType::Safe(_) = call_type {
-                                quote! { Into::into(<#ty as TryIntoJavaValue>::try_into(#pat, &env)?), }
+                                quote! { ::std::convert::Into::into(<#ty as ::robusta_jni::convert::TryIntoJavaValue>::try_into(#pat, &env)?), }
                             } else {
-                                quote! { Into::into(<#ty as IntoJavaValue>::into(#pat, &env)), }
+                                quote! { ::std::convert::Into::into(<#ty as ::robusta_jni::convert::IntoJavaValue>::into(#pat, &env)), }
                             };
                             conversion.to_tokens(&mut tok);
                             tok
@@ -140,9 +140,9 @@ impl Fold for ImportedMethodTransformer {
                 });
 
                 let return_expr= if let CallType::Safe(_) = call_type {
-                    quote! { res.and_then(|v| TryInto::try_into(JValueWrapper::from(v))) }
+                    quote! { res.and_then(|v| ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(v))) }
                 } else {
-                    quote! { TryInto::try_into(JValueWrapper::from(res)).unwrap() }
+                    quote! { ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(res)).unwrap() }
                 };
 
                 let impl_item_attributes = {
@@ -170,15 +170,15 @@ impl Fold for ImportedMethodTransformer {
                         match call_type {
                             CallType::Safe(_) => {
                                 parse_quote! {{
-                                    let env: ::robusta_jni::jni::JNIEnv = <Self as JNIEnvLink>::get_env(&self).clone();
-                                    let res = env.call_method(IntoJavaValue::into(self, &env).autobox(&env), #java_method_name, #java_signature, &[#input_conversions]);
+                                    let env: ::robusta_jni::jni::JNIEnv = <Self as ::robusta_jni::convert::JNIEnvLink>::get_env(&self).clone();
+                                    let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::IntoJavaValue::into(self, &env), &env), #java_method_name, #java_signature, &[#input_conversions]);
                                     #return_expr
                                 }}
                             }
                             CallType::Unchecked(_) => {
                                 parse_quote! {{
-                                    let env: ::robusta_jni::jni::JNIEnv = <Self as JNIEnvLink>::get_env(&self).clone();
-                                    let res = env.call_method(IntoJavaValue::into(self, &env).autobox(&env), #java_method_name, #java_signature, &[#input_conversions]).unwrap();
+                                    let env: ::robusta_jni::jni::JNIEnv = <Self as ::robusta_jni::convert::JNIEnvLink>::get_env(&self).clone();
+                                    let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::IntoJavaValue::into(self, &env), &env), #java_method_name, #java_signature, &[#input_conversions]).unwrap();
                                     #return_expr
                                 }}
                             }

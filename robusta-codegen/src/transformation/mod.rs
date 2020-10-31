@@ -47,18 +47,7 @@ impl ModTransformer {
     }
 
     pub(crate) fn transform_module(&mut self) -> TokenStream {
-        let mut module_decl = self.module.module_decl.clone();
-        if let Some((brace, mut items)) = module_decl.content {
-            let mut items_with_use: Vec<Item> = vec![
-                parse_quote! { use std::convert::{TryFrom, TryInto}; },
-                parse_quote! { use ::robusta_jni::convert::{FromJavaValue, IntoJavaValue, TryFromJavaValue, TryIntoJavaValue, JValueWrapper, JavaValue}; },
-                parse_quote! { use ::jni::objects::{JClass, JValue}; },
-            ];
-            items_with_use.append(&mut items);
-
-            module_decl.content = Some((brace, items_with_use));
-        }
-
+        let module_decl = self.module.module_decl.clone();
         self.fold_item_mod(module_decl).into_token_stream()
     }
 
@@ -505,8 +494,8 @@ impl Fold for JNISignatureTransformer {
                 let original_input_type = t.ty;
 
                 let jni_conversion_type: Type = match self.call_type {
-                    CallType::Safe(_) => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as TryFromJavaValue<'env>>::Source }).unwrap(),
-                    CallType::Unchecked { .. } => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as FromJavaValue<'env>>::Source }).unwrap(),
+                    CallType::Safe(_) => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source }).unwrap(),
+                    CallType::Unchecked { .. } => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env>>::Source }).unwrap(),
                 };
 
                 FnArg::Typed(PatType {
@@ -525,28 +514,28 @@ impl Fold for JNISignatureTransformer {
             ReturnType::Type(ref arrow, ref rtype) => match (&**rtype, self.call_type.clone()) {
                 (Type::Path(p), CallType::Unchecked { .. }) => ReturnType::Type(
                     *arrow,
-                    syn::parse2(quote_spanned! { p.span() => <#p as IntoJavaValue<'env>>::Target })
+                    syn::parse2(quote_spanned! { p.span() => <#p as ::robusta_jni::convert::IntoJavaValue<'env>>::Target })
                         .unwrap(),
                 ),
 
                 (Type::Path(p), CallType::Safe(_)) => ReturnType::Type(
                     *arrow,
                     syn::parse2(
-                        quote_spanned! { p.span() => <#p as TryIntoJavaValue<'env>>::Target },
+                        quote_spanned! { p.span() => <#p as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
                     )
                     .unwrap(),
                 ),
 
                 (Type::Reference(r), CallType::Unchecked { .. }) => ReturnType::Type(
                     *arrow,
-                    syn::parse2(quote_spanned! { r.span() => <#r as IntoJavaValue<'env>>::Target })
+                    syn::parse2(quote_spanned! { r.span() => <#r as ::robusta_jni::convert::IntoJavaValue<'env>>::Target })
                         .unwrap(),
                 ),
 
                 (Type::Reference(r), CallType::Safe(_)) => ReturnType::Type(
                     *arrow,
                     syn::parse2(
-                        quote_spanned! { r.span() => <#r as TryIntoJavaValue<'env>>::Target },
+                        quote_spanned! { r.span() => <#r as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
                     )
                     .unwrap(),
                 ),
@@ -621,8 +610,8 @@ impl JNISignature {
                         if let Pat::Ident(PatIdent { ident, .. }) = &**pat {
                             let input_param: Expr = {
                                 match self.call_type {
-                                    CallType::Safe(_) => parse_quote! { TryFromJavaValue::try_from(#ident, &env)? },
-                                    CallType::Unchecked { .. } => parse_quote! { FromJavaValue::from(#ident, &env) }
+                                    CallType::Safe(_) => parse_quote! { ::robusta_jni::convert::TryFromJavaValue::try_from(#ident, &env)? },
+                                    CallType::Unchecked { .. } => parse_quote! { ::robusta_jni::convert::FromJavaValue::from(#ident, &env) }
                                 }
                             };
                             input_param
