@@ -19,9 +19,12 @@ and each of these structs will have to be annotated with a `#[package]` attribut
 with the name of the Java package the corresponding class belongs to.
 
 After that, the functions implemented can be written as ordinary Rust functions, and the macro will
-take care of converting to and from Java types for functions marked public and with a `"jni"` abi. By default if a conversion fails a Java exception is thrown.
+take care of converting to and from Java types for functions marked public and with a `"jni"` ABI. By default if a conversion fails a Java exception is thrown.
 
-**NOTE: This library currently supports static methods only.**
+On the other hand, if you need to call Java function from Rust, you add a `"java"` ABI and either take as a first parameter an ordinary `self`/`&self`/`&mut self` or a `&JNIEnv`, and leave the function body empty.
+
+On these methods you can attach a `call_type` attribute that manages how conversions and errors are handled: by default, `#[call_type(safe)]` is implied,
+but you can switch to `#[call_type(unchecked)]` at any time, most likely with few or no code changes.
 
 ## Example
 ### Rust side
