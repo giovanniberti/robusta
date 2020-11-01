@@ -3,6 +3,7 @@ use proc_macro2::TokenStream;
 use proc_macro_error::{abort, emit_error};
 use quote::{quote, ToTokens};
 use syn::fold::Fold;
+use syn::spanned::Spanned;
 use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
 use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
 
@@ -101,15 +102,21 @@ impl Fold for ImportedMethodTransformer {
                                 Type::Path(TypePath { path, .. }) => {
                                     path.segments.last().map(|s| match &s.arguments {
                                         PathArguments::AngleBracketed(a) => {
-                                            match &a.args.first().expect("return type must be `::robusta_jni::jni::errors::Result`") {
+                                            match &a.args.first().expect("return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`") {
                                                 GenericArgument::Type(t) => t,
                                                 _ => abort!(a, "first generic argument in return type must be a type")
                                             }
                                         },
-                                        _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result`")
+                                        PathArguments::None => {
+                                            let user_attribute_message = call_type_attribute.as_ref().map(|_| "because of this attribute");
+                                            abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`";
+                                                                        help = "replace `{}` with `Result<{}>`", s.ident, s.ident;
+                                                                        help =? call_type_attribute.as_ref().map(|c| c.attr.span()).unwrap() => user_attribute_message)
+                                        },
+                                        _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
                                     })
                                 },
-                                _ => abort!(ty, "return type must be a `Result`")
+                                _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
                             }.unwrap();
 
                             quote! { <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
