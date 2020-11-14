@@ -1,106 +1,140 @@
-//! This library provides a procedural macro to make easier to write JNI-compatible code in Rust.
+//! `robusta_jni` is a library provides a procedural macro to make easier to write JNI-compatible code in Rust.
 //!
-//! It can perform automatic conversion of Rust-y input and output types (see the [limitations](#limitations)).
+//! It can perform automatic conversion of Rust-y input and output types.
 //!
 //! ```toml
 //! [dependencies]
 //! robusta_jni = "0.0.3"
 //! ```
 //!
-//! ## Usage
-//! All that's needed is a couple of attributes in the right places.
+//! # Getting started
+//! The `#[bridge]` attribute is `robusta_jni`'s entry point. It must be applied to a module.
+//! `robusta_jni` will then generate proper function definitions and trait implementation depending on declared methods.
 //!
-//! First, a `#[bridge]` attribute on a module will enable it to be processed by `robusta`.
+//! # Declaring classes
+//! Rust counterparts of Java classes are declared as Rust `struct`s, with a `#[package(my.package.name)]` attribute.
+//! When using the default package, just omit the package name inside parentheses.
 //!
-//! Then, we will need a struct for every class with a native method that will be implemented in Rust,
-//! and each of these structs will have to be annotated with a `#[package]` attribute
-//! with the name of the Java package the corresponding class belongs to.
+//! Structs without the package attribute will be ignored by `robusta_jni`.
 //!
-//! After that, the functions implemented can be written as ordinary Rust functions, and the macro will
-//! take care of converting to and from Java types for functions marked public and with a `"jni"` ABI. By default if a conversion fails a Java exception is thrown.
-//!
-//! On the other hand, if you need to call Java function from Rust, you add a `"java"` ABI and either take as a first parameter an ordinary `self`/`&self`/`&mut self` or a `&JNIEnv`, and leave the function body empty.
-//!
-//! On these methods you can attach a `call_type` attribute that manages how conversions and errors are handled: by default, `#[call_type(safe)]` is implied,
-//! but you can switch to `#[call_type(unchecked)]` at any time, most likely with few or no code changes.
-//!
-//! ## Example
-//! ### Rust side
+//! Example:
 //! ```rust
-//! use robusta_jni::bridge;
-//!
 //! #[bridge]
 //! mod jni {
-//!     #[package(com.example.robusta)]
-//!     struct HelloWorld;
+//!     #[package()] // default package
+//!     struct A;
 //!
-//!     impl HelloWorld {
-//!         fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
-//!             input1.push(input2);
-//!             input1.iter().map(ToString::to_string).collect()
+//!     #[package(my.awesome.package)]
+//!     struct B;
+//! }
+//! ```
+//!
+//! # Adding native methods
+//! JNI bindings are generated for every method implemented for `package`-annotated structs.
+//! Each method can optionally specify a `#[call_type]` attribute that will determine how conversions between Rust and Java types is performed.
+//! For more information about conversions and `#[call_type]`, check out [convert](convert) module.
+//!
+//! In general, **all input and output types must implement proper conversion traits**
+//! (input types must implement `(Try)FromJavaValue` and output types must implement `(Try)IntoJavaValue`)
+//!
+//! Native methods can optionally accept a [JNIEnv](jni::JNIEnv) parameter as first parameter (after `self`).
+//!
+//! Methods are declared as standard Rust functions with public visibility and "jni" ABI. No special handling is needed.
+//!
+//! Example:
+//! ```rust
+//! use robusta_jni::jni::sys::JNIEnv;
+//! impl A {
+//!     pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
+//!         input1.push(input2);
+//!         input1.iter().map(ToString::to_string).collect()
+//!     }
+//!
+//!     pub extern "jni" fn op(self, _env: JNIEnv, flag: bool) -> i32 {
+//!         //                       ^^^^^ optional
+//!         if flag {
+//!             1
+//!         } else {
+//!             0
 //!         }
 //!     }
 //! }
 //! ```
 //!
-//! ### Java side
-//! ```java
-//! package com.example.robusta;
+//! # Adding Java methods
+//! You can also declare Java methods and `robusta` will generate binding glue to convert types and call methods on the Java side.
+//! Again, **all input and output types must implement proper conversion traits**: in this case it's the reverse from the Java->Rust case
+//! (input types must implement `(Try)IntoJavaValue` and output types must implement `(Try)FromJavaValue`).
 //!
-//! import java.util.*;
+//! Methods are declared as standard Rust functions with public visibility, a "java" ABI and an empty body.
+//! Depending on the method type (static or not), there are some other adjustments to be made.
 //!
-//! class HelloWorld {
-//!     private static native ArrayList<String> special(ArrayList<Integer> input1, int input2);
+//! When using `#[call_type(safe)]` or omitting `call_type` attribute, the output type **must** be [jni::errors::Result\<T\>](jni::errors::Result)
+//! with `T` being the actual method return type. Otherwise, if using `#[call_type(unchecked)]` `T` is sufficient.
 //!
-//!     static {
-//!         System.loadLibrary("robusta_example");
+//! **When using `#[call_type(unchecked)]` if a Java exception is thrown while calling a method a panic is raised.**
+//!
+//! ## Static methods
+//! Static methods **must** have a [JNIEnv](JNIEnv) reference as first parameter.
+//!
+//! Example:
+//! ```rust
+//! use robusta_jni::jni::JNIEnv;
+//! pub extern "java" fn staticJavaMethod(
+//!             env: &JNIEnv,
+//!             i: i32,
+//!             u: i32,
+//!         ) -> ::robusta_jni::jni::errors::Result<i32> {}
+//! ```
+//!
+//! ## Non-static methods
+//! For non-static methods the corresponding structs must implement the [JNIEnvLink](JNIEnvLink) trait.
+//!
+//! Example:
+//! ```rust
+//! use robusta_jni::convert::JNIEnvLink;
+//! use jni::JNIEnv;
+//! impl JNIEnvLink for A {
+//!     fn get_env<'env>(&self) -> &JNIEnv<'env> {
+//!         unimplemented!()
 //!     }
+//! }
 //!
-//!     public static void main(String[] args) {
-//!         ArrayList<String> output = HelloWorld.special(new ArrayList<Integer>(List.of(1, 2, 3)), 4);
-//!         System.out.println(output)
-//!     }
+//! impl A {
+//!     pub extern "java" fn selfMethod(
+//!                 &self,
+//!                 i: i32,
+//!                 u: i32,
+//!            ) -> ::robusta_jni::jni::errors::Result<i32> {}
 //! }
 //! ```
 //!
-//! ## Type conversion details and extension to custom types
-//! There are four traits that control how Rust types are converted to/from Java types:
-//! `(Try)FromJavaValue` and `(Try)IntoJavaValue`.
+//! # Library-provided conversions
 //!
-//! These traits are used for input and output types respectively, and implementing them
-//! is necessary to allow the library to perform automatic type conversion. By default, the `Try` variants are used,
-//! all of which throw a Java exception upon failure. This behaviour can be changed via the `call_type` attribute
-//! (see the `convert` module documentation for more details).
-//!
-//! These traits make use of type provided by the  [`jni`](https://crates.io/crates/jni) crate,
-//! however to provide maximum compatibility with `robusta`, we suggest using the re-exported version under `robusta_jni::jni`.
-//!
-//! ### Conversion table
-//!
-//! | **Rust**                                                                           | **Java**                            |
-//! |------------------------------------------------------------------------------------|-------------------------------------|
-//! | [`i32`]                                                                            | `int`                               |
-//! | [`bool`]                                                                           | `boolean`                           |
-//! | [`char`]                                                                           | `char`                              |
-//! | [`i8`]                                                                             | `byte`                              |
-//! | [`f32`]                                                                            | `float`                             |
-//! | [`f64`]                                                                            | `double`                            |
-//! | [`i64`]                                                                            | `long`                              |
-//! | [`i16`]                                                                            | `short`                             |
-//! | [`Vec<T>`](std::vec::Vec)†                                                         | `ArrayList<T>`                      |
-//! | [`JObject<'env>`](jni::objects::JObject)‡                                          | *(any Java object as input type)*   |
-//! | [`jobject`](jni::sys::jobject)                                                     | *(any Java object as output)*       |
+//! | **Rust**                                                                           | **Java**                          |
+//! |------------------------------------------------------------------------------------|-----------------------------------|
+//! | i32                                                                                | int                               |
+//! | bool                                                                               | boolean                           |
+//! | char                                                                               | char                              |
+//! | i8                                                                                 | byte                              |
+//! | f32                                                                                | float                             |
+//! | f64                                                                                | double                            |
+//! | i64                                                                                | long                              |
+//! | i16                                                                                | short                             |
+//! | Vec\<T\>†                                                                          | ArrayList\<T\>                    |
+//! | [jni::JObject<'env>](jni::objects::JObject)                                      ‡ | *(any Java object as input type)* |
+//! | [jni::jobject](jni::sysjobject)                                                    | *(any Java object as output)*     |
 //!
 //! † Type parameter `T` must implement proper conversion types
 //!
 //! ‡ The special `'env` lifetime **must** be used
 //!
 //! ## Limitations
-//! Only static methods are supported.
 //!
 //! Currently there are some limitations in the conversion mechanism:
 //!  * Boxed types are supported only through the opaque `JObject`/`jobject` types
 //!  * Automatic type conversion is limited to the table outlined above, though easily extendable if needed.
+//!
 //!
 
 pub use robusta_codegen::bridge;

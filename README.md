@@ -96,7 +96,6 @@ however to provide maximum compatibility with `robusta`, we suggest using the re
 ‡ The special `'env` lifetime **must** be used
 
 ## Limitations
-Only static methods are supported.
 
 Currently there are some limitations in the conversion mechanism:
  * Boxed types are supported only through the opaque `JObject`/`jobject` types
