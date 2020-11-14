@@ -1,4 +1,5 @@
 # robusta &mdash; easy interop between Rust and Java
+![Latest Version](https://img.shields.io/crates/v/robusta_jni.svg) ![Docs](https://docs.rs/robusta_jni/badge.svg?version=0.0.3)
 
 This library provides a procedural macro to make easier to write JNI-compatible code in Rust.
 
