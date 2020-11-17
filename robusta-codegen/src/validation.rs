@@ -296,11 +296,7 @@ impl Parse for JNIBridgeModule {
                     .next()
                     .unwrap();
 
-                let package = if package_string.is_empty() {
-                    None
-                } else {
-                    Some(package_string)
-                };
+                let package = Some(package_string);
 
                 (name, package)
             })

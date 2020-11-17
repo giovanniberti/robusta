@@ -221,6 +221,7 @@ impl Fold for ExternJNIMethodTransformer {
             let snake_case_package = self
                 .package
                 .clone()
+                .filter(|s| !s.is_empty())
                 .map(|s| {
                     let mut s = s.replace('.', "_");
                     s.push('_');

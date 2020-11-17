@@ -4,7 +4,6 @@ use std::str::FromStr;
 use darling::FromMeta;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
-use proc_macro_error::emit_warning;
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::parse::{Parser, Parse, ParseStream};
@@ -64,9 +63,8 @@ impl ModTransformer {
                 .replace(" ", ""); // TODO: Replace String-based struct name matching with something more robust
             let struct_package = self.module.package_map.get(&struct_name).cloned().flatten();
 
-            // TODO: Is this ok?
             if let None = struct_package {
-                emit_warning!(p.path, "can't find package for struct `{}`", struct_name);
+                emit_error!(p.path, "can't find package for struct `{}`", struct_name);
                 return node.to_token_stream();
             }
 
