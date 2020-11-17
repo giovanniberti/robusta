@@ -333,7 +333,7 @@ impl Fold for FreestandingTransformer {
             FnArg::Receiver(r) => {
                 let receiver_span = r.span();
 
-                let has_env_lifetime = self.struct_type.segments.iter().any(|s| {
+                let needs_env_lifetime = self.struct_type.segments.iter().any(|s| {
                     if let PathArguments::AngleBracketed(a) = &s.arguments {
                         a.args
                             .iter()
@@ -341,13 +341,13 @@ impl Fold for FreestandingTransformer {
                                 GenericArgument::Lifetime(l) => Some(l),
                                 _ => None,
                             })
-                            .any(|l| l.ident.to_string() == "env")
+                            .all(|l| l.ident.to_string() != "env")
                     } else {
                         false
                     }
                 });
 
-                if !has_env_lifetime {
+                if needs_env_lifetime {
                     emit_error!(self.struct_type, "must have one `'env` lifetime in impl to support self methods when using lifetime-parametrized struct");
                 }
 
