@@ -128,7 +128,7 @@ impl Fold for ExternJNIMethodTransformer {
 
                     s.output = ReturnType::Type(
                         Token![->](outer_signature_span),
-                        Box::new(parse_quote!(::jni::errors::Result<#outer_output_type>)),
+                        Box::new(parse_quote!(::robusta_jni::jni::errors::Result<#outer_output_type>)),
                     );
                     s.abi = None;
                     s
