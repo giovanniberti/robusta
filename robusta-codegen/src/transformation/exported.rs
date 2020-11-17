@@ -14,7 +14,7 @@ use syn::{
     PatIdent, PatType, Path, ReturnType, Signature, Type, VisPublic, Visibility,
 };
 use crate::transformation::utils::get_call_type;
-use crate::utils::get_abi;
+use crate::utils::{get_abi, is_self_method};
 
 pub struct ExportedMethodTransformer {
     pub(crate) struct_type: Path,
@@ -240,7 +240,12 @@ impl Fold for ExternJNIMethodTransformer {
         node.inputs = {
             let mut res = Punctuated::new();
             res.push(parse_quote!(env: ::robusta_jni::jni::JNIEnv<'env>));
-            res.push(parse_quote!(class: ::robusta_jni::jni::objects::JClass));
+
+            if is_self_method(&node) {
+                res.push(parse_quote!(object: ::robusta_jni::jni::sys::jobject));
+            } else {
+                res.push(parse_quote!(class: ::robusta_jni::jni::objects::JClass));
+            }
 
             res.extend(node.inputs);
             res
