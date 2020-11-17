@@ -19,6 +19,7 @@
 //!
 //! Example:
 //! ```rust
+//! use robusta_jni::bridge;
 //! #[bridge]
 //! mod jni {
 //!     #[package()] // default package
@@ -42,7 +43,8 @@
 //! Methods are declared as standard Rust functions with public visibility and "jni" ABI. No special handling is needed.
 //!
 //! Example:
-//! ```rust
+//!
+//! ```ignore
 //! use robusta_jni::jni::sys::JNIEnv;
 //! impl A {
 //!     pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
@@ -78,7 +80,7 @@
 //! Static methods **must** have a [JNIEnv](JNIEnv) reference as first parameter.
 //!
 //! Example:
-//! ```rust
+//! ```ignore
 //! use robusta_jni::jni::JNIEnv;
 //! pub extern "java" fn staticJavaMethod(
 //!             env: &JNIEnv,
@@ -91,7 +93,7 @@
 //! For non-static methods the corresponding structs must implement the [JNIEnvLink](JNIEnvLink) trait.
 //!
 //! Example:
-//! ```rust
+//! ```ignore
 //! use robusta_jni::convert::JNIEnvLink;
 //! use jni::JNIEnv;
 //! impl JNIEnvLink for A {
