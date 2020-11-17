@@ -17,5 +17,8 @@ robusta-codegen = { version = "0.0.3", path = "./robusta-codegen" }
 jni = "0.17.0"
 paste = "1.0.0"
 
+[dev-dependencies]
+native = { path = "./tests/driver/native" }
+
 [workspace]
-members = ["robusta-codegen", "robusta-example"]
+members = ["robusta-codegen", "robusta-example", "tests/driver/native"]

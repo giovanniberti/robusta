@@ -1,0 +1,11 @@
+[package]
+name = "native"
+version = "0.1.0"
+authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+robusta_jni = { path = "../../../", version = "0.0.3" }
