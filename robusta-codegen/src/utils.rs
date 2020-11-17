@@ -10,6 +10,7 @@ use syn::{
     parse_quote, FnArg, Ident, Pat, PatIdent, PatType, Path, PathArguments, Signature, Type,
     TypeReference,
 };
+use proc_macro_error::emit_error;
 
 pub fn unique_ident(prefix: &str, span: Span) -> Ident {
     /* Identifier generation with a UUID (or `gensym` crate) might be more robust, but these 5 random characters should be more than enough */
@@ -80,6 +81,16 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
             } else {
                 false
             }
+        } else if let Type::Path(t) = &**ty {
+            let full_path: Path = parse_quote! { ::robusta_jni::jni::JNIEnv };
+            let imported_path: Path = parse_quote! { JNIEnv };
+            let canonicalized_type_path = canonicalize_path(&t.path);
+
+            if canonicalized_type_path == imported_path || canonicalized_type_path == full_path {
+                emit_error!(t, "explicit environment parameter must be of type `&JNIEnv`");
+            }
+
+            false
         } else {
             false
         }
