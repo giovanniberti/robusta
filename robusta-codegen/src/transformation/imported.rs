@@ -63,6 +63,7 @@ impl Fold for ImportedMethodTransformer {
                 let jni_package_path = self
                     .package
                     .clone()
+                    .filter(|p| !p.is_empty())
                     .map(|mut p| {
                         p.push('/');
                         p
