@@ -15,6 +15,7 @@ dependencies {
 }
 
 test {
+    dependsOn 'cleanTest'
     useJUnitPlatform()
     systemProperty "java.library.path", "../../target/debug/deps"
 
