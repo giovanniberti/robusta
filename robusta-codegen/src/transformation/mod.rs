@@ -493,8 +493,8 @@ impl Fold for JNISignatureTransformer {
                 let original_input_type = t.ty;
 
                 let jni_conversion_type: Type = match self.call_type {
-                    CallType::Safe(_) => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source }).unwrap(),
-                    CallType::Unchecked { .. } => syn::parse2(quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env>>::Source }).unwrap(),
+                    CallType::Safe(_) => parse_quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source },
+                    CallType::Unchecked { .. } => parse_quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env>>::Source },
                 };
 
                 FnArg::Typed(PatType {
