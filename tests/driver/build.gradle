@@ -17,4 +17,8 @@ dependencies {
 test {
     useJUnitPlatform()
     systemProperty "java.library.path", "../../target/debug/deps"
+
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+    }
 }
