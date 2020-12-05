@@ -40,14 +40,13 @@ mod jni {
     }
 
     impl<'env, 'r> User<'env> {
-        pub extern "jni" fn initNative() -> i32 {
+        pub extern "jni" fn initNative() {
             std::env::var("RUST_LOG").unwrap_or_else(|_| {
                 std::env::set_var("RUST_LOG", "info");
                 "info".to_string()
             });
             println!("Initialized env logger with level: {}", std::env::var("RUST_LOG").unwrap());
             env_logger::init();
-            0
         }
 
         pub extern "jni" fn userCountStatus(env: &JNIEnv) -> String {

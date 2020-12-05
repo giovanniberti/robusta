@@ -9,7 +9,7 @@ public class User {
     private String username;
     private String password;
 
-    private native static int initNative();
+    private native static void initNative();
 
     public native static String userCountStatus();
 

@@ -100,6 +100,14 @@ jvalue_types! {
     jshort: Short (S) [shortValue]
 }
 
+impl<'env> JavaValue<'env> for () {
+    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+        panic!("called `JavaValue::autobox` on unit value")
+    }
+
+    fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
+}
+
 impl<'env> JavaValue<'env> for JObject<'env> {
     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
         self

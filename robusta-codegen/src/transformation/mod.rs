@@ -10,7 +10,7 @@ use syn::parse::{Parser, Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
-use syn::{Token, Error, Meta, ImplItem};
+use syn::{Token, Error, Meta, ImplItem, TypeTuple};
 use syn::{
     parse_quote, Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, ImplItemMethod,
     Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, Pat, PatIdent, PatType, Path,
@@ -537,6 +537,7 @@ impl Fold for JNISignatureTransformer {
                     )
                     .unwrap(),
                 ),
+                (Type::Tuple(TypeTuple { elems, .. }), _) if elems.is_empty() => ReturnType::Default,
                 _ => {
                     emit_error!(return_type, "Only type or type paths are permitted as type ascriptions in function params");
                     return_type
