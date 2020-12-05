@@ -160,6 +160,7 @@ impl Fold for ImportedMethodTransformer {
                     }
                 };
 
+                let node_span = node.span();
                 let impl_item_attributes = {
                     let discarded_known_attributes: HashSet<&str> = {
                         let mut h = HashSet::new();
@@ -184,14 +185,14 @@ impl Fold for ImportedMethodTransformer {
                     block: if self_method {
                         match call_type {
                             CallType::Safe(_) => {
-                                parse_quote! {{
+                                parse_quote_spanned! { node_span => {
                                     let env: ::robusta_jni::jni::JNIEnv = <Self as ::robusta_jni::convert::JNIEnvLink>::get_env(&self).clone();
                                     let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::IntoJavaValue::into(self, &env), &env), #java_method_name, #java_signature, &[#input_conversions]);
                                     #return_expr
                                 }}
                             }
                             CallType::Unchecked(_) => {
-                                parse_quote! {{
+                                parse_quote_spanned! { node_span => {
                                     let env: ::robusta_jni::jni::JNIEnv = <Self as ::robusta_jni::convert::JNIEnvLink>::get_env(&self).clone();
                                     let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::IntoJavaValue::into(self, &env), &env), #java_method_name, #java_signature, &[#input_conversions]).unwrap();
                                     #return_expr

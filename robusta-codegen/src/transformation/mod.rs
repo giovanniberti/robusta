@@ -25,9 +25,10 @@ use std::iter::FromIterator;
 use darling::util::Flag;
 use crate::transformation::exported::ExportedMethodTransformer;
 
+#[macro_use]
+mod utils;
 mod exported;
 mod imported;
-mod utils;
 
 #[derive(Copy, Clone)]
 pub(crate) enum ImplItemType {

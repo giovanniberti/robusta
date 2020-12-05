@@ -28,3 +28,9 @@ pub(crate) fn get_call_type(node: &ImplItemMethod) -> Option<CallTypeAttribute> 
 
     call_type_attribute
 }
+
+macro_rules! parse_quote_spanned {
+    ($span:expr => $($tt:tt)*) => {
+        syn::parse2(quote::quote_spanned!($span => $($tt)*)).unwrap_or_else(|e| panic!("{}", e))
+    };
+}
