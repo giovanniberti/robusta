@@ -66,6 +66,7 @@ where
 
 impl<'env> TryIntoJavaValue<'env> for String {
     type Target = jstring;
+    const SIG_TYPE: &'static str = "Ljava/lang/String;";
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         env.new_string(self).map(|s| s.into_inner())
