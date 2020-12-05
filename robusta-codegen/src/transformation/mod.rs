@@ -487,14 +487,15 @@ impl Fold for JNISignatureTransformer {
             self.fn_name.clone(),
         );
 
+        let arg_span = arg.span();
         match freestanding_transformer.fold_fn_arg(arg) {
             FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
             FnArg::Typed(t) => {
                 let original_input_type = t.ty;
 
                 let jni_conversion_type: Type = match self.call_type {
-                    CallType::Safe(_) => parse_quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source },
-                    CallType::Unchecked { .. } => parse_quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env>>::Source },
+                    CallType::Safe(_) => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source },
+                    CallType::Unchecked { .. } => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env>>::Source },
                 };
 
                 FnArg::Typed(PatType {
@@ -513,16 +514,12 @@ impl Fold for JNISignatureTransformer {
             ReturnType::Type(ref arrow, ref rtype) => match (&**rtype, self.call_type.clone()) {
                 (Type::Path(p), CallType::Unchecked { .. }) => ReturnType::Type(
                     *arrow,
-                    syn::parse2(quote_spanned! { p.span() => <#p as ::robusta_jni::convert::IntoJavaValue<'env>>::Target })
-                        .unwrap(),
+                    parse_quote_spanned! { p.span() => <#p as ::robusta_jni::convert::IntoJavaValue<'env>>::Target }
                 ),
 
                 (Type::Path(p), CallType::Safe(_)) => ReturnType::Type(
                     *arrow,
-                    syn::parse2(
-                        quote_spanned! { p.span() => <#p as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
-                    )
-                    .unwrap(),
+                    parse_quote_spanned! { p.span() => <#p as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
                 ),
 
                 (Type::Reference(r), CallType::Unchecked { .. }) => ReturnType::Type(
