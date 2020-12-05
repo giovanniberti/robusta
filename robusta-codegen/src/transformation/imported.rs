@@ -148,9 +148,16 @@ impl Fold for ImportedMethodTransformer {
                 });
 
                 let return_expr= if let CallType::Safe(_) = call_type {
-                    quote! { res.and_then(|v| ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(v))) }
+                    quote! {
+                        res.and_then(|v| ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(v)))
+                           .and_then(|v| ::robusta_jni::convert::TryFromJavaValue::try_from(v, &env))
+                    }
                 } else {
-                    quote! { ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(res)).unwrap() }
+                    quote! {
+                        ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(res))
+                            .and_then(|v| ::robusta_jni::convert::TryFromJavaValue::try_from(v, &env))
+                            .unwrap()
+                    }
                 };
 
                 let impl_item_attributes = {
