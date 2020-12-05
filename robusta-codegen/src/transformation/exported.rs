@@ -206,15 +206,24 @@ impl Fold for ExternJNIMethodTransformer {
                 pub_token: Token![pub](node_span),
             }),
             defaultness: node.defaultness,
-            sig: self.fold_signature(transformed_jni_signature.clone()),
+            sig: self.fold_signature(node.sig),
             block: new_block,
         }
     }
 
     /// Transform original signature in JNI-ready one, including JClass and JNIEnv parameters into the function signature.
-    fn fold_signature(&mut self, mut node: Signature) -> Signature {
-        if node.ident.to_string().contains('_') {
-            emit_error!(node.ident, "JNI methods cannot contain `_` character");
+    fn fold_signature(&mut self, node: Signature) -> Signature {
+        let jni_signature = JNISignature::new(
+            node.clone(),
+            self.struct_type.clone(),
+            self.struct_name.clone(),
+            self.call_type.clone(),
+        );
+
+        let mut sig = jni_signature.transformed_signature;
+
+        if sig.ident.to_string().contains('_') {
+            emit_error!(sig.ident, "JNI methods cannot contain `_` character");
         }
 
         let jni_method_name = {
@@ -233,30 +242,28 @@ impl Fold for ExternJNIMethodTransformer {
                 "Java_{}{}_{}",
                 snake_case_package,
                 self.struct_name,
-                node.ident.to_string()
+                sig.ident.to_string()
             )
         };
 
-        node.inputs = {
+        sig.inputs = {
             let mut res = Punctuated::new();
             res.push(parse_quote!(env: ::robusta_jni::jni::JNIEnv<'env>));
 
-            if is_self_method(&node) {
-                res.push(parse_quote!(object: ::robusta_jni::jni::sys::jobject));
-            } else {
+            if !is_self_method(&node) {
                 res.push(parse_quote!(class: ::robusta_jni::jni::objects::JClass));
             }
 
-            res.extend(node.inputs);
+            res.extend(sig.inputs);
             res
         };
 
-        node.ident = Ident::new(&jni_method_name, node.ident.span());
-        node.abi = Some(Abi {
-            extern_token: Extern { span: node.span() },
-            name: Some(LitStr::new("system", node.span())),
+        sig.ident = Ident::new(&jni_method_name, sig.ident.span());
+        sig.abi = Some(Abi {
+            extern_token: Extern { span: sig.span() },
+            name: Some(LitStr::new("system", sig.span())),
         });
 
-        node
+        sig
     }
 }
