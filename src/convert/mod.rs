@@ -244,3 +244,25 @@ impl<'a> TryFrom<JValueWrapper<'a>> for () {
         }
     }
 }
+
+impl<'a> TryFrom<JValueWrapper<'a>> for JObject<'a> {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Object(o) => Ok(o),
+            _ => Err(ErrorKind::WrongJValueType("object", value.0.type_name()).into()),
+        }
+    }
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Object(o) => Ok(From::from(o)),
+            _ => Err(ErrorKind::WrongJValueType("string", value.0.type_name()).into()),
+        }
+    }
+}
