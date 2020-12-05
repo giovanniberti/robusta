@@ -603,12 +603,13 @@ impl JNISignature {
         let method_call_inputs: Punctuated<Expr, Token![,]> = {
             let mut result: Vec<_> = self.transformed_signature.inputs.iter()
                 .map(|arg| {
-                    if let FnArg::Typed(PatType { pat, .. }) = arg {
+                    if let FnArg::Typed(PatType { pat, ty, .. }) = arg {
+                        let type_span = ty.span();
                         if let Pat::Ident(PatIdent { ident, .. }) = &**pat {
                             let input_param: Expr = {
                                 match self.call_type {
-                                    CallType::Safe(_) => parse_quote! { ::robusta_jni::convert::TryFromJavaValue::try_from(#ident, &env)? },
-                                    CallType::Unchecked { .. } => parse_quote! { ::robusta_jni::convert::FromJavaValue::from(#ident, &env) }
+                                    CallType::Safe(_) => parse_quote_spanned! { type_span => ::robusta_jni::convert::TryFromJavaValue::try_from(#ident, &env)? },
+                                    CallType::Unchecked { .. } => parse_quote_spanned! { type_span => ::robusta_jni::convert::FromJavaValue::from(#ident, &env) }
                                 }
                             };
                             input_param

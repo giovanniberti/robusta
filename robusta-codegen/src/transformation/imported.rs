@@ -1,7 +1,7 @@
 use inflector::cases::camelcase::to_camel_case;
 use proc_macro2::TokenStream;
 use proc_macro_error::{abort, emit_error};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::spanned::Spanned;
 use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
@@ -95,6 +95,13 @@ impl Fold for ImportedMethodTransformer {
                         tok
                     });
 
+                let output_type_span = {
+                    match &signature.output {
+                        ReturnType::Default => signature.output.span(),
+                        ReturnType::Type(_arrow, ref ty) => ty.span()
+                    }
+                };
+
                 let output_conversion = match signature.output {
                     ReturnType::Default => quote!(""),
                     ReturnType::Type(_arrow, ref ty) => {
@@ -120,9 +127,9 @@ impl Fold for ImportedMethodTransformer {
                                 _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
                             }.unwrap();
 
-                            quote! { <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
+                            quote_spanned! { output_type_span => <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
                         } else {
-                            quote! { <#ty as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE }
+                            quote_spanned! { output_type_span => <#ty as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE }
                         }
                     }
                 };
@@ -148,12 +155,12 @@ impl Fold for ImportedMethodTransformer {
                 });
 
                 let return_expr= if let CallType::Safe(_) = call_type {
-                    quote! {
+                    quote_spanned! { output_type_span =>
                         res.and_then(|v| ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(v)))
                            .and_then(|v| ::robusta_jni::convert::TryFromJavaValue::try_from(v, &env))
                     }
                 } else {
-                    quote! {
+                    quote_spanned! { output_type_span =>
                         ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(res))
                             .and_then(|v| ::robusta_jni::convert::TryFromJavaValue::try_from(v, &env))
                             .unwrap()
