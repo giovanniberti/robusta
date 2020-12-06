@@ -86,16 +86,15 @@ impl Fold for ExternJNIMethodTransformer {
 
             CallType::Safe(exception_details) => {
                 let outer_call_inputs = {
-                    let mut inputs: Punctuated<Expr, Token![,]> = transformed_jni_signature.inputs.iter()
-                        .map::<Expr, _>(|a| match a {
-                            FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
-                            FnArg::Typed(t) => {
-                                match &*t.pat {
-                                    Pat::Ident(PatIdent { ident, ..}) => {
-                                        parse_quote!(#ident)
-                                    }
-                                    _ => panic!("Non-identifier argument pattern in function")
+                    let mut inputs: Punctuated<Expr, Token![,]> = jni_signature.args_iter()
+                        .map(|p| -> Expr {
+                            let PatType { pat, .. } = p;
+
+                            match &**pat {
+                                Pat::Ident(PatIdent { ident, ..}) => {
+                                    parse_quote!(#ident)
                                 }
+                                _ => panic!("Non-identifier argument pattern in function")
                             }
                         })
                         .collect();

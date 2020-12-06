@@ -6,24 +6,24 @@ use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::emit_error;
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
-use syn::parse::{Parser, Parse, ParseStream};
+use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
-use syn::{Token, Error, Meta, ImplItem, TypeTuple};
 use syn::{
     parse_quote, Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, ImplItemMethod,
     Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, Pat, PatIdent, PatType, Path,
     PathArguments, ReturnType, Signature, Type, TypePath, TypeReference, Visibility,
 };
+use syn::{Error, ImplItem, Meta, Token, TypeTuple};
 
 use imported::ImportedMethodTransformer;
 
-use crate::utils::{canonicalize_path, get_env_arg, is_self_method, unique_ident, get_abi};
-use crate::validation::JNIBridgeModule;
-use std::iter::FromIterator;
-use darling::util::Flag;
 use crate::transformation::exported::ExportedMethodTransformer;
+use crate::utils::{canonicalize_path, get_abi, get_env_arg, is_self_method, unique_ident};
+use crate::validation::JNIBridgeModule;
+use darling::util::Flag;
+use std::iter::FromIterator;
 
 #[macro_use]
 mod utils;
@@ -210,7 +210,6 @@ impl Fold for ModTransformer {
         }
     }
 }
-
 
 #[derive(Default)]
 pub struct ImplExportVisitor<'ast> {
@@ -599,13 +598,22 @@ impl JNISignature {
         }
     }
 
+    fn args_iter(&self) -> impl Iterator<Item = &PatType> {
+        self.transformed_signature.inputs.iter()
+            .map(|a| match a {
+                FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
+                FnArg::Typed(p) => p
+            })
+    }
+
     fn signature_call(&self) -> Expr {
         let method_call_inputs: Punctuated<Expr, Token![,]> = {
-            let mut result: Vec<_> = self.transformed_signature.inputs.iter()
-                .map(|arg| {
-                    if let FnArg::Typed(PatType { pat, ty, .. }) = arg {
-                        let type_span = ty.span();
-                        if let Pat::Ident(PatIdent { ident, .. }) = &**pat {
+            let mut result: Vec<_> = self.args_iter()
+                .map(|p| {
+                    let PatType { pat, ty, ..  } = p;
+                    let type_span = ty.span();
+                    match &**pat {
+                        Pat::Ident(PatIdent { ident, .. }) => {
                             let input_param: Expr = {
                                 match self.call_type {
                                     CallType::Safe(_) => parse_quote_spanned! { type_span => ::robusta_jni::convert::TryFromJavaValue::try_from(#ident, &env)? },
@@ -613,13 +621,10 @@ impl JNISignature {
                                 }
                             };
                             input_param
-                        } else {
-                            panic!("Bug -- please report to library author. Found non-ident FnArg pattern");
                         }
-                    } else {
-                        panic!("Bug -- please report to library author. Found receiver FnArg after freestanding transform");
+                        _ => panic!("Bug -- please report to library author. Found non-ident FnArg pattern")
                     }
-                }).collect();
+            }).collect();
 
             if self.env_arg.is_some() {
                 // because `self` is kept in the transformed JNI signature, if this is a `self` method we put `env` *after* self, otherwise the env parameter must be first
@@ -659,7 +664,7 @@ pub enum CallType {
 
 pub struct CallTypeAttribute {
     pub(crate) attr: Attribute,
-    pub(crate) call_type: CallType
+    pub(crate) call_type: CallType,
 }
 
 impl Parse for CallTypeAttribute {
@@ -689,18 +694,22 @@ impl Parse for CallTypeAttribute {
         if attr_meta.to_token_stream().to_string() == "call_type(safe)" {
             Ok(CallTypeAttribute {
                 attr: attribute,
-                call_type: CallType::Safe(None)
+                call_type: CallType::Safe(None),
             })
         } else {
-            CallType::from_meta(&attr_meta).map_err(|e| {
-                Error::new(
-                    attr_meta.span(),
-                    format!("invalid `call_type` attribute options ({})", e),
-                )
-            }).and_then(|c| Ok(CallTypeAttribute {
-                attr: attribute,
-                call_type: c
-            }))
+            CallType::from_meta(&attr_meta)
+                .map_err(|e| {
+                    Error::new(
+                        attr_meta.span(),
+                        format!("invalid `call_type` attribute options ({})", e),
+                    )
+                })
+                .and_then(|c| {
+                    Ok(CallTypeAttribute {
+                        attr: attribute,
+                        call_type: c,
+                    })
+                })
         }
     }
 }
