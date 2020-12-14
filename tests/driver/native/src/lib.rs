@@ -32,7 +32,7 @@ mod jni {
 
     impl<'e, 'r> IntoJavaValue<'e> for User<'e> {
         type Target = JObject<'e>;
-        const SIG_TYPE: &'static str = "LUser";
+        const SIG_TYPE: &'static str = "LUser;";
 
         fn into(self, _env: &JNIEnv<'e>) -> Self::Target {
             self.raw
