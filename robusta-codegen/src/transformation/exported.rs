@@ -1,7 +1,7 @@
 use crate::transformation::{JNISignature, CallType, SafeParams};
 use proc_macro2::Ident;
 use proc_macro_error::emit_error;
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use std::collections::HashSet;
 use syn::fold::Fold;
 use syn::parse_quote;
@@ -264,5 +264,104 @@ impl Fold for ExternJNIMethodTransformer {
         });
 
         sig
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use proc_macro2::TokenStream;
+    use std::str::FromStr;
+
+    fn setup_package(package: Option<String>, struct_name: String, method_name: String) -> ImplItemMethod {
+        let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
+        let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
+
+        let method: ImplItemMethod = parse_quote! { pub extern "jni" fn #method_name_token_stream() {} };
+        let mut transformer = ExternJNIMethodTransformer {
+            struct_type: parse_quote! { #struct_name_token_stream },
+            struct_name,
+            package,
+            call_type: CallType::Safe(None)
+        };
+
+        transformer.fold_impl_item_method(method)
+    }
+
+    #[test]
+    fn jni_method_is_public() {
+        let output = setup_package(None, "Foo".into(), "foo".into());
+        assert!(matches!(output.vis, Visibility::Public(_)))
+    }
+
+    #[test]
+    fn jni_method_follows_naming_scheme() {
+        let output_no_package = setup_package(None, "Foo".into(), "foo".into());
+        assert_eq!(output_no_package.sig.ident.to_string(), format!("Java_Foo_foo"));
+
+        let output_with_package = setup_package(Some("com.bar.quux".into()), "Foo".into(), "foo".into());
+        assert_eq!(output_with_package.sig.ident.to_string(), format!("Java_com_bar_quux_Foo_foo"));
+    }
+
+    #[test]
+    fn jni_method_has_no_mangle() {
+        let output = setup_package(None, "Foo".into(), "foo".into());
+        let no_mangle = parse_quote! { #[no_mangle] };
+        assert!(output.attrs.contains(&no_mangle));
+    }
+
+    #[test]
+    fn jni_method_has_system_abi() {
+        let output = setup_package(None, "Foo".into(), "foo".into());
+        assert_eq!(output.sig.abi.unwrap().name.unwrap().value(), "system")
+    }
+
+    fn setup_with_params(params: TokenStream) -> ImplItemMethod {
+        let package = None;
+        let struct_name = "Foo".to_string();
+        let method_name = "foo".to_string();
+        let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
+        let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
+
+        let method: ImplItemMethod = parse_quote! {
+                pub extern "jni" fn #method_name_token_stream(#params) -> i32 {}
+            };
+
+        let mut transformer = ExternJNIMethodTransformer {
+            struct_type: parse_quote! { #struct_name_token_stream },
+            struct_name,
+            package,
+            call_type: CallType::Safe(None)
+        };
+
+        transformer.fold_impl_item_method(method)
+    }
+
+    #[test]
+    fn static_method_params() {
+        let param_type_1: TokenStream = parse_quote! { i32 };
+        let param_type_2: TokenStream = parse_quote! { FooBar };
+        let output = setup_with_params(quote! { _1: #param_type_1, _2: #param_type_2 });
+
+        let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
+        let class_type: Type = parse_quote! { ::robusta_jni::jni::objects::JClass };
+        let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+        let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+
+
+        let args: &[FnArg] = &output.sig.inputs.into_iter().collect::<Vec<_>>();
+        match args {
+            [FnArg::Typed(PatType { ty: ty_env, .. }),
+            FnArg::Typed(PatType { ty: ty_class, .. }),
+            FnArg::Typed(PatType { ty: ty_1, .. }),
+            FnArg::Typed(PatType { ty: ty_2, .. })] => {
+                assert_eq!(ty_env.to_token_stream().to_string(), env_type.to_token_stream().to_string());
+                assert_eq!(ty_class.to_token_stream().to_string(), class_type.to_token_stream().to_string());
+                assert_eq!(ty_1.to_token_stream().to_string(), conv_type_1.to_token_stream().to_string());
+                assert_eq!(ty_2.to_token_stream().to_string(), conv_type_2.to_token_stream().to_string());
+            },
+
+            _ => assert!(false)
+        }
     }
 }
