@@ -316,9 +316,8 @@ mod test {
         assert_eq!(output.sig.abi.unwrap().name.unwrap().value(), "system")
     }
 
-    fn setup_with_params(params: TokenStream) -> ImplItemMethod {
+    fn setup_with_params(params: TokenStream, struct_name: String) -> ImplItemMethod {
         let package = None;
-        let struct_name = "Foo".to_string();
         let method_name = "foo".to_string();
         let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
         let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
@@ -341,7 +340,7 @@ mod test {
     fn static_method_params() {
         let param_type_1: TokenStream = parse_quote! { i32 };
         let param_type_2: TokenStream = parse_quote! { FooBar };
-        let output = setup_with_params(quote! { _1: #param_type_1, _2: #param_type_2 });
+        let output = setup_with_params(quote! { _1: #param_type_1, _2: #param_type_2 }, "Foo".to_string());
 
         let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
         let class_type: Type = parse_quote! { ::robusta_jni::jni::objects::JClass };
@@ -357,6 +356,36 @@ mod test {
             FnArg::Typed(PatType { ty: ty_2, .. })] => {
                 assert_eq!(ty_env.to_token_stream().to_string(), env_type.to_token_stream().to_string());
                 assert_eq!(ty_class.to_token_stream().to_string(), class_type.to_token_stream().to_string());
+                assert_eq!(ty_1.to_token_stream().to_string(), conv_type_1.to_token_stream().to_string());
+                assert_eq!(ty_2.to_token_stream().to_string(), conv_type_2.to_token_stream().to_string());
+            },
+
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn self_method_params() {
+        let struct_name = "Foo".to_string();
+        let struct_name_toks = TokenStream::from_str(&struct_name).unwrap();
+
+        let param_type_1: TokenStream = parse_quote! { i32 };
+        let param_type_2: TokenStream = parse_quote! { FooBar };
+        let output = setup_with_params(quote! { self, _1: #param_type_1, _2: #param_type_2 }, struct_name.clone());
+
+        let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
+        let self_conv_type: Type = parse_quote! { <#struct_name_toks as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+        let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+        let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+
+        let args: &[FnArg] = &output.sig.inputs.into_iter().collect::<Vec<_>>();
+        match args {
+            [FnArg::Typed(PatType { ty: ty_env, .. }),
+            FnArg::Typed(PatType { ty: ty_self, .. }),
+            FnArg::Typed(PatType { ty: ty_1, .. }),
+            FnArg::Typed(PatType { ty: ty_2, .. })] => {
+                assert_eq!(ty_env.to_token_stream().to_string(), env_type.to_token_stream().to_string());
+                assert_eq!(ty_self.to_token_stream().to_string(), self_conv_type.to_token_stream().to_string());
                 assert_eq!(ty_1.to_token_stream().to_string(), conv_type_1.to_token_stream().to_string());
                 assert_eq!(ty_2.to_token_stream().to_string(), conv_type_2.to_token_stream().to_string());
             },
