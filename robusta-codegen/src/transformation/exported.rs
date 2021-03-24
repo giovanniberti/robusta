@@ -1,7 +1,7 @@
 use crate::transformation::{JNISignature, CallType, SafeParams};
 use proc_macro2::Ident;
 use proc_macro_error::emit_error;
-use quote::{quote, ToTokens};
+use quote::ToTokens;
 use std::collections::HashSet;
 use syn::fold::Fold;
 use syn::parse_quote;
@@ -338,6 +338,8 @@ mod test {
 
     #[test]
     fn static_method_params() {
+        use quote::quote;
+
         let param_type_1: TokenStream = parse_quote! { i32 };
         let param_type_2: TokenStream = parse_quote! { FooBar };
         let output = setup_with_params(quote! { _1: #param_type_1, _2: #param_type_2 }, "Foo".to_string());
@@ -366,6 +368,8 @@ mod test {
 
     #[test]
     fn self_method_params() {
+        use quote::quote;
+
         let struct_name = "Foo".to_string();
         let struct_name_toks = TokenStream::from_str(&struct_name).unwrap();
 
