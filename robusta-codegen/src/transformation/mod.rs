@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use darling::FromMeta;
 use proc_macro2::{Ident, TokenStream};
-use proc_macro_error::emit_error;
+use proc_macro_error::{emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::parse::{Parse, ParseStream, Parser};
@@ -348,7 +348,7 @@ impl Fold for FreestandingTransformer {
                 });
 
                 if needs_env_lifetime {
-                    emit_error!(self.struct_type, "must have one `'env` lifetime in impl to support self methods when using lifetime-parametrized struct");
+                    emit_warning!(self.struct_type, "must have one `'env` lifetime in impl to support self methods when using lifetime-parametrized struct");
                 }
 
                 let self_type = match r.reference.clone() {
