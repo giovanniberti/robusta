@@ -33,11 +33,18 @@ impl Fold for ImportedMethodTransformer {
                 let self_method = is_self_method(&node.sig);
                 let (signature, env_arg) = get_env_arg(node.sig.clone());
 
-                if !self_method && env_arg.is_none() {
-                    emit_error!(
-                        original_signature,
-                        "static methods must have a parameter of type `&JNIEnv` as first parameter"
-                    );
+                if env_arg.is_none() {
+                    if !self_method {
+                        emit_error!(
+                            original_signature,
+                            "imported static methods must have a parameter of type `&JNIEnv` as first parameter"
+                        );
+                    } else {
+                        emit_error!(
+                            original_signature,
+                            "imported self methods must have a parameter of type `&JNIEnv` as second parameter"
+                        );
+                    }
                     let dummy = ImplItemMethod {
                         sig: Signature {
                             abi: None,
@@ -183,6 +190,16 @@ impl Fold for ImportedMethodTransformer {
                         .collect()
                 };
 
+                let env_ident = match env_arg.unwrap() {
+                    FnArg::Typed(t) => {
+                        match *t.pat {
+                            Pat::Ident(PatIdent { ident, .. }) => ident,
+                            _ => panic!("non-ident pat in FnArg")
+                        }
+                    },
+                    _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
+                };
+
                 ImplItemMethod {
                     sig: Signature {
                         abi: None,
@@ -193,30 +210,20 @@ impl Fold for ImportedMethodTransformer {
                         match call_type {
                             CallType::Safe(_) => {
                                 parse_quote_spanned! { self_span => {
-                                    let env: ::robusta_jni::jni::JNIEnv = <Self as ::robusta_jni::convert::JNIEnvLink>::get_env(&self).clone();
+                                    let env: &::robusta_jni::jni::JNIEnv = #env_ident;
                                     let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::IntoJavaValue::into(self, &env), &env), #java_method_name, #java_signature, &[#input_conversions]);
                                     #return_expr
                                 }}
                             }
                             CallType::Unchecked(_) => {
                                 parse_quote_spanned! { self_span => {
-                                    let env: ::robusta_jni::jni::JNIEnv = <Self as ::robusta_jni::convert::JNIEnvLink>::get_env(&self).clone();
+                                    let env: &::robusta_jni::jni::JNIEnv = #env_ident;
                                     let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::IntoJavaValue::into(self, &env), &env), #java_method_name, #java_signature, &[#input_conversions]).unwrap();
                                     #return_expr
                                 }}
                             }
                         }
                     } else {
-                        let env_ident = match env_arg.unwrap() {
-                            FnArg::Typed(t) => {
-                                match *t.pat {
-                                    Pat::Ident(PatIdent { ident, .. }) => ident,
-                                    _ => panic!("non-ident pat in FnArg")
-                                }
-                            },
-                            _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
-                        };
-
                         match call_type {
                             CallType::Safe(_) => {
                                 parse_quote! {{
