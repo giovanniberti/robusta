@@ -5,7 +5,7 @@ authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
 edition = "2018"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
 robusta_jni = { path = "../../../", version = "0.0.3" }

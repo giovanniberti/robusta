@@ -13,8 +13,6 @@ public class UserTest {
 
     @Test
     public void selfMethod() {
-        //System.err.println(ProcessHandle.current().pid());
-        // Integer.parseInt(new File("/proc/self").getCanonicalFile().getName());.
         String expected = u.getPassword() + "_pass";
         String actual = u.hashedPassword(User.getTotalUsersCount());
         assertEquals(expected, actual);

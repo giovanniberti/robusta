@@ -381,13 +381,14 @@ impl Fold for FreestandingTransformer {
                         subpat: None,
                     })),
                     colon_token: Token![:](receiver_span),
-                    ty: Box::new(self_type),
+                    ty: Box::new(parse_quote! { <#self_type as ::robusta_jni::convert::handle::HandleDispatcher<'env>>::Handle }),
                 })
             }
 
             FnArg::Typed(t) => match &*t.pat {
                 Pat::Ident(ident) if ident.ident == "self" => {
                     let pat_span = t.span();
+                    let self_type = &*t.ty;
                     FnArg::Typed(PatType {
                         attrs: t.attrs,
                         pat: Box::new(Pat::Ident(PatIdent {
@@ -401,10 +402,9 @@ impl Fold for FreestandingTransformer {
                             subpat: ident.subpat.clone(),
                         })),
                         colon_token: t.colon_token,
-                        ty: t.ty.clone(),
+                        ty: Box::new(parse_quote! { <#self_type as ::robusta_jni::convert::handle::HandleDispatcher<'env>>::Handle }),
                     })
                 }
-
                 _ => FnArg::Typed(t),
             },
         }

@@ -1,45 +1,57 @@
 use robusta_jni::bridge;
 
 #[bridge]
-mod jni {
-    use robusta_jni::jni::JNIEnv;
-    use robusta_jni::convert::{JValueWrapper, TryFromJavaValue, JNIEnvLink, IntoJavaValue};
+pub mod jni {
     use std::convert::TryInto;
+
+    use robusta_jni::convert::{IntoJavaValue, JavaValue, JNIEnvLink, JValueWrapper, TryFromJavaValue};
+    use robusta_jni::convert::handle::{Handle, HandleDispatcher, Signature};
+    use robusta_jni::jni;
+    use robusta_jni::jni::JNIEnv;
+    use robusta_jni::jni::objects::{JString, JValue};
     use robusta_jni::jni::objects::JObject;
 
     #[package()]
-    pub struct User<'e> {
-        raw: JObject<'e>,
-        env: JNIEnv<'e>
-    }
+    pub struct User;
 
-    impl<'env, 'r> TryFromJavaValue<'env> for User<'env> {
-        type Source = JObject<'env>;
-
-        fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
-            Ok(User {
-                raw: s,
-                env: env.clone()
-            })
-        }
-    }
-
-    impl<'e, 'r> JNIEnvLink<'e> for User<'e> {
-        fn get_env(&self) -> &JNIEnv<'e> {
-            &self.env
-        }
-    }
-
-    impl<'e, 'r> IntoJavaValue<'e> for User<'e> {
-        type Target = JObject<'e>;
+    impl<'e> Signature for User {
         const SIG_TYPE: &'static str = "LUser;";
+    }
 
-        fn into(self, _env: &JNIEnv<'e>) -> Self::Target {
-            self.raw
+    impl<'e> HandleDispatcher<'e> for User {
+        type Handle = Handle<'e, User>;
+    }
+
+    impl<'e> TryFromJavaValue<'e> for User {
+        type Source = JObject<'e>;
+
+        fn try_from(_s: Self::Source, _env: &JNIEnv<'e>) -> jni::errors::Result<Self> {
+            Ok(User)
         }
     }
 
-    impl<'env, 'r> User<'env> {
+    impl<'e> IntoJavaValue<'e> for User {
+        type Target = JObject<'e>;
+
+        fn into(self, env: &JNIEnv<'e>) -> Self::Target {
+            IntoJavaValue::into(&self, env)
+        }
+    }
+
+    impl<'e> IntoJavaValue<'e> for &User {
+        type Target = JObject<'e>;
+
+        fn into(self, env: &JNIEnv<'e>) -> Self::Target {
+            // TODO: Document that inside `IntoJavaValue` you cannot call Java methods (otherwise infinite recursion happens)
+            let user_string = env.new_string("user").expect("Can't create username string");
+            // should be env.new_string(self.getPassword())
+            let pw_string = env.new_string("pass").expect("Can't create password string");
+            env.new_object("User", "(Ljava/lang/String;Ljava/lang/String;)V", &[JValue::Object(JObject::from(user_string)), JValue::Object(JObject::from(pw_string))])
+                .unwrap()
+        }
+    }
+
+    impl User {
         pub extern "jni" fn initNative() {
             std::env::var("RUST_LOG").unwrap_or_else(|_| {
                 std::env::set_var("RUST_LOG", "info");
@@ -55,11 +67,11 @@ mod jni {
         }
 
         pub extern "jni" fn hashedPassword(self, env: &JNIEnv, seed: i32) -> String {
-            let user_pw: String = self.getPassword().unwrap();
+            let user_pw: String = self.getPassword(env).unwrap();
             user_pw + "_pass"
         }
 
-        pub extern "java" fn getPassword(self) -> ::robusta_jni::jni::errors::Result<String> {}
+        pub extern "java" fn getPassword(&self, env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<String> {}
 
         pub extern "java" fn getTotalUsersCount(env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<i32> {}
     }

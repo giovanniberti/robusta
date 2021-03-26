@@ -46,6 +46,7 @@ pub use unchecked::*;
 
 pub mod safe;
 pub mod unchecked;
+pub mod handle;
 
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JOBject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]

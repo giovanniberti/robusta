@@ -3,17 +3,26 @@ use robusta_jni::bridge;
 #[bridge]
 mod jni {
     use jni::objects::JObject;
+    use robusta_jni::convert::handle::{Handle, HandleDispatcher, Signature};
     use robusta_jni::convert::JNIEnvLink;
     use robusta_jni::jni::JNIEnv;
     use std::marker::PhantomData;
 
     #[package(com.example.robusta)]
-    pub struct HelloWorld<'e, 'a> {
-        env: JNIEnv<'e>,
-        marker: PhantomData<&'a ()>,
+    pub struct HelloWorld {
+        marker: (),
     }
 
-    impl<'e, 'a> ::robusta_jni::convert::IntoJavaValue<'e> for HelloWorld<'e, 'a> {
+    impl Signature for HelloWorld {
+        const SIG_TYPE: &'static str = "Lcom/example/robusta/HelloWorld;"; // TODO: Autogenerate `Signature` impl with #[package]
+    }
+
+    impl<'e> HandleDispatcher<'e> for HelloWorld {
+        type Handle = Handle<'e, HelloWorld>;
+    }
+
+
+    impl<'e> ::robusta_jni::convert::IntoJavaValue<'e> for HelloWorld {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
@@ -22,7 +31,7 @@ mod jni {
         }
     }
 
-    impl<'e, 'a> ::robusta_jni::convert::IntoJavaValue<'e> for &HelloWorld<'e, 'a> {
+    impl<'e> ::robusta_jni::convert::IntoJavaValue<'e> for &HelloWorld {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
@@ -31,13 +40,12 @@ mod jni {
         }
     }
 
-    impl<'e, 'a> ::robusta_jni::convert::FromJavaValue<'e> for HelloWorld<'e, 'a> {
+    impl<'e> ::robusta_jni::convert::FromJavaValue<'e> for HelloWorld {
         type Source = JObject<'e>;
 
         fn from(s: Self::Source, env: &JNIEnv<'e>) -> Self {
             HelloWorld {
-                env: env.clone(),
-                marker: PhantomData,
+                marker: (),
             }
         }
     }
@@ -48,7 +56,7 @@ mod jni {
         }
     }
 
-    impl<'env, 'a> HelloWorld<'env, 'a> {
+    impl HelloWorld {
         #[call_type(safe)]
         pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
             input1.push(input2);
@@ -60,13 +68,14 @@ mod jni {
             if static_call {
                 HelloWorld::staticJavaAdd(_env, 1, 2)
             } else {
-                self.javaAdd(1, 2).unwrap()
+                self.javaAdd(_env, 1, 2).unwrap()
             }
         }
 
 
         pub extern "java" fn javaAdd(
             &self,
+            _env: &JNIEnv,
             i: i32,
             u: i32,
         ) -> ::robusta_jni::jni::errors::Result<i32> {}
