@@ -46,12 +46,6 @@ mod jni {
         }
     }
 
-    impl<'e, 'a> JNIEnvLink<'e> for HelloWorld<'e, 'a> {
-        fn get_env(&self) -> &JNIEnv<'e> {
-            &self.env
-        }
-    }
-
     impl HelloWorld {
         #[call_type(safe)]
         pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
@@ -67,7 +61,6 @@ mod jni {
                 self.javaAdd(_env, 1, 2).unwrap()
             }
         }
-
 
         pub extern "java" fn javaAdd(
             &self,
