@@ -14,7 +14,7 @@ documentation = "https://docs.rs/robusta/"
 
 [dependencies]
 robusta-codegen = { version = "0.0.3", path = "./robusta-codegen" }
-jni = "0.17.0"
+jni = { version = "0.17.0", features = ["invocation"] }
 paste = "1.0.0"
 
 [dev-dependencies]
