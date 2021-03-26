@@ -378,7 +378,7 @@ mod test {
         let output = setup_with_params(quote! { self, _1: #param_type_1, _2: #param_type_2 }, struct_name.clone());
 
         let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
-        let self_conv_type: Type = parse_quote! { <<#struct_name_toks as ::robusta_jni::convert::handle::HandleDispatcher<'env>>::Handle as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+        let self_conv_type: Type = parse_quote! { <#struct_name_toks as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
         let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
         let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
 

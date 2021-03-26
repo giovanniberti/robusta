@@ -46,7 +46,6 @@ pub use unchecked::*;
 
 pub mod safe;
 pub mod unchecked;
-pub mod handle;
 
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JOBject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
@@ -274,4 +273,15 @@ impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
             _ => Err(ErrorKind::WrongJValueType("string", value.0.type_name()).into()),
         }
     }
+}
+
+pub trait Signature {
+    const SIG_TYPE: &'static str;
+}
+
+impl<'e, T> Signature for T
+where
+    T: JavaValue<'e>,
+{
+    const SIG_TYPE: &'static str = T::SIG_TYPE;
 }

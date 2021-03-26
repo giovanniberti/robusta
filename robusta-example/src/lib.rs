@@ -2,11 +2,12 @@ use robusta_jni::bridge;
 
 #[bridge]
 mod jni {
-    use jni::objects::JObject;
-    use robusta_jni::convert::handle::{Handle, HandleDispatcher, Signature};
-    use robusta_jni::convert::JNIEnvLink;
-    use robusta_jni::jni::JNIEnv;
     use std::marker::PhantomData;
+
+    use jni::objects::JObject;
+
+    use robusta_jni::convert::{JNIEnvLink, Signature};
+    use robusta_jni::jni::JNIEnv;
 
     #[package(com.example.robusta)]
     pub struct HelloWorld {
@@ -16,11 +17,6 @@ mod jni {
     impl Signature for HelloWorld {
         const SIG_TYPE: &'static str = "Lcom/example/robusta/HelloWorld;"; // TODO: Autogenerate `Signature` impl with #[package]
     }
-
-    impl<'e> HandleDispatcher<'e> for HelloWorld {
-        type Handle = Handle<'e, HelloWorld>;
-    }
-
 
     impl<'e> ::robusta_jni::convert::IntoJavaValue<'e> for HelloWorld {
         type Target = JObject<'e>;

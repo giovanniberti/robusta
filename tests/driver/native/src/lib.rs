@@ -4,33 +4,30 @@ use robusta_jni::bridge;
 pub mod jni {
     use std::convert::TryInto;
 
-    use robusta_jni::convert::{IntoJavaValue, JavaValue, JNIEnvLink, JValueWrapper, TryFromJavaValue};
-    use robusta_jni::convert::handle::{Handle, HandleDispatcher, Signature};
+    use robusta_jni::convert::{IntoJavaValue, JavaValue, JNIEnvLink, JValueWrapper, Signature, TryFromJavaValue};
     use robusta_jni::jni;
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::jni::objects::{JString, JValue};
     use robusta_jni::jni::objects::JObject;
 
     #[package()]
-    pub struct User;
+    pub struct User<'e> {
+        raw: JObject<'e>
+    }
 
-    impl<'e> Signature for User {
+    impl<'e> Signature for User<'e> {
         const SIG_TYPE: &'static str = "LUser;";
     }
 
-    impl<'e> HandleDispatcher<'e> for User {
-        type Handle = Handle<'e, User>;
-    }
-
-    impl<'e> TryFromJavaValue<'e> for User {
+    impl<'e> TryFromJavaValue<'e> for User<'e> {
         type Source = JObject<'e>;
 
         fn try_from(_s: Self::Source, _env: &JNIEnv<'e>) -> jni::errors::Result<Self> {
-            Ok(User)
+            Ok(User { raw: _s })
         }
     }
 
-    impl<'e> IntoJavaValue<'e> for User {
+    impl<'e> IntoJavaValue<'e> for User<'e> {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
@@ -38,20 +35,15 @@ pub mod jni {
         }
     }
 
-    impl<'e> IntoJavaValue<'e> for &User {
+    impl<'e> IntoJavaValue<'e> for &User<'e> {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
-            // TODO: Document that inside `IntoJavaValue` you cannot call Java methods (otherwise infinite recursion happens)
-            let user_string = env.new_string("user").expect("Can't create username string");
-            // should be env.new_string(self.getPassword())
-            let pw_string = env.new_string("pass").expect("Can't create password string");
-            env.new_object("User", "(Ljava/lang/String;Ljava/lang/String;)V", &[JValue::Object(JObject::from(user_string)), JValue::Object(JObject::from(pw_string))])
-                .unwrap()
+            self.raw
         }
     }
 
-    impl User {
+    impl<'env> User<'env> {
         pub extern "jni" fn initNative() {
             std::env::var("RUST_LOG").unwrap_or_else(|_| {
                 std::env::set_var("RUST_LOG", "info");

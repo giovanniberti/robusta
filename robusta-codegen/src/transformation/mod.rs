@@ -381,7 +381,7 @@ impl Fold for FreestandingTransformer {
                         subpat: None,
                     })),
                     colon_token: Token![:](receiver_span),
-                    ty: Box::new(parse_quote! { <#self_type as ::robusta_jni::convert::handle::HandleDispatcher<'env>>::Handle }),
+                    ty: Box::new(parse_quote! { #self_type }),
                 })
             }
 
@@ -402,7 +402,7 @@ impl Fold for FreestandingTransformer {
                             subpat: ident.subpat.clone(),
                         })),
                         colon_token: t.colon_token,
-                        ty: Box::new(parse_quote! { <#self_type as ::robusta_jni::convert::handle::HandleDispatcher<'env>>::Handle }),
+                        ty: Box::new(parse_quote! { #self_type }),
                     })
                 }
                 _ => FnArg::Typed(t),
