@@ -22,12 +22,12 @@ use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
 use jni::JNIEnv;
 
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
-use crate::convert::JavaValue;
+use crate::convert::{JavaValue, Signature};
 
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
-pub trait TryIntoJavaValue<'env> {
+pub trait TryIntoJavaValue<'env>: Signature {
     type Target: JavaValue<'env>;
-    const SIG_TYPE: &'static str = <Self::Target as JavaValue>::SIG_TYPE;
+    const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target>;
 }
@@ -35,16 +35,16 @@ pub trait TryIntoJavaValue<'env> {
 /// Conversion trait from Java values to Rust values, analogous to [TryFrom](std::convert::TryInto). Used when converting types that are input to JNI-available functions.
 pub trait TryFromJavaValue<'env: 'borrow, 'borrow>
 where
-    Self: Sized, {
+    Self: Sized + Signature, {
     type Source: JavaValue<'env>;
-    const SIG_TYPE: &'static str = <Self::Source as JavaValue>::SIG_TYPE;
+    const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self>;
 }
 
 impl<'env, T> TryIntoJavaValue<'env> for T
 where
-    T: JavaValue<'env>,
+    T: JavaValue<'env> + Signature,
 {
     type Target = T;
 
@@ -55,7 +55,7 @@ where
 
 impl<'env: 'borrow, 'borrow, T> TryFromJavaValue<'env, 'borrow> for T
 where
-    T: JavaValue<'env>,
+    T: JavaValue<'env> + Signature,
 {
     type Source = T;
 
@@ -112,6 +112,10 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for char {
         // TODO: Check validity of implementation unsafe block
         Ok(FromJavaValue::from(s, _env))
     }
+}
+
+impl Signature for Box<[bool]> {
+    const SIG_TYPE: &'static str = "[Z";
 }
 
 impl<'env> TryIntoJavaValue<'env> for Box<[bool]> {

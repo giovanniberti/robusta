@@ -50,8 +50,6 @@ pub mod unchecked;
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JOBject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
 pub trait JavaValue<'env> {
-    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
-
     fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env>;
 
     fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self;
@@ -64,9 +62,11 @@ pub trait JNIEnvLink<'env> {
 
 macro_rules! jvalue_types {
     ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident]) => {
-        impl<'env> JavaValue<'env> for $type {
+        impl Signature for $type {
             const SIG_TYPE: &'static str = stringify!($sig);
+        }
 
+        impl<'env> JavaValue<'env> for $type {
             fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
                 env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
                     (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
@@ -100,6 +100,10 @@ jvalue_types! {
     jshort: Short (S) [shortValue]
 }
 
+impl Signature for () {
+    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
+}
+
 impl<'env> JavaValue<'env> for () {
     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
         panic!("called `JavaValue::autobox` on unit value")
@@ -128,9 +132,11 @@ impl<'env> JavaValue<'env> for jobject {
     }
 }
 
-impl<'env> JavaValue<'env> for JString<'env> {
+impl<'env> Signature for JString<'env> {
     const SIG_TYPE: &'static str = "Ljava/lang/String;";
+}
 
+impl<'env> JavaValue<'env> for JString<'env> {
     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
         Into::into(self)
     }
@@ -277,11 +283,4 @@ impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
 
 pub trait Signature {
     const SIG_TYPE: &'static str;
-}
-
-impl<'e, T> Signature for T
-where
-    T: JavaValue<'e>,
-{
-    const SIG_TYPE: &'static str = T::SIG_TYPE;
 }

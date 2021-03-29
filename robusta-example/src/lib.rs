@@ -27,6 +27,10 @@ mod jni {
         }
     }
 
+    impl Signature for &HelloWorld {
+        const SIG_TYPE: &'static str = <HelloWorld as Signature>::SIG_TYPE;
+    }
+
     impl<'e> IntoJavaValue<'e> for &HelloWorld {
         type Target = JObject<'e>;
 

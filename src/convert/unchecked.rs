@@ -15,27 +15,27 @@ use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
 use jni::JNIEnv;
 
-use crate::convert::JavaValue;
+use crate::convert::{JavaValue, Signature};
 
 /// Conversion trait from Rust values to Java values, analogous to [Into]. Used when converting types returned from JNI-available functions.
-pub trait IntoJavaValue<'env> {
+pub trait IntoJavaValue<'env>: Signature {
     type Target: JavaValue<'env>;
-    const SIG_TYPE: &'static str = <Self::Target as JavaValue>::SIG_TYPE;
+    const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target;
 }
 
 /// Conversion trait from Java values to Rust values, analogous to [From]. Used when converting types that are input to JNI-available functions.
-pub trait FromJavaValue<'env: 'borrow, 'borrow> {
+pub trait FromJavaValue<'env: 'borrow, 'borrow>: Signature {
     type Source: JavaValue<'env>;
-    const SIG_TYPE: &'static str = <Self::Source as JavaValue>::SIG_TYPE;
+    const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self;
 }
 
 impl<'env, T> IntoJavaValue<'env> for T
 where
-    T: JavaValue<'env>,
+    T: JavaValue<'env> + Signature,
 {
     type Target = T;
 
@@ -46,13 +46,17 @@ where
 
 impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for T
 where
-    T: JavaValue<'env>,
+    T: JavaValue<'env> + Signature,
 {
     type Source = T;
 
     fn from(t: Self::Source, _: &'borrow JNIEnv<'env>) -> Self {
         t
     }
+}
+
+impl Signature for String {
+    const SIG_TYPE: &'static str = "Ljava/lang/String;";
 }
 
 impl<'env> IntoJavaValue<'env> for String {
@@ -83,12 +87,20 @@ impl<'env> IntoJavaValue<'env> for bool {
     }
 }
 
+impl Signature for bool {
+    const SIG_TYPE: &'static str = <jboolean as Signature>::SIG_TYPE;
+}
+
 impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for bool {
     type Source = jboolean;
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
         s == 0
     }
+}
+
+impl Signature for char {
+    const SIG_TYPE: &'static str = <jchar as Signature>::SIG_TYPE;
 }
 
 impl<'env> IntoJavaValue<'env> for char {
@@ -130,6 +142,10 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[bool]> {
 
         buf.iter().map(|&b| FromJavaValue::from(b, &env)).collect()
     }
+}
+
+impl<T> Signature for Vec<T> {
+    const SIG_TYPE: &'static str = "Ljava/util/ArrayList;";
 }
 
 impl<'env, T> IntoJavaValue<'env> for Vec<T>

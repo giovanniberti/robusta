@@ -35,6 +35,10 @@ pub mod jni {
         }
     }
 
+    impl<'e: 'b, 'b> Signature for &User<'e, 'b> {
+        const SIG_TYPE: &'static str = <User as Signature>::SIG_TYPE;
+    }
+
     impl<'e: 'b, 'b> IntoJavaValue<'e> for &User<'e, 'b> {
         type Target = JObject<'e>;
 
