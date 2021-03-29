@@ -1,29 +1,25 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
+use std::iter::FromIterator;
 use std::str::FromStr;
 
 use darling::FromMeta;
+use darling::util::Flag;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::{emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
+use syn::{Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, parse_quote, Pat, Path, PathArguments, PathSegment, PatIdent, PatType, ReturnType, Signature, Type, TypePath, TypeReference, Visibility};
+use syn::{Error, ImplItem, Meta, Token, TypeTuple};
 use syn::fold::Fold;
-use syn::parse::{Parse, ParseStream, Parser};
+use syn::parse::{Parse, Parser, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
-use syn::{
-    parse_quote, Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, ImplItemMethod,
-    Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, Pat, PatIdent, PatType, Path,
-    PathArguments, ReturnType, Signature, Type, TypePath, TypeReference, Visibility,
-};
-use syn::{Error, ImplItem, Meta, Token, TypeTuple};
 
 use imported::ImportedMethodTransformer;
 
 use crate::transformation::exported::ExportedMethodTransformer;
 use crate::utils::{canonicalize_path, get_abi, get_env_arg, is_self_method, unique_ident};
 use crate::validation::JNIBridgeModule;
-use darling::util::Flag;
-use std::iter::FromIterator;
 
 #[macro_use]
 mod utils;
@@ -69,9 +65,34 @@ impl ModTransformer {
                 return node.to_token_stream();
             }
 
+            let path_lifetimes: BTreeSet<String> = p.path.segments.iter().filter_map(|s: &PathSegment| {
+                if let PathArguments::AngleBracketed(a) = &s.arguments {
+                    Some(a.args.iter().filter_map(|g| {
+                        match g {
+                            GenericArgument::Lifetime(l) => Some(l.ident.to_string()),
+                            _ => None
+                        }
+                    }))
+                } else {
+                    None
+                }
+            }).flatten().collect();
+
+            let struct_lifetimes: Vec<_> = node.generics.params.iter().filter_map(|p| {
+                match p {
+                    GenericParam::Lifetime(l) if path_lifetimes.contains(&l.lifetime.ident.to_string()) => {
+                        Some(l.clone())
+                    }
+                    _ => None
+                }
+            })
+                .collect();
+
+
             let mut exported_fns_transformer = ExportedMethodTransformer {
                 struct_type: p.path.clone(),
                 struct_name: struct_name.clone(),
+                struct_lifetimes,
                 package: struct_package.clone(),
             };
             let mut imported_fns_transformer = ImportedMethodTransformer {
@@ -341,7 +362,7 @@ impl Fold for FreestandingTransformer {
                                 GenericArgument::Lifetime(l) => Some(l),
                                 _ => None,
                             })
-                            .all(|l| l.ident.to_string() != "env")
+                            .all(|l| l.ident != "env")
                     } else {
                         false
                     }
@@ -414,65 +435,92 @@ impl Fold for FreestandingTransformer {
 struct JNISignatureTransformer {
     struct_type: Path,
     struct_name: String,
+    struct_lifetimes: Vec<LifetimeDef>,
     fn_name: String,
     call_type: CallType,
 }
 
 impl JNISignatureTransformer {
-    fn new(struct_type: Path, struct_name: String, fn_name: String, call_type: CallType) -> Self {
+    fn new(struct_type: Path, struct_name: String, struct_lifetimes: Vec<LifetimeDef>, fn_name: String, call_type: CallType) -> Self {
         JNISignatureTransformer {
             struct_type,
             struct_name,
+            struct_lifetimes,
             fn_name,
             call_type,
         }
     }
 
-    fn transform_generics(&mut self, mut generics: Generics, self_method: bool) -> Generics {
-        if self_method {
-            let struct_lifetimes: Vec<&Lifetime> = self
-                .struct_type
-                .segments
-                .iter()
-                .filter_map(|s| match &s.arguments {
-                    PathArguments::AngleBracketed(a) => {
-                        let segment_lifetimes: Vec<_> = a
-                            .args
-                            .iter()
-                            .filter_map(|a| match a {
-                                GenericArgument::Lifetime(l) if l.ident.to_string() != "env" => {
-                                    Some(l)
-                                }
-                                _ => None,
-                            })
-                            .collect();
+    fn transform_generics(&mut self, mut generics: Generics) -> Generics {
+        let generics_span = generics.span();
+        generics.params.extend(self.struct_lifetimes.iter().cloned().map(GenericParam::Lifetime));
 
-                        Some(segment_lifetimes)
+        let (env_lifetime, borrow_lifetime) = generics.params.iter_mut().fold((None, None), |acc, l| {
+            match l {
+                GenericParam::Lifetime(l) => {
+                    if l.lifetime.ident == "env" {
+                        if l.bounds.iter().any(|b| b.ident != "borrow") {
+                            emit_warning!(l, "using JNI-reserved `'env` lifetime with non `'borrow` bounds";
+                                note = "If you need to access to the lifetime of the `JNIEnv`, please use `'borrow` instead")
+                        }
+
+                        (Some(l), acc.1)
+                    } else if l.lifetime.ident == "borrow" {
+                        (acc.0, Some(l))
+                    } else {
+                        acc
                     }
-                    _ => None,
-                })
-                .flatten()
-                .collect();
+                },
+                _ => acc
+            }
+        });
 
-            struct_lifetimes.into_iter().for_each(|l| {
+        match (env_lifetime, borrow_lifetime) {
+            (Some(_), Some(_)) => {},
+            (Some(e), None) => {
+                let borrow_lifetime_value = Lifetime {
+                    apostrophe: generics_span,
+                    ident: Ident::new("borrow", generics_span)
+                };
+
+                e.bounds.push(borrow_lifetime_value.clone());
+
                 generics.params.push(GenericParam::Lifetime(LifetimeDef {
                     attrs: vec![],
-                    lifetime: l.clone(),
+                    lifetime: borrow_lifetime_value,
                     colon_token: None,
-                    bounds: Default::default(),
+                    bounds: Default::default()
                 }))
-            });
-        }
-
-        generics.params.push(GenericParam::Lifetime(LifetimeDef {
-            attrs: vec![],
-            lifetime: Lifetime {
-                apostrophe: generics.span(),
-                ident: Ident::new("env", generics.span()),
             },
-            colon_token: None,
-            bounds: Default::default(),
-        }));
+            (None, Some(l)) => {
+                emit_error!(l, "Can't use JNI-reserved `'borrow` lifetime without accompanying `'env: 'borrow` lifetime";
+                    help = "Add `'env: 'borrow` lifetime here")
+            }
+            (None, None) => {
+                let borrow_lifetime_value = Lifetime {
+                    apostrophe: generics_span,
+                    ident: Ident::new("borrow", generics_span)
+                };
+
+                generics.params.push(GenericParam::Lifetime(LifetimeDef {
+                    attrs: vec![],
+                    lifetime: Lifetime { apostrophe: generics_span, ident: Ident::new("env", generics_span) },
+                    colon_token: None,
+                    bounds: {
+                        let mut p = Punctuated::new();
+                        p.push(borrow_lifetime_value.clone());
+                        p
+                    }
+                }));
+
+                generics.params.push(GenericParam::Lifetime(LifetimeDef {
+                    attrs: vec![],
+                    lifetime: borrow_lifetime_value,
+                    colon_token: None,
+                    bounds: Default::default()
+                }))
+            }
+        }
 
         generics
     }
@@ -493,8 +541,8 @@ impl Fold for JNISignatureTransformer {
                 let original_input_type = t.ty;
 
                 let jni_conversion_type: Type = match self.call_type {
-                    CallType::Safe(_) => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source },
-                    CallType::Unchecked { .. } => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env>>::Source },
+                    CallType::Safe(_) => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source },
+                    CallType::Unchecked { .. } => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env, 'borrow>>::Source },
                 };
 
                 FnArg::Typed(PatType {
@@ -544,12 +592,10 @@ impl Fold for JNISignatureTransformer {
     }
 
     fn fold_signature(&mut self, node: Signature) -> Signature {
-        let self_method = is_self_method(&node);
-
         Signature {
             abi: node.abi.map(|a| self.fold_abi(a)),
             ident: self.fold_ident(node.ident),
-            generics: self.transform_generics(node.generics, self_method),
+            generics: self.transform_generics(node.generics),
             inputs: node
                 .inputs
                 .into_iter()
@@ -575,11 +621,13 @@ impl JNISignature {
         signature: Signature,
         struct_type: Path,
         struct_name: String,
+        struct_lifetimes: Vec<LifetimeDef>,
         call_type: CallType,
     ) -> JNISignature {
         let mut jni_signature_transformer = JNISignatureTransformer::new(
             struct_type.clone(),
             struct_name.clone(),
+            struct_lifetimes,
             signature.ident.to_string(),
             call_type.clone(),
         );

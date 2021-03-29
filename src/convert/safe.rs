@@ -33,13 +33,13 @@ pub trait TryIntoJavaValue<'env> {
 }
 
 /// Conversion trait from Java values to Rust values, analogous to [TryFrom](std::convert::TryInto). Used when converting types that are input to JNI-available functions.
-pub trait TryFromJavaValue<'env>
+pub trait TryFromJavaValue<'env: 'borrow, 'borrow>
 where
     Self: Sized, {
     type Source: JavaValue<'env>;
     const SIG_TYPE: &'static str = <Self::Source as JavaValue>::SIG_TYPE;
 
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self>;
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self>;
 }
 
 impl<'env, T> TryIntoJavaValue<'env> for T
@@ -53,13 +53,13 @@ where
     }
 }
 
-impl<'env, T> TryFromJavaValue<'env> for T
+impl<'env: 'borrow, 'borrow, T> TryFromJavaValue<'env, 'borrow> for T
 where
     T: JavaValue<'env>,
 {
     type Source = T;
 
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self> {
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
         Ok(FromJavaValue::from(s, env))
     }
 }
@@ -73,10 +73,10 @@ impl<'env> TryIntoJavaValue<'env> for String {
     }
 }
 
-impl<'env> TryFromJavaValue<'env> for String {
+impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for String {
     type Source = JString<'env>;
 
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self> {
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
         env.get_string(s).map(Into::into)
     }
 }
@@ -89,7 +89,7 @@ impl<'env> TryIntoJavaValue<'env> for bool {
     }
 }
 
-impl<'env> TryFromJavaValue<'env> for bool {
+impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for bool {
     type Source = jboolean;
 
     fn try_from(s: Self::Source, _env: &JNIEnv<'env>) -> Result<Self> {
@@ -105,7 +105,7 @@ impl<'env> TryIntoJavaValue<'env> for char {
     }
 }
 
-impl<'env> TryFromJavaValue<'env> for char {
+impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for char {
     type Source = jchar;
 
     fn try_from(s: Self::Source, _env: &JNIEnv<'env>) -> Result<Self> {
@@ -126,10 +126,10 @@ impl<'env> TryIntoJavaValue<'env> for Box<[bool]> {
     }
 }
 
-impl<'env> TryFromJavaValue<'env> for Box<[bool]> {
+impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[bool]> {
     type Source = jbooleanArray;
 
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self> {
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
         let len = env.get_array_length(s)?;
         let mut buf = Vec::with_capacity(len as usize).into_boxed_slice();
         env.get_boolean_array_region(s, 0, &mut *buf)?;
@@ -169,14 +169,14 @@ where
     }
 }
 
-impl<'env, T, U> TryFromJavaValue<'env> for Vec<T>
+impl<'env: 'borrow, 'borrow, T, U> TryFromJavaValue<'env, 'borrow> for Vec<T>
 where
-    T: TryFromJavaValue<'env, Source = U>,
+    T: TryFromJavaValue<'env, 'borrow, Source = U>,
     U: JavaValue<'env>,
 {
     type Source = JObject<'env>;
 
-    fn try_from(s: Self::Source, env: &JNIEnv<'env>) -> Result<Self> {
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
         let list = JList::from_env(env, s)?;
 
         list.iter()?

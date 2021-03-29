@@ -82,6 +82,7 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
                 false
             }
         } else if let Type::Path(t) = &**ty {
+            /* If the user has input `env: JNIEnv` instead of `env: &JNIEnv`, we let her know. */
             let full_path: Path = parse_quote! { ::robusta_jni::jni::JNIEnv };
             let imported_path: Path = parse_quote! { JNIEnv };
             let canonicalized_type_path = canonicalize_path(&t.path);

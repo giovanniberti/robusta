@@ -6,7 +6,7 @@ mod jni {
 
     use jni::objects::JObject;
 
-    use robusta_jni::convert::{JNIEnvLink, Signature};
+    use robusta_jni::convert::{JNIEnvLink, Signature, IntoJavaValue, FromJavaValue};
     use robusta_jni::jni::JNIEnv;
 
     #[package(com.example.robusta)]
@@ -18,7 +18,7 @@ mod jni {
         const SIG_TYPE: &'static str = "Lcom/example/robusta/HelloWorld;"; // TODO: Autogenerate `Signature` impl with #[package]
     }
 
-    impl<'e> ::robusta_jni::convert::IntoJavaValue<'e> for HelloWorld {
+    impl<'e> IntoJavaValue<'e> for HelloWorld {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
@@ -27,7 +27,7 @@ mod jni {
         }
     }
 
-    impl<'e> ::robusta_jni::convert::IntoJavaValue<'e> for &HelloWorld {
+    impl<'e> IntoJavaValue<'e> for &HelloWorld {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
@@ -36,10 +36,10 @@ mod jni {
         }
     }
 
-    impl<'e> ::robusta_jni::convert::FromJavaValue<'e> for HelloWorld {
+    impl<'e: 'b, 'b> FromJavaValue<'e, 'b> for HelloWorld {
         type Source = JObject<'e>;
 
-        fn from(s: Self::Source, env: &JNIEnv<'e>) -> Self {
+        fn from(s: Self::Source, env: &'b JNIEnv<'e>) -> Self {
             HelloWorld {
                 marker: (),
             }

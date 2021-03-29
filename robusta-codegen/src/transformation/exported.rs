@@ -4,7 +4,7 @@ use proc_macro_error::emit_error;
 use quote::ToTokens;
 use std::collections::HashSet;
 use syn::fold::Fold;
-use syn::parse_quote;
+use syn::{parse_quote, LifetimeDef};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Extern;
@@ -19,6 +19,7 @@ use crate::utils::{get_abi, is_self_method};
 pub struct ExportedMethodTransformer {
     pub(crate) struct_type: Path,
     pub(crate) struct_name: String,
+    pub(crate) struct_lifetimes: Vec<LifetimeDef>,
     pub(crate) package: Option<String>,
 }
 
@@ -32,6 +33,7 @@ impl Fold for ExportedMethodTransformer {
                 let mut jni_method_transformer = ExternJNIMethodTransformer::new(
                     self.struct_type.clone(),
                     self.struct_name.clone(),
+                    self.struct_lifetimes.clone(),
                     self.package.clone(),
                     call_type_attribute,
                 );
@@ -45,6 +47,7 @@ impl Fold for ExportedMethodTransformer {
 struct ExternJNIMethodTransformer {
     struct_type: Path,
     struct_name: String,
+    struct_lifetimes: Vec<LifetimeDef>,
     package: Option<String>,
     call_type: CallType,
 }
@@ -53,12 +56,14 @@ impl ExternJNIMethodTransformer {
     fn new(
         struct_type: Path,
         struct_name: String,
+        struct_lifetimes: Vec<LifetimeDef>,
         package: Option<String>,
         call_type: CallType,
     ) -> Self {
         ExternJNIMethodTransformer {
             struct_type,
             struct_name,
+            struct_lifetimes,
             package,
             call_type,
         }
@@ -71,6 +76,7 @@ impl Fold for ExternJNIMethodTransformer {
             node.sig.clone(),
             self.struct_type.clone(),
             self.struct_name.clone(),
+            self.struct_lifetimes.clone(),
             self.call_type.clone(),
         );
 
@@ -116,7 +122,7 @@ impl Fold for ExternJNIMethodTransformer {
                             subpat: None,
                         })),
                         colon_token: Token![:](s.inputs.span()),
-                        ty: Box::new(parse_quote! { &::robusta_jni::jni::JNIEnv<'env> }),
+                        ty: Box::new(parse_quote! { &'borrow ::robusta_jni::jni::JNIEnv<'env> }),
                     }));
 
                     let outer_signature_span = s.span();
@@ -216,6 +222,7 @@ impl Fold for ExternJNIMethodTransformer {
             node.clone(),
             self.struct_type.clone(),
             self.struct_name.clone(),
+            self.struct_lifetimes.clone(),
             self.call_type.clone(),
         );
 
@@ -281,6 +288,7 @@ mod test {
         let mut transformer = ExternJNIMethodTransformer {
             struct_type: parse_quote! { #struct_name_token_stream },
             struct_name,
+            struct_lifetimes: vec![],
             package,
             call_type: CallType::Safe(None)
         };
@@ -329,6 +337,7 @@ mod test {
         let mut transformer = ExternJNIMethodTransformer {
             struct_type: parse_quote! { #struct_name_token_stream },
             struct_name,
+            struct_lifetimes: vec![],
             package,
             call_type: CallType::Safe(None)
         };
@@ -346,8 +355,8 @@ mod test {
 
         let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
         let class_type: Type = parse_quote! { ::robusta_jni::jni::objects::JClass };
-        let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
-        let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+        let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
+        let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
 
 
         let args: &[FnArg] = &output.sig.inputs.into_iter().collect::<Vec<_>>();
@@ -378,9 +387,9 @@ mod test {
         let output = setup_with_params(quote! { self, _1: #param_type_1, _2: #param_type_2 }, struct_name.clone());
 
         let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
-        let self_conv_type: Type = parse_quote! { <#struct_name_toks as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
-        let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
-        let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env>>::Source };
+        let self_conv_type: Type = parse_quote! { <#struct_name_toks as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
+        let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
+        let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
 
         let args: &[FnArg] = &output.sig.inputs.into_iter().collect::<Vec<_>>();
         match args {

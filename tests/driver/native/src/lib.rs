@@ -7,27 +7,27 @@ pub mod jni {
     use robusta_jni::convert::{IntoJavaValue, JavaValue, JNIEnvLink, JValueWrapper, Signature, TryFromJavaValue};
     use robusta_jni::jni;
     use robusta_jni::jni::JNIEnv;
-    use robusta_jni::jni::objects::{JString, JValue};
+    use robusta_jni::jni::objects::{JString, JValue, AutoLocal};
     use robusta_jni::jni::objects::JObject;
 
     #[package()]
-    pub struct User<'e> {
-        raw: JObject<'e>
+    pub struct User<'env: 'borrow, 'borrow> {
+        raw: AutoLocal<'env, 'borrow>
     }
 
-    impl<'e> Signature for User<'e> {
+    impl<'e: 'b, 'b> Signature for User<'e, 'b> {
         const SIG_TYPE: &'static str = "LUser;";
     }
 
-    impl<'e> TryFromJavaValue<'e> for User<'e> {
+    impl<'e: 'b, 'b> TryFromJavaValue<'e, 'b> for User<'e, 'b> {
         type Source = JObject<'e>;
 
-        fn try_from(_s: Self::Source, _env: &JNIEnv<'e>) -> jni::errors::Result<Self> {
-            Ok(User { raw: _s })
+        fn try_from(_s: Self::Source, _env: &'b JNIEnv<'e>) -> jni::errors::Result<Self> {
+            Ok(User { raw: AutoLocal::new(_env,_s) })
         }
     }
 
-    impl<'e> IntoJavaValue<'e> for User<'e> {
+    impl<'e: 'b, 'b> IntoJavaValue<'e> for User<'e, 'b> {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
@@ -35,15 +35,15 @@ pub mod jni {
         }
     }
 
-    impl<'e> IntoJavaValue<'e> for &User<'e> {
+    impl<'e: 'b, 'b> IntoJavaValue<'e> for &User<'e, 'b> {
         type Target = JObject<'e>;
 
         fn into(self, env: &JNIEnv<'e>) -> Self::Target {
-            self.raw
+            self.raw.as_obj()
         }
     }
 
-    impl<'env> User<'env> {
+    impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {
         pub extern "jni" fn initNative() {
             std::env::var("RUST_LOG").unwrap_or_else(|_| {
                 std::env::set_var("RUST_LOG", "info");

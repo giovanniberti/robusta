@@ -26,11 +26,11 @@ pub trait IntoJavaValue<'env> {
 }
 
 /// Conversion trait from Java values to Rust values, analogous to [From]. Used when converting types that are input to JNI-available functions.
-pub trait FromJavaValue<'env> {
+pub trait FromJavaValue<'env: 'borrow, 'borrow> {
     type Source: JavaValue<'env>;
     const SIG_TYPE: &'static str = <Self::Source as JavaValue>::SIG_TYPE;
 
-    fn from(s: Self::Source, env: &JNIEnv<'env>) -> Self;
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self;
 }
 
 impl<'env, T> IntoJavaValue<'env> for T
@@ -44,13 +44,13 @@ where
     }
 }
 
-impl<'env, T> FromJavaValue<'env> for T
+impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for T
 where
     T: JavaValue<'env>,
 {
     type Source = T;
 
-    fn from(t: Self::Source, _: &JNIEnv<'env>) -> Self {
+    fn from(t: Self::Source, _: &'borrow JNIEnv<'env>) -> Self {
         t
     }
 }
@@ -63,10 +63,10 @@ impl<'env> IntoJavaValue<'env> for String {
     }
 }
 
-impl<'env> FromJavaValue<'env> for String {
+impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for String {
     type Source = JString<'env>;
 
-    fn from(s: Self::Source, env: &JNIEnv<'env>) -> Self {
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
         env.get_string(s).unwrap().into()
     }
 }
@@ -83,7 +83,7 @@ impl<'env> IntoJavaValue<'env> for bool {
     }
 }
 
-impl<'env> FromJavaValue<'env> for bool {
+impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for bool {
     type Source = jboolean;
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
@@ -99,7 +99,7 @@ impl<'env> IntoJavaValue<'env> for char {
     }
 }
 
-impl<'env> FromJavaValue<'env> for char {
+impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for char {
     type Source = jchar;
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
@@ -120,10 +120,10 @@ impl<'env> IntoJavaValue<'env> for Box<[bool]> {
     }
 }
 
-impl<'env> FromJavaValue<'env> for Box<[bool]> {
+impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[bool]> {
     type Source = jbooleanArray;
 
-    fn from(s: Self::Source, env: &JNIEnv<'env>) -> Self {
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
         let len = env.get_array_length(s).unwrap();
         let mut buf = Vec::with_capacity(len as usize).into_boxed_slice();
         env.get_boolean_array_region(s, 0, &mut *buf).unwrap();
@@ -158,14 +158,14 @@ where
     }
 }
 
-impl<'env, T, U> FromJavaValue<'env> for Vec<T>
+impl<'env: 'borrow, 'borrow, T, U> FromJavaValue<'env, 'borrow> for Vec<T>
 where
-    T: FromJavaValue<'env, Source = U>,
+    T: FromJavaValue<'env, 'borrow, Source = U>,
     U: JavaValue<'env>,
 {
     type Source = JObject<'env>;
 
-    fn from(s: Self::Source, env: &JNIEnv<'env>) -> Self {
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
         let list = JList::from_env(env, s).unwrap();
 
         list.iter()
