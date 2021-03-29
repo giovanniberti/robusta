@@ -433,20 +433,16 @@ impl Fold for FreestandingTransformer {
 }
 
 struct JNISignatureTransformer {
-    struct_type: Path,
-    struct_name: String,
+    struct_freestanding_transformer: FreestandingTransformer,
     struct_lifetimes: Vec<LifetimeDef>,
-    fn_name: String,
     call_type: CallType,
 }
 
 impl JNISignatureTransformer {
-    fn new(struct_type: Path, struct_name: String, struct_lifetimes: Vec<LifetimeDef>, fn_name: String, call_type: CallType) -> Self {
+    fn new(struct_freestanding_transformer: FreestandingTransformer, struct_lifetimes: Vec<LifetimeDef>, call_type: CallType) -> Self {
         JNISignatureTransformer {
-            struct_type,
-            struct_name,
+            struct_freestanding_transformer,
             struct_lifetimes,
-            fn_name,
             call_type,
         }
     }
@@ -528,14 +524,8 @@ impl JNISignatureTransformer {
 
 impl Fold for JNISignatureTransformer {
     fn fold_fn_arg(&mut self, arg: FnArg) -> FnArg {
-        let mut freestanding_transformer = FreestandingTransformer::new(
-            self.struct_type.clone(),
-            self.struct_name.clone(),
-            self.fn_name.clone(),
-        );
-
         let arg_span = arg.span();
-        match freestanding_transformer.fold_fn_arg(arg) {
+        match self.struct_freestanding_transformer.fold_fn_arg(arg) {
             FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
             FnArg::Typed(t) => {
                 let original_input_type = t.ty;
@@ -624,11 +614,10 @@ impl JNISignature {
         struct_lifetimes: Vec<LifetimeDef>,
         call_type: CallType,
     ) -> JNISignature {
+        let freestanding_transformer = FreestandingTransformer::new(struct_type.clone(), struct_name.clone(), signature.ident.to_string());
         let mut jni_signature_transformer = JNISignatureTransformer::new(
-            struct_type.clone(),
-            struct_name.clone(),
+            freestanding_transformer,
             struct_lifetimes,
-            signature.ident.to_string(),
             call_type.clone(),
         );
 
