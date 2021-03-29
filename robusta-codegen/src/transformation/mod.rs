@@ -7,7 +7,7 @@ use darling::util::Flag;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::{emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
-use syn::{Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, parse_quote, Pat, Path, PathArguments, PathSegment, PatIdent, PatType, ReturnType, Signature, Type, TypePath, TypeReference, Visibility};
+use syn::{Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, parse_quote, Pat, Path, PathArguments, PatIdent, PatType, ReturnType, Signature, Type, TypePath, TypeReference, Visibility, PathSegment};
 use syn::{Error, ImplItem, Meta, Token, TypeTuple};
 use syn::fold::Fold;
 use syn::parse::{Parse, Parser, ParseStream};

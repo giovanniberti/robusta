@@ -1,18 +1,20 @@
-use crate::transformation::{JNISignature, CallType, SafeParams};
+use std::collections::HashSet;
+
 use proc_macro2::Ident;
 use proc_macro_error::emit_error;
 use quote::ToTokens;
-use std::collections::HashSet;
-use syn::fold::Fold;
-use syn::{parse_quote, LifetimeDef};
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
-use syn::token::Extern;
-use syn::Token;
+use syn::{LifetimeDef, parse_quote};
 use syn::{
     Abi, Block, Expr, FnArg, ImplItemMethod, LitStr, Pat,
-    PatIdent, PatType, Path, ReturnType, Signature, Type, VisPublic, Visibility,
+    Path, PatIdent, PatType, ReturnType, Signature, Type, Visibility, VisPublic,
 };
+use syn::fold::Fold;
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
+use syn::Token;
+use syn::token::Extern;
+
+use crate::transformation::{CallType, JNISignature, SafeParams};
 use crate::transformation::utils::get_call_type;
 use crate::utils::{get_abi, is_self_method};
 
@@ -276,9 +278,11 @@ impl Fold for ExternJNIMethodTransformer {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use proc_macro2::TokenStream;
     use std::str::FromStr;
+
+    use proc_macro2::TokenStream;
+
+    use super::*;
 
     fn setup_package(package: Option<String>, struct_name: String, method_name: String) -> ImplItemMethod {
         let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
