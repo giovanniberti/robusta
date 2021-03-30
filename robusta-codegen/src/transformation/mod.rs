@@ -1,14 +1,13 @@
 use std::collections::{BTreeSet, HashSet};
-use std::iter::FromIterator;
 use std::str::FromStr;
 
 use darling::FromMeta;
 use darling::util::Flag;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::{emit_error, emit_warning};
-use quote::{quote_spanned, ToTokens};
-use syn::{Attribute, Expr, FnArg, GenericArgument, GenericParam, Generics, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lifetime, LifetimeDef, Lit, parse_quote, Pat, Path, PathArguments, PatIdent, PatType, ReturnType, Signature, Type, TypePath, TypeReference, Visibility, PathSegment};
-use syn::{Error, ImplItem, Meta, Token, TypeTuple};
+use quote::ToTokens;
+use syn::{Attribute, FnArg, GenericArgument, GenericParam, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lit, parse_quote, Pat, Path, PathArguments, PatIdent, PatType, Type, TypePath, TypeReference, Visibility, PathSegment};
+use syn::{Error, ImplItem, Meta, Token};
 use syn::fold::Fold;
 use syn::parse::{Parse, Parser, ParseStream};
 use syn::punctuated::Punctuated;
@@ -18,7 +17,7 @@ use syn::visit::Visit;
 use imported::ImportedMethodTransformer;
 
 use crate::transformation::exported::ExportedMethodTransformer;
-use crate::utils::{canonicalize_path, get_abi, get_env_arg, is_self_method, unique_ident};
+use crate::utils::{canonicalize_path, get_abi, unique_ident};
 use crate::validation::JNIBridgeModule;
 
 #[macro_use]
@@ -429,260 +428,6 @@ impl Fold for FreestandingTransformer {
                 _ => FnArg::Typed(t),
             },
         }
-    }
-}
-
-struct JNISignatureTransformer {
-    struct_freestanding_transformer: FreestandingTransformer,
-    struct_lifetimes: Vec<LifetimeDef>,
-    call_type: CallType,
-}
-
-impl JNISignatureTransformer {
-    fn new(struct_freestanding_transformer: FreestandingTransformer, struct_lifetimes: Vec<LifetimeDef>, call_type: CallType) -> Self {
-        JNISignatureTransformer {
-            struct_freestanding_transformer,
-            struct_lifetimes,
-            call_type,
-        }
-    }
-
-    fn transform_generics(&mut self, mut generics: Generics) -> Generics {
-        let generics_span = generics.span();
-        generics.params.extend(self.struct_lifetimes.iter().cloned().map(GenericParam::Lifetime));
-
-        let (env_lifetime, borrow_lifetime) = generics.params.iter_mut().fold((None, None), |acc, l| {
-            match l {
-                GenericParam::Lifetime(l) => {
-                    if l.lifetime.ident == "env" {
-                        if l.bounds.iter().any(|b| b.ident != "borrow") {
-                            emit_warning!(l, "using JNI-reserved `'env` lifetime with non `'borrow` bounds";
-                                note = "If you need to access to the lifetime of the `JNIEnv`, please use `'borrow` instead")
-                        }
-
-                        (Some(l), acc.1)
-                    } else if l.lifetime.ident == "borrow" {
-                        (acc.0, Some(l))
-                    } else {
-                        acc
-                    }
-                },
-                _ => acc
-            }
-        });
-
-        match (env_lifetime, borrow_lifetime) {
-            (Some(_), Some(_)) => {},
-            (Some(e), None) => {
-                let borrow_lifetime_value = Lifetime {
-                    apostrophe: generics_span,
-                    ident: Ident::new("borrow", generics_span)
-                };
-
-                e.bounds.push(borrow_lifetime_value.clone());
-
-                generics.params.push(GenericParam::Lifetime(LifetimeDef {
-                    attrs: vec![],
-                    lifetime: borrow_lifetime_value,
-                    colon_token: None,
-                    bounds: Default::default()
-                }))
-            },
-            (None, Some(l)) => {
-                emit_error!(l, "Can't use JNI-reserved `'borrow` lifetime without accompanying `'env: 'borrow` lifetime";
-                    help = "Add `'env: 'borrow` lifetime here")
-            }
-            (None, None) => {
-                let borrow_lifetime_value = Lifetime {
-                    apostrophe: generics_span,
-                    ident: Ident::new("borrow", generics_span)
-                };
-
-                generics.params.push(GenericParam::Lifetime(LifetimeDef {
-                    attrs: vec![],
-                    lifetime: Lifetime { apostrophe: generics_span, ident: Ident::new("env", generics_span) },
-                    colon_token: None,
-                    bounds: {
-                        let mut p = Punctuated::new();
-                        p.push(borrow_lifetime_value.clone());
-                        p
-                    }
-                }));
-
-                generics.params.push(GenericParam::Lifetime(LifetimeDef {
-                    attrs: vec![],
-                    lifetime: borrow_lifetime_value,
-                    colon_token: None,
-                    bounds: Default::default()
-                }))
-            }
-        }
-
-        generics
-    }
-}
-
-impl Fold for JNISignatureTransformer {
-    fn fold_fn_arg(&mut self, arg: FnArg) -> FnArg {
-        let arg_span = arg.span();
-        match self.struct_freestanding_transformer.fold_fn_arg(arg) {
-            FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
-            FnArg::Typed(t) => {
-                let original_input_type = t.ty;
-
-                let jni_conversion_type: Type = match self.call_type {
-                    CallType::Safe(_) => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source },
-                    CallType::Unchecked { .. } => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env, 'borrow>>::Source },
-                };
-
-                FnArg::Typed(PatType {
-                    attrs: t.attrs,
-                    pat: t.pat,
-                    colon_token: t.colon_token,
-                    ty: Box::new(jni_conversion_type),
-                })
-            }
-        }
-    }
-
-    fn fold_return_type(&mut self, return_type: ReturnType) -> ReturnType {
-        match return_type {
-            ReturnType::Default => return_type,
-            ReturnType::Type(ref arrow, ref rtype) => match (&**rtype, self.call_type.clone()) {
-                (Type::Path(p), CallType::Unchecked { .. }) => ReturnType::Type(
-                    *arrow,
-                    parse_quote_spanned! { p.span() => <#p as ::robusta_jni::convert::IntoJavaValue<'env>>::Target }
-                ),
-
-                (Type::Path(p), CallType::Safe(_)) => ReturnType::Type(
-                    *arrow,
-                    parse_quote_spanned! { p.span() => <#p as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
-                ),
-
-                (Type::Reference(r), CallType::Unchecked { .. }) => ReturnType::Type(
-                    *arrow,
-                    syn::parse2(quote_spanned! { r.span() => <#r as ::robusta_jni::convert::IntoJavaValue<'env>>::Target })
-                        .unwrap(),
-                ),
-
-                (Type::Reference(r), CallType::Safe(_)) => ReturnType::Type(
-                    *arrow,
-                    syn::parse2(
-                        quote_spanned! { r.span() => <#r as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
-                    )
-                    .unwrap(),
-                ),
-                (Type::Tuple(TypeTuple { elems, .. }), _) if elems.is_empty() => ReturnType::Default,
-                _ => {
-                    emit_error!(return_type, "Only type or type paths are permitted as type ascriptions in function params");
-                    return_type
-                }
-            },
-        }
-    }
-
-    fn fold_signature(&mut self, node: Signature) -> Signature {
-        Signature {
-            abi: node.abi.map(|a| self.fold_abi(a)),
-            ident: self.fold_ident(node.ident),
-            generics: self.transform_generics(node.generics),
-            inputs: node
-                .inputs
-                .into_iter()
-                .map(|f| self.fold_fn_arg(f))
-                .collect(),
-            variadic: node.variadic.map(|v| self.fold_variadic(v)),
-            output: self.fold_return_type(node.output),
-            ..node
-        }
-    }
-}
-
-struct JNISignature {
-    transformed_signature: Signature,
-    call_type: CallType,
-    struct_name: String,
-    self_method: bool,
-    env_arg: Option<FnArg>,
-}
-
-impl JNISignature {
-    fn new(
-        signature: Signature,
-        struct_type: Path,
-        struct_name: String,
-        struct_lifetimes: Vec<LifetimeDef>,
-        call_type: CallType,
-    ) -> JNISignature {
-        let freestanding_transformer = FreestandingTransformer::new(struct_type.clone(), struct_name.clone(), signature.ident.to_string());
-        let mut jni_signature_transformer = JNISignatureTransformer::new(
-            freestanding_transformer,
-            struct_lifetimes,
-            call_type.clone(),
-        );
-
-        let self_method = is_self_method(&signature);
-        let (transformed_signature, env_arg) = get_env_arg(signature.clone());
-
-        let transformed_signature = jni_signature_transformer.fold_signature(transformed_signature);
-
-        JNISignature {
-            transformed_signature,
-            call_type,
-            struct_name,
-            self_method,
-            env_arg,
-        }
-    }
-
-    fn args_iter(&self) -> impl Iterator<Item = &PatType> {
-        self.transformed_signature.inputs.iter()
-            .map(|a| match a {
-                FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver type in freestanding signature!"),
-                FnArg::Typed(p) => p
-            })
-    }
-
-    fn signature_call(&self) -> Expr {
-        let method_call_inputs: Punctuated<Expr, Token![,]> = {
-            let mut result: Vec<_> = self.args_iter()
-                .map(|p| {
-                    let PatType { pat, ty, ..  } = p;
-                    let type_span = ty.span();
-                    match &**pat {
-                        Pat::Ident(PatIdent { ident, .. }) => {
-                            let input_param: Expr = {
-                                match self.call_type {
-                                    CallType::Safe(_) => parse_quote_spanned! { type_span => ::robusta_jni::convert::TryFromJavaValue::try_from(#ident, &env)? },
-                                    CallType::Unchecked { .. } => parse_quote_spanned! { type_span => ::robusta_jni::convert::FromJavaValue::from(#ident, &env) }
-                                }
-                            };
-                            input_param
-                        }
-                        _ => panic!("Bug -- please report to library author. Found non-ident FnArg pattern")
-                    }
-            }).collect();
-
-            if self.env_arg.is_some() {
-                // because `self` is kept in the transformed JNI signature, if this is a `self` method we put `env` *after* self, otherwise the env parameter must be first
-                let idx = if self.self_method { 1 } else { 0 };
-                result.insert(idx, parse_quote!(&env));
-            }
-
-            Punctuated::from_iter(result.into_iter())
-        };
-
-        let signature = self.transformed_signature.span();
-        let struct_name = Ident::new(&self.struct_name, signature);
-        let method_name = self.transformed_signature.ident.clone();
-
-        parse_quote! {
-            #struct_name::#method_name(#method_call_inputs)
-        }
-    }
-
-    fn transformed_signature(&self) -> &Signature {
-        &self.transformed_signature
     }
 }
 
