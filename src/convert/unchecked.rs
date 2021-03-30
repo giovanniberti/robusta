@@ -115,8 +115,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for char {
     type Source = jchar;
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
-        // TODO: Check validity of this unsafe block
-        unsafe { std::mem::transmute(s as u32) }
+        std::char::decode_utf16(std::iter::once(s)).next().unwrap().unwrap()
     }
 }
 

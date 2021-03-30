@@ -16,7 +16,7 @@
 //! Both of these parameters are optional. By default, the exception class is `java.lang.RuntimeException`.
 //!
 
-use jni::errors::Result;
+use jni::errors::{Result, Error};
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
 use jni::JNIEnv;
@@ -109,8 +109,13 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for char {
     type Source = jchar;
 
     fn try_from(s: Self::Source, _env: &JNIEnv<'env>) -> Result<Self> {
-        // TODO: Check validity of implementation unsafe block
-        Ok(FromJavaValue::from(s, _env))
+        let res = std::char::decode_utf16(std::iter::once(s))
+            .next();
+
+        match res {
+            Some(Ok(c)) => Ok(c),
+            Some(Err(_)) | None => Err(Error::from(format!("invalid `jchar` value encountered when casting to `char`: {}", s)))
+        }
     }
 }
 
