@@ -6,7 +6,7 @@ use quote::{quote_spanned, ToTokens};
 use syn::{GenericParam, Generics, LifetimeDef, parse_quote, TypeTuple};
 use syn::{
     Abi, Block, Expr, FnArg, ImplItemMethod, LitStr, Pat,
-    Path, PatIdent, PatType, ReturnType, Signature, Type, Visibility, VisPublic,
+    PatIdent, PatType, ReturnType, Signature, Type, Visibility, VisPublic,
 };
 use syn::fold::Fold;
 use syn::Lifetime;
@@ -18,16 +18,14 @@ use syn::token::Extern;
 use crate::transformation::{CallType, FreestandingTransformer, SafeParams};
 use crate::transformation::utils::get_call_type;
 use crate::utils::{get_abi, get_env_arg, is_self_method};
+use crate::transformation::context::StructContext;
 use std::iter::FromIterator;
 
-pub struct ExportedMethodTransformer {
-    pub(crate) struct_type: Path,
-    pub(crate) struct_name: String,
-    pub(crate) struct_lifetimes: Vec<LifetimeDef>,
-    pub(crate) package: Option<String>,
+pub struct ExportedMethodTransformer<'ctx> {
+    pub(crate) struct_context: &'ctx StructContext
 }
 
-impl Fold for ExportedMethodTransformer {
+impl<'ctx> Fold for ExportedMethodTransformer<'ctx> {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
@@ -35,10 +33,7 @@ impl Fold for ExportedMethodTransformer {
                 let call_type_attribute = get_call_type(&node).map(|c| c.call_type).unwrap_or(CallType::Safe(None));
 
                 let mut jni_method_transformer = ExternJNIMethodTransformer::new(
-                    self.struct_type.clone(),
-                    self.struct_name.clone(),
-                    self.struct_lifetimes.clone(),
-                    self.package.clone(),
+                    self.struct_context,
                     call_type_attribute,
                 );
                 jni_method_transformer.fold_impl_item_method(node)
@@ -48,39 +43,28 @@ impl Fold for ExportedMethodTransformer {
     }
 }
 
-struct ExternJNIMethodTransformer {
-    struct_type: Path,
-    struct_name: String,
-    struct_lifetimes: Vec<LifetimeDef>,
-    package: Option<String>,
+struct ExternJNIMethodTransformer<'ctx> {
+    struct_context: &'ctx StructContext,
     call_type: CallType,
 }
 
-impl ExternJNIMethodTransformer {
+impl<'ctx> ExternJNIMethodTransformer<'ctx> {
     fn new(
-        struct_type: Path,
-        struct_name: String,
-        struct_lifetimes: Vec<LifetimeDef>,
-        package: Option<String>,
+        struct_context: &'ctx StructContext,
         call_type: CallType,
     ) -> Self {
         ExternJNIMethodTransformer {
-            struct_type,
-            struct_name,
-            struct_lifetimes,
-            package,
+            struct_context,
             call_type,
         }
     }
 }
 
-impl Fold for ExternJNIMethodTransformer {
+impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
         let jni_signature = JNISignature::new(
             node.sig.clone(),
-            self.struct_type.clone(),
-            self.struct_name.clone(),
-            self.struct_lifetimes.clone(),
+            &self.struct_context,
             self.call_type.clone(),
         );
 
@@ -224,9 +208,7 @@ impl Fold for ExternJNIMethodTransformer {
     fn fold_signature(&mut self, node: Signature) -> Signature {
         let jni_signature = JNISignature::new(
             node.clone(),
-            self.struct_type.clone(),
-            self.struct_name.clone(),
-            self.struct_lifetimes.clone(),
+            &self.struct_context,
             self.call_type.clone(),
         );
 
@@ -238,6 +220,7 @@ impl Fold for ExternJNIMethodTransformer {
 
         let jni_method_name = {
             let snake_case_package = self
+                .struct_context
                 .package
                 .clone()
                 .filter(|s| !s.is_empty())
@@ -251,7 +234,7 @@ impl Fold for ExternJNIMethodTransformer {
             format!(
                 "Java_{}{}_{}",
                 snake_case_package,
-                self.struct_name,
+                self.struct_context.struct_name,
                 sig.ident.to_string()
             )
         };
@@ -591,15 +574,13 @@ struct JNISignature {
 impl JNISignature {
     fn new(
         signature: Signature,
-        struct_type: Path,
-        struct_name: String,
-        struct_lifetimes: Vec<LifetimeDef>,
+        struct_context: &StructContext,
         call_type: CallType,
     ) -> JNISignature {
-        let freestanding_transformer = FreestandingTransformer::new(struct_type.clone(), struct_name.clone(), signature.ident.to_string());
+        let freestanding_transformer = FreestandingTransformer::new(struct_context.struct_type.clone(), struct_context.struct_name.clone(), signature.ident.to_string());
         let mut jni_signature_transformer = JNISignatureTransformer::new(
             freestanding_transformer,
-            struct_lifetimes,
+            struct_context.struct_lifetimes.clone(),
             call_type.clone(),
         );
 
@@ -611,7 +592,7 @@ impl JNISignature {
         JNISignature {
             transformed_signature,
             call_type,
-            struct_name,
+            struct_name: struct_context.struct_name.clone(),
             self_method,
             env_arg,
         }

@@ -11,13 +11,13 @@ use crate::utils::{get_abi, get_env_arg, is_self_method};
 use crate::transformation::utils::get_call_type;
 use crate::transformation::{CallType, CallTypeAttribute, SafeParams};
 use std::collections::HashSet;
+use crate::transformation::context::StructContext;
 
-pub struct ImportedMethodTransformer {
-    pub(crate) struct_name: String,
-    pub(crate) package: Option<String>,
+pub struct ImportedMethodTransformer<'ctx> {
+    pub(crate) struct_context: &'ctx StructContext
 }
 
-impl Fold for ImportedMethodTransformer {
+impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
     fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
@@ -68,6 +68,7 @@ impl Fold for ImportedMethodTransformer {
                 }
 
                 let jni_package_path = self
+                    .struct_context
                     .package
                     .clone()
                     .filter(|p| !p.is_empty())
@@ -77,7 +78,7 @@ impl Fold for ImportedMethodTransformer {
                     })
                     .unwrap_or("".into())
                     .replace('.', "/");
-                let java_class_path = format!("{}{}", jni_package_path, self.struct_name);
+                let java_class_path = format!("{}{}", jni_package_path, self.struct_context.struct_name);
                 let java_method_name = to_camel_case(&signature.ident.to_string());
 
                 let input_types_conversions = signature

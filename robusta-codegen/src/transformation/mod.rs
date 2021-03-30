@@ -19,11 +19,13 @@ use imported::ImportedMethodTransformer;
 use crate::transformation::exported::ExportedMethodTransformer;
 use crate::utils::{canonicalize_path, get_abi, unique_ident};
 use crate::validation::JNIBridgeModule;
+use crate::transformation::context::StructContext;
 
 #[macro_use]
 mod utils;
 mod exported;
 mod imported;
+mod context;
 
 #[derive(Copy, Clone)]
 pub(crate) enum ImplItemType {
@@ -87,16 +89,18 @@ impl ModTransformer {
             })
                 .collect();
 
-
-            let mut exported_fns_transformer = ExportedMethodTransformer {
+            let context = StructContext {
                 struct_type: p.path.clone(),
                 struct_name: struct_name.clone(),
                 struct_lifetimes,
                 package: struct_package.clone(),
             };
+
+            let mut exported_fns_transformer = ExportedMethodTransformer {
+                struct_context: &context
+            };
             let mut imported_fns_transformer = ImportedMethodTransformer {
-                struct_name,
-                package: struct_package,
+                struct_context: &context
             };
             let mut impl_cleaner = ImplCleaner;
 
