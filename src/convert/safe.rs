@@ -189,7 +189,7 @@ where
         let list = JList::from_env(env, s)?;
 
         list.iter()?
-            .map(|el| Ok(T::try_from(U::unbox(el, env), env)?))
+            .map(|el| T::try_from(U::unbox(el, env), env))
             .collect()
     }
 }

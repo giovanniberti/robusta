@@ -213,14 +213,12 @@ impl Parse for JNIBridgeModule {
             .iter()
             .filter_map(|item_impl| match &*item_impl.self_ty {
                 Type::Path(p) => {
-                    if let Some(pos) = structs_idents
+                    structs_idents
                         .iter()
                         .position(|id| *id == &p.path.segments.last().unwrap().ident)
-                    {
-                        Some((bridged_structs[pos], *item_impl))
-                    } else {
-                        None
-                    }
+                        .map(|pos| {
+                            (bridged_structs[pos], *item_impl)
+                    })
                 }
                 _ => None,
             })

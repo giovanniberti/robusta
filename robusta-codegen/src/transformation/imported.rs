@@ -76,7 +76,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         p.push('/');
                         p
                     })
-                    .unwrap_or("".into())
+                    .unwrap_or_else(|| "".into())
                     .replace('.', "/");
                 let java_class_path = format!("{}{}", jni_package_path, self.struct_context.struct_name);
                 let java_method_name = to_camel_case(&signature.ident.to_string());
@@ -204,7 +204,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 ImplItemMethod {
                     sig: Signature {
                         abi: None,
-                        ..original_signature.clone()
+                        ..original_signature
                     },
                     block: if self_method {
                         let self_span = node.sig.inputs.iter().next().unwrap().span();

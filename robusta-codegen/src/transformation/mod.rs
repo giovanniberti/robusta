@@ -61,7 +61,7 @@ impl ModTransformer {
                 .replace(" ", ""); // TODO: Replace String-based struct name matching with something more robust
             let struct_package = self.module.package_map.get(&struct_name).cloned().flatten();
 
-            if let None = struct_package {
+            if struct_package.is_none() {
                 emit_error!(p.path, "can't find package for struct `{}`", struct_name);
                 return node.to_token_stream();
             }
@@ -91,9 +91,9 @@ impl ModTransformer {
 
             let context = StructContext {
                 struct_type: p.path.clone(),
-                struct_name: struct_name.clone(),
+                struct_name,
                 struct_lifetimes,
-                package: struct_package.clone(),
+                package: struct_package,
             };
 
             let mut exported_fns_transformer = ExportedMethodTransformer {
@@ -490,11 +490,11 @@ impl Parse for CallTypeAttribute {
                         format!("invalid `call_type` attribute options ({})", e),
                     )
                 })
-                .and_then(|c| {
-                    Ok(CallTypeAttribute {
+                .map(|c| {
+                    CallTypeAttribute {
                         attr: attribute,
                         call_type: c,
-                    })
+                    }
                 })
         }
     }
