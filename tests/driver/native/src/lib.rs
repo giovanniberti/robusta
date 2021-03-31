@@ -4,10 +4,10 @@ use robusta_jni::bridge;
 pub mod jni {
     use std::convert::TryInto;
 
-    use robusta_jni::convert::{IntoJavaValue, JavaValue, JNIEnvLink, JValueWrapper, Signature, TryFromJavaValue};
+    use robusta_jni::convert::{IntoJavaValue, JValueWrapper, Signature, TryFromJavaValue};
     use robusta_jni::jni;
     use robusta_jni::jni::JNIEnv;
-    use robusta_jni::jni::objects::{JString, JValue, AutoLocal};
+    use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::objects::JObject;
 
     #[package()]
@@ -42,7 +42,7 @@ pub mod jni {
     impl<'e: 'b, 'b> IntoJavaValue<'e> for &User<'e, 'b> {
         type Target = JObject<'e>;
 
-        fn into(self, env: &JNIEnv<'e>) -> Self::Target {
+        fn into(self, _env: &JNIEnv<'e>) -> Self::Target {
             self.raw.as_obj()
         }
     }
@@ -62,7 +62,7 @@ pub mod jni {
             users_count.to_string()
         }
 
-        pub extern "jni" fn hashedPassword(self, env: &JNIEnv, seed: i32) -> String {
+        pub extern "jni" fn hashedPassword(self, env: &JNIEnv, _seed: i32) -> String {
             let user_pw: String = self.getPassword(env).unwrap();
             user_pw + "_pass"
         }

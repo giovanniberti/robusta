@@ -2,17 +2,15 @@ use robusta_jni::bridge;
 
 #[bridge]
 mod jni {
-    use std::marker::PhantomData;
-
     use jni::objects::JObject;
 
-    use robusta_jni::convert::{JNIEnvLink, Signature, IntoJavaValue, FromJavaValue};
+    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue};
     use robusta_jni::jni::JNIEnv;
 
     #[derive(Signature)]
     #[package(com.example.robusta)]
     pub struct HelloWorld {
-        marker: (),
+        _marker: (),
     }
 
     impl<'e> IntoJavaValue<'e> for HelloWorld {
@@ -36,9 +34,9 @@ mod jni {
     impl<'e: 'b, 'b> FromJavaValue<'e, 'b> for HelloWorld {
         type Source = JObject<'e>;
 
-        fn from(s: Self::Source, env: &'b JNIEnv<'e>) -> Self {
+        fn from(_s: Self::Source, _env: &'b JNIEnv<'e>) -> Self {
             HelloWorld {
-                marker: (),
+                _marker: (),
             }
         }
     }

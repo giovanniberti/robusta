@@ -100,6 +100,14 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                     let mut s = transformed_jni_signature.clone();
                     s.ident = Ident::new("outer", s.ident.span());
 
+                    s.inputs.iter_mut().for_each(|i| {
+                        if let FnArg::Typed(PatType { pat, .. }) = i {
+                            if let Pat::Ident(PatIdent { mutability, .. }) = pat.as_mut() {
+                                *mutability = None
+                            }
+                        }
+                    });
+
                     s.inputs.push(FnArg::Typed(PatType {
                         attrs: vec![],
                         pat: Box::new(Pat::Ident(PatIdent {
@@ -498,13 +506,17 @@ impl Fold for JNISignatureTransformer {
         let arg_span = arg.span();
         match self.struct_freestanding_transformer.fold_fn_arg(arg) {
             FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
-            FnArg::Typed(t) => {
+            FnArg::Typed(mut t) => {
                 let original_input_type = t.ty;
 
                 let jni_conversion_type: Type = match self.call_type {
                     CallType::Safe(_) => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source },
                     CallType::Unchecked { .. } => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env, 'borrow>>::Source },
                 };
+
+                if let Pat::Ident(PatIdent { mutability, .. }) = t.pat.as_mut() {
+                    *mutability = None
+                }
 
                 FnArg::Typed(PatType {
                     attrs: t.attrs,

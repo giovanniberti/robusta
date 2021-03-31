@@ -185,10 +185,9 @@ impl Fold for ModTransformer {
 
     fn fold_item_mod(&mut self, mut node: ItemMod) -> ItemMod {
         let allow_non_snake_case: Attribute = parse_quote! { #![allow(non_snake_case)] };
-        let allow_unused: Attribute = parse_quote! { #![allow(unused)] };
 
         node.attrs
-            .extend_from_slice(&[allow_non_snake_case, allow_unused]);
+            .extend_from_slice(&[allow_non_snake_case]);
 
         ItemMod {
             attrs: node.attrs,
