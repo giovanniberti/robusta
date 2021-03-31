@@ -1,13 +1,13 @@
-use crate::transformation::CallTypeAttribute;
 use std::collections::HashSet;
-use syn::ImplItemMethod;
+use std::str::FromStr;
 
-use crate::transformation::AttributeFilter;
 use proc_macro2::TokenStream;
 use proc_macro_error::emit_warning;
 use quote::ToTokens;
-use std::str::FromStr;
+use syn::ImplItemMethod;
 use syn::visit::Visit;
+
+use crate::transformation::{AttributeFilter, CallTypeAttribute};
 
 pub(crate) fn get_call_type(node: &ImplItemMethod) -> Option<CallTypeAttribute> {
     let whitelist = {

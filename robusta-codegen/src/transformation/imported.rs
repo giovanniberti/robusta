@@ -87,15 +87,15 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     .filter_map(|i| match i {
                         FnArg::Typed(t) => match &*t.pat {
                             Pat::Ident(PatIdent { ident, .. }) if ident == "self" => None,
-                            _ => Some(&t.ty),
+                            _ => Some((&t.ty, t.pat.span()))
                         },
                         FnArg::Receiver(_) => None,
                     })
-                    .map(|t| {
+                    .map(|(t, span)| {
                         if let CallType::Safe(_) = call_type {
-                            quote! { <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
+                            quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
                         } else {
-                            quote! { <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
+                            quote_spanned! { span => <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
                         }
                     })
                     .fold(TokenStream::new(), |t, mut tok| {
@@ -111,7 +111,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 };
 
                 let output_conversion = match signature.output {
-                    ReturnType::Default => quote!(""),
+                    ReturnType::Default => quote_spanned!(signature.output.span() => ),
                     ReturnType::Type(_arrow, ref ty) => {
                         if let CallType::Safe(_) = call_type {
                             let inner_result_ty = match &**ty {
@@ -152,9 +152,9 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                             let pat = &t.pat;
                             let ty = &t.ty;
                             let conversion: TokenStream = if let CallType::Safe(_) = call_type {
-                                quote! { ::std::convert::Into::into(<#ty as ::robusta_jni::convert::TryIntoJavaValue>::try_into(#pat, &env)?), }
+                                quote_spanned! { pat.span() => ::std::convert::Into::into(<#ty as ::robusta_jni::convert::TryIntoJavaValue>::try_into(#pat, &env)?), }
                             } else {
-                                quote! { ::std::convert::Into::into(<#ty as ::robusta_jni::convert::IntoJavaValue>::into(#pat, &env)), }
+                                quote_spanned! { pat.span() => ::std::convert::Into::into(<#ty as ::robusta_jni::convert::IntoJavaValue>::into(#pat, &env)), }
                             };
                             conversion.to_tokens(&mut tok);
                             tok
