@@ -9,7 +9,7 @@ use quote::ToTokens;
 use syn::{Attribute, FnArg, GenericArgument, GenericParam, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lit, parse_quote, Pat, Path, PathArguments, PatIdent, PatType, Type, TypePath, TypeReference, Visibility, PathSegment};
 use syn::{Error, ImplItem, Meta, Token};
 use syn::fold::Fold;
-use syn::parse::{Parse, Parser, ParseStream};
+use syn::parse::{Parse, Parser, ParseStream, ParseBuffer};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
@@ -206,21 +206,37 @@ impl Fold for ModTransformer {
     }
 
     fn fold_item_struct(&mut self, node: ItemStruct) -> ItemStruct {
-        let discarded_known_attributes = {
-            let mut known = HashSet::new();
-            known.insert("package");
-            known
-        };
-
         let struct_attributes = {
-            let attributes = node.attrs;
-            attributes
-                .into_iter()
-                .filter(|a| {
-                    !discarded_known_attributes
-                        .contains(&a.path.to_token_stream().to_string().as_str())
-                })
-                .collect()
+            /* The `#[bridge]` attribute macro has to discard `#[package()]` attributes, because they don't exists in standard Rust
+             * and currently there is no way for attribute macros to automatically introduce inert attributes (see: https://doc.rust-lang.org/reference/attributes.html#active-and-inert-attributes
+             * and rust-lang/issues/#65823).
+             * However, we want `#[package()]` to also be used in combination with `Signature` auto-derive, and it *needs* a `#[package]` attribute on the struct it's applied on.
+             * If we remove the package attribute blindly `Signature` cannot see it, and if we keep it `Signature` cannot remove it (auto-derive macros cannot modify the existing token stream as proc macros).
+             * Here we check wether the struct has a `#[derive(Signature)]` (crudely with a string comparison and hoping the user never writes `#[derive(::robusta_jni::convert::Signature)]`)
+             * if it is present we don't remove `#[package]`, otherwise we remove it.
+             * This works because `Signature` auto-derive macros also declares `#[package]` as a helper attribute
+             */
+            let attributes = node.attrs.clone();
+
+            let has_derive_signature = node.attrs.iter()
+                .any(|a| {
+                    let is_derive = a.path.get_ident().map(ToString::to_string).as_deref() == Some("derive");
+                    let derived_traits = a.parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated);
+                    let has_signature = derived_traits.map(|p| p.iter().any(|i| i.to_string().as_str() == "Signature")).unwrap_or(false);
+
+                    is_derive && has_signature
+                });
+
+            if !has_derive_signature {
+                attributes
+                    .into_iter()
+                    .filter(|a| {
+                        a.path.to_token_stream().to_string().as_str() != "package"
+                    })
+                    .collect()
+            } else {
+                attributes
+            }
         };
 
         ItemStruct {

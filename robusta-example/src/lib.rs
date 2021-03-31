@@ -9,13 +9,10 @@ mod jni {
     use robusta_jni::convert::{JNIEnvLink, Signature, IntoJavaValue, FromJavaValue};
     use robusta_jni::jni::JNIEnv;
 
+    #[derive(Signature)]
     #[package(com.example.robusta)]
     pub struct HelloWorld {
         marker: (),
-    }
-
-    impl Signature for HelloWorld {
-        const SIG_TYPE: &'static str = "Lcom/example/robusta/HelloWorld;"; // TODO: Autogenerate `Signature` impl with #[package]
     }
 
     impl<'e> IntoJavaValue<'e> for HelloWorld {
@@ -25,10 +22,6 @@ mod jni {
             env.new_object("com/example/robusta/HelloWorld", "()V", &[])
                 .unwrap()
         }
-    }
-
-    impl Signature for &HelloWorld {
-        const SIG_TYPE: &'static str = <HelloWorld as Signature>::SIG_TYPE;
     }
 
     impl<'e> IntoJavaValue<'e> for &HelloWorld {

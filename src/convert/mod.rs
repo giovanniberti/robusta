@@ -41,6 +41,7 @@ use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 use paste::paste;
 
+pub use robusta_codegen::Signature;
 pub use safe::*;
 pub use unchecked::*;
 
