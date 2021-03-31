@@ -274,7 +274,23 @@ impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
 }
 
 #[derive(Clone)]
-pub(crate) struct JavaPath(String);
+pub(crate) struct JavaPath(pub String);
+
+impl Parse for JavaPath {
+    fn parse<'a>(input: &'a ParseBuffer<'a>) -> syn::Result<Self> {
+        let tokens = Punctuated::<Ident, Token![.]>::parse_terminated(input)?
+            .to_token_stream();
+        let package = tokens
+            .to_string()
+            .replace(' ', "");
+
+        if package.contains('-') {
+            Err(Error::new_spanned(tokens, "package names can't contain dashes"))
+        } else {
+            Ok(JavaPath(package))
+        }
+    }
+}
 
 impl FromMeta for JavaPath {
     fn from_value(value: &Lit) -> darling::Result<Self> {
@@ -282,23 +298,28 @@ impl FromMeta for JavaPath {
 
         if let Lit::Str(literal) = value {
             let path = literal.value();
-            if path.contains('-') {
-                Err(Error::custom(
-                    "invalid path: packages and classes cannot contain dashes",
-                ))
-            } else {
-                let tokens = TokenStream::from_str(&path).map_err(|_| {
-                    Error::custom("cannot create token stream for java path parsing")
-                })?;
-                let _parsed: Punctuated<Ident, Token![.]> =
-                    Punctuated::<Ident, Token![.]>::parse_separated_nonempty
-                        .parse(tokens.into())
-                        .map_err(|e| Error::custom(format!("cannot parse java path ({})", e)))?;
-
-                Ok(JavaPath(path))
-            }
+            Self::from_string(&path)
         } else {
             Err(Error::custom("invalid type"))
+        }
+    }
+
+    fn from_string(path: &str) -> darling::Result<Self> {
+        use darling::Error;
+        if path.contains('-') {
+            Err(Error::custom(
+                "invalid path: packages and classes cannot contain dashes",
+            ))
+        } else {
+            let tokens = TokenStream::from_str(&path).map_err(|_| {
+                Error::custom("cannot create token stream for java path parsing")
+            })?;
+            let _parsed: Punctuated<Ident, Token![.]> =
+                Punctuated::<Ident, Token![.]>::parse_separated_nonempty
+                    .parse(tokens.into())
+                    .map_err(|e| Error::custom(format!("cannot parse java path ({})", e)))?;
+
+            Ok(JavaPath(path.into()))
         }
     }
 }

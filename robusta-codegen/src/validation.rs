@@ -4,14 +4,14 @@ use std::collections::BTreeMap;
 
 use proc_macro_error::{emit_error, emit_warning};
 use quote::ToTokens;
-use syn::parse::{Parse, ParseBuffer, ParseStream};
-use syn::punctuated::Punctuated;
+use syn::{
+    Attribute, Error, GenericParam, Item, ItemImpl, ItemMod, ItemStruct, Result, Type,
+};
+use syn::parse::{Parse, ParseBuffer};
 use syn::spanned::Spanned;
 use syn::visit::Visit;
-use syn::Token;
-use syn::{
-    Attribute, Error, GenericParam, Ident, Item, ItemImpl, ItemMod, ItemStruct, Result, Type,
-};
+
+use crate::transformation::JavaPath;
 
 struct AttribItemChecker {
     valid: bool,
@@ -282,14 +282,9 @@ impl Parse for JNIBridgeModule {
                     .iter()
                     .filter(|a| a.path.segments.last().unwrap().ident == "package")
                     .map(|a| {
-                        a.parse_args_with(|t: ParseStream| {
-                            Punctuated::<Ident, Token![.]>::parse_terminated(t)
-                        })
-                        .map_err(|_| emit_error!(a, "invalid package name"))
-                        .unwrap()
-                        .to_token_stream()
-                        .to_string()
-                        .replace(' ', "")
+                        a.parse_args::<JavaPath>()
+                            .map(|j| j.0)
+                            .unwrap()
                     })
                     .next()
                     .unwrap();
