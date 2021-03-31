@@ -274,11 +274,14 @@ mod test {
         let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
 
         let method: ImplItemMethod = parse_quote! { pub extern "jni" fn #method_name_token_stream() {} };
-        let mut transformer = ExternJNIMethodTransformer {
+        let struct_context = StructContext {
             struct_type: parse_quote! { #struct_name_token_stream },
             struct_name,
             struct_lifetimes: vec![],
             package,
+        };
+        let mut transformer = ExternJNIMethodTransformer {
+            struct_context: &struct_context,
             call_type: CallType::Safe(None)
         };
 
@@ -323,11 +326,14 @@ mod test {
                 pub extern "jni" fn #method_name_token_stream(#params) -> i32 {}
             };
 
-        let mut transformer = ExternJNIMethodTransformer {
+        let struct_context = StructContext {
             struct_type: parse_quote! { #struct_name_token_stream },
             struct_name,
             struct_lifetimes: vec![],
             package,
+        };
+        let mut transformer = ExternJNIMethodTransformer {
+            struct_context: &struct_context,
             call_type: CallType::Safe(None)
         };
 
