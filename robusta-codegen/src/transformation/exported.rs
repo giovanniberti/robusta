@@ -230,21 +230,16 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
             let snake_case_package = self
                 .struct_context
                 .package
-                .clone()
-                .filter(|s| !s.is_empty())
-                .map(|s| {
-                    let mut s = s.replace('.', "_");
-                    s.push('_');
-                    s
-                })
+                .as_ref()
+                .map(|s| s.to_snake_case())
                 .unwrap_or_else(|| "".into());
 
-            format!(
-                "Java_{}{}_{}",
-                snake_case_package,
-                self.struct_context.struct_name,
-                sig.ident.to_string()
-            )
+            ["Java", &snake_case_package, &self.struct_context.struct_name, &sig.ident.to_string()]
+                .iter()
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_owned())
+                .collect::<Vec<_>>()
+                .join("_")
         };
 
         sig.inputs = {
@@ -276,8 +271,9 @@ mod test {
     use proc_macro2::TokenStream;
 
     use super::*;
+    use crate::transformation::JavaPath;
 
-    fn setup_package(package: Option<String>, struct_name: String, method_name: String) -> ImplItemMethod {
+    fn setup_package(package: Option<JavaPath>, struct_name: String, method_name: String) -> ImplItemMethod {
         let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
         let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
 
@@ -307,7 +303,7 @@ mod test {
         let output_no_package = setup_package(None, "Foo".into(), "foo".into());
         assert_eq!(output_no_package.sig.ident.to_string(), format!("Java_Foo_foo"));
 
-        let output_with_package = setup_package(Some("com.bar.quux".into()), "Foo".into(), "foo".into());
+        let output_with_package = setup_package(Some(JavaPath::from_str("com.bar.quux").unwrap()), "Foo".into(), "foo".into());
         assert_eq!(output_with_package.sig.ident.to_string(), format!("Java_com_bar_quux_Foo_foo"));
     }
 

@@ -24,8 +24,8 @@ fn signature_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
                 None => abort!(input_span, "missing `#[package()]` attribute"),
                 Some(attr) => {
                     let struct_name = input.ident;
-                    let package = attr.parse_args::<JavaPath>()?.0;
-                    let signature = ["L", package.replace('.', "/").as_str(), "/", struct_name.to_string().as_str(), ";"].join("");
+                    let package = attr.parse_args::<JavaPath>()?;
+                    let signature = ["L", package.to_string().replace('.', "/").as_str(), "/", struct_name.to_string().as_str(), ";"].join("");
 
                     Ok(quote! {
                         #[automatically_derived]

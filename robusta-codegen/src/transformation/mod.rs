@@ -272,22 +272,40 @@ impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
     }
 }
 
-#[derive(Clone)]
-pub(crate) struct JavaPath(pub String);
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub(crate) struct JavaPath(String);
+
+impl FromStr for JavaPath {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let input = s.to_string().replace(' ', "");
+        if input.contains("-") {
+            Err("package names can't contain dashes".into())
+        } else {
+            Ok(JavaPath(input))
+        }
+    }
+}
+
+impl JavaPath {
+    pub fn to_snake_case(&self) -> String {
+        return self.0.replace('.', "_")
+    }
+
+    pub fn to_string(&self) -> String {
+        self.0.clone()
+    }
+}
 
 impl Parse for JavaPath {
     fn parse<'a>(input: &'a ParseBuffer<'a>) -> syn::Result<Self> {
         let tokens = Punctuated::<Ident, Token![.]>::parse_terminated(input)?
             .to_token_stream();
         let package = tokens
-            .to_string()
-            .replace(' ', "");
+            .to_string();
 
-        if package.contains('-') {
-            Err(Error::new_spanned(tokens, "package names can't contain dashes"))
-        } else {
-            Ok(JavaPath(package))
-        }
+        JavaPath::from_str(&package).map_err(|e| Error::new_spanned(tokens, e))
     }
 }
 

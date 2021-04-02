@@ -161,7 +161,7 @@ impl<'ast> Visit<'ast> for StructDeclVisitor<'ast> {
 
 pub(crate) struct JNIBridgeModule {
     pub(crate) module_decl: ItemMod,
-    pub(crate) package_map: BTreeMap<String, Option<String>>,
+    pub(crate) package_map: BTreeMap<String, Option<JavaPath>>,
 }
 
 impl Parse for JNIBridgeModule {
@@ -273,23 +273,22 @@ impl Parse for JNIBridgeModule {
                 valid_input = false;
             });
 
-        let package_map: BTreeMap<String, Option<String>> = bridged_structs
+        let package_map: BTreeMap<String, Option<JavaPath>> = bridged_structs
             .iter()
             .map(|s| {
                 let name = s.ident.to_string();
-                let package_string = s
+                let package_path = s
                     .attrs
                     .iter()
                     .filter(|a| a.path.segments.last().unwrap().ident == "package")
                     .map(|a| {
                         a.parse_args::<JavaPath>()
-                            .map(|j| j.0)
                             .unwrap()
                     })
                     .next()
                     .unwrap();
 
-                let package = Some(package_string);
+                let package = Some(package_path);
 
                 (name, package)
             })

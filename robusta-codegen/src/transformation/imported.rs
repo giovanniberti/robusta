@@ -70,15 +70,18 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 let jni_package_path = self
                     .struct_context
                     .package
-                    .clone()
-                    .filter(|p| !p.is_empty())
-                    .map(|mut p| {
-                        p.push('/');
-                        p
-                    })
+                    .as_ref()
+                    .map(|p| p.to_snake_case())
+                    .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "".into())
                     .replace('.', "/");
-                let java_class_path = format!("{}{}", jni_package_path, self.struct_context.struct_name);
+
+                let java_class_path = [jni_package_path, self.struct_context.struct_name.clone()]
+                    .iter()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<_>>()
+                    .join("/");
                 let java_method_name = to_camel_case(&signature.ident.to_string());
 
                 let input_types_conversions = signature
