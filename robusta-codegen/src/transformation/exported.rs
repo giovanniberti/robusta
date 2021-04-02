@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use proc_macro2::Ident;
 use proc_macro_error::{emit_error, emit_warning};
-use quote::{quote_spanned, ToTokens};
+use quote::ToTokens;
 use syn::{GenericParam, Generics, LifetimeDef, parse_quote, TypeTuple};
 use syn::{
     Abi, Block, Expr, FnArg, ImplItemMethod, LitStr, Pat,
@@ -73,7 +73,7 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
 
         let new_block: Block = match &self.call_type {
             CallType::Unchecked { .. } => {
-                parse_quote! {{
+                parse_quote_spanned! { node.span() => {
                     ::robusta_jni::convert::IntoJavaValue::into(#method_call, &env)
                 }}
             }
@@ -86,7 +86,7 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
 
                             match &**pat {
                                 Pat::Ident(PatIdent { ident, ..}) => {
-                                    parse_quote!(#ident)
+                                    parse_quote_spanned!(ident.span() => #ident)
                                 }
                                 _ => panic!("Non-identifier argument pattern in function")
                             }
@@ -129,7 +129,7 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
 
                     s.output = ReturnType::Type(
                         Token![->](outer_signature_span),
-                        Box::new(parse_quote!(::robusta_jni::jni::errors::Result<#outer_output_type>)),
+                        Box::new(parse_quote_spanned!(outer_output_type.span() => ::robusta_jni::jni::errors::Result<#outer_output_type>)),
                     );
                     s.abi = None;
                     s
@@ -157,7 +157,7 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                     None => (default_exception_class, default_message),
                 };
 
-                parse_quote! {{
+                parse_quote_spanned! { node.span() => {
                     #outer_signature {
                         ::robusta_jni::convert::TryIntoJavaValue::try_into(#method_call, &env)
                     }
@@ -503,15 +503,14 @@ impl JNISignatureTransformer {
 
 impl Fold for JNISignatureTransformer {
     fn fold_fn_arg(&mut self, arg: FnArg) -> FnArg {
-        let arg_span = arg.span();
         match self.struct_freestanding_transformer.fold_fn_arg(arg) {
             FnArg::Receiver(_) => panic!("Bug -- please report to library author. Found receiver input after freestanding conversion"),
             FnArg::Typed(mut t) => {
                 let original_input_type = t.ty;
 
                 let jni_conversion_type: Type = match self.call_type {
-                    CallType::Safe(_) => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source },
-                    CallType::Unchecked { .. } => parse_quote_spanned! { arg_span => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env, 'borrow>>::Source },
+                    CallType::Safe(_) => parse_quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source },
+                    CallType::Unchecked { .. } => parse_quote_spanned! { original_input_type.span() => <#original_input_type as ::robusta_jni::convert::FromJavaValue<'env, 'borrow>>::Source },
                 };
 
                 if let Pat::Ident(PatIdent { mutability, .. }) = t.pat.as_mut() {
@@ -544,16 +543,11 @@ impl Fold for JNISignatureTransformer {
 
                 (Type::Reference(r), CallType::Unchecked { .. }) => ReturnType::Type(
                     *arrow,
-                    syn::parse2(quote_spanned! { r.span() => <#r as ::robusta_jni::convert::IntoJavaValue<'env>>::Target })
-                        .unwrap(),
-                ),
+                    parse_quote_spanned! { r.span() => <#r as ::robusta_jni::convert::IntoJavaValue<'env>>::Target }),
 
                 (Type::Reference(r), CallType::Safe(_)) => ReturnType::Type(
                     *arrow,
-                    syn::parse2(
-                        quote_spanned! { r.span() => <#r as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
-                    )
-                    .unwrap(),
+                    parse_quote_spanned! { r.span() => <#r as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
                 ),
                 (Type::Tuple(TypeTuple { elems, .. }), _) if elems.is_empty() => ReturnType::Default,
                 _ => {
@@ -628,14 +622,12 @@ impl JNISignature {
         let method_call_inputs: Punctuated<Expr, Token![,]> = {
             let mut result: Vec<_> = self.args_iter()
                 .map(|p| {
-                    let PatType { pat, ty, ..  } = p;
-                    let type_span = ty.span();
-                    match &**pat {
+                    match p.pat.as_ref() {
                         Pat::Ident(PatIdent { ident, .. }) => {
                             let input_param: Expr = {
                                 match self.call_type {
-                                    CallType::Safe(_) => parse_quote_spanned! { type_span => ::robusta_jni::convert::TryFromJavaValue::try_from(#ident, &env)? },
-                                    CallType::Unchecked { .. } => parse_quote_spanned! { type_span => ::robusta_jni::convert::FromJavaValue::from(#ident, &env) }
+                                    CallType::Safe(_) => parse_quote_spanned! { ident.span() => ::robusta_jni::convert::TryFromJavaValue::try_from(#ident, &env)? },
+                                    CallType::Unchecked { .. } => parse_quote_spanned! { ident.span() => ::robusta_jni::convert::FromJavaValue::from(#ident, &env) }
                                 }
                             };
                             input_param
@@ -644,20 +636,21 @@ impl JNISignature {
                     }
             }).collect();
 
-            if self.env_arg.is_some() {
+            if let Some(ref e) = self.env_arg {
                 // because `self` is kept in the transformed JNI signature, if this is a `self` method we put `env` *after* self, otherwise the env parameter must be first
                 let idx = if self.self_method { 1 } else { 0 };
-                result.insert(idx, parse_quote!(&env));
+                let env_span = e.span();
+                result.insert(idx, parse_quote_spanned!(env_span => &env));
             }
 
             Punctuated::from_iter(result.into_iter())
         };
 
-        let signature = self.transformed_signature.span();
-        let struct_name = Ident::new(&self.struct_name, signature);
+        let signature_span = self.transformed_signature.span();
+        let struct_name = Ident::new(&self.struct_name, signature_span);
         let method_name = self.transformed_signature.ident.clone();
 
-        parse_quote! {
+        parse_quote_spanned! { signature_span =>
             #struct_name::#method_name(#method_call_inputs)
         }
     }

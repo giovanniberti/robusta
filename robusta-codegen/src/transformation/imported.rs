@@ -1,7 +1,7 @@
 use inflector::cases::camelcase::to_camel_case;
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, TokenTree};
 use proc_macro_error::{abort, emit_error};
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::spanned::Spanned;
 use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
@@ -87,7 +87,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     .filter_map(|i| match i {
                         FnArg::Typed(t) => match &*t.pat {
                             Pat::Ident(PatIdent { ident, .. }) if ident == "self" => None,
-                            _ => Some((&t.ty, t.pat.span()))
+                            _ => Some((&t.ty, t.ty.span()))
                         },
                         FnArg::Receiver(_) => None,
                     })
@@ -143,18 +143,26 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 };
 
                 let java_signature =
-                    quote! { ["(", #input_types_conversions ")", #output_conversion].join("") };
+                    quote_spanned! { signature.span() => ["(", #input_types_conversions ")", #output_conversion].join("") };
 
                 let input_conversions = signature.inputs.iter().fold(TokenStream::new(), |mut tok, input| {
                     match input {
                         FnArg::Receiver(_) => { tok }
                         FnArg::Typed(t) => {
-                            let pat = &t.pat;
                             let ty = &t.ty;
+                            let pat: TokenStream = {
+                                // The things we do for ~love~ nice compiler errors...
+                                // TODO: Check whether there is a better way to force spans onto token streams
+                                let pat = &t.pat;
+                                let mut p: TokenTree = parse_quote! { #pat };
+                                p.set_span(ty.span());
+                                p.into()
+                            };
+
                             let conversion: TokenStream = if let CallType::Safe(_) = call_type {
-                                quote_spanned! { pat.span() => ::std::convert::Into::into(<#ty as ::robusta_jni::convert::TryIntoJavaValue>::try_into(#pat, &env)?), }
+                                quote_spanned! { ty.span() => ::std::convert::Into::into(<#ty as ::robusta_jni::convert::TryIntoJavaValue>::try_into(#pat, &env)?), }
                             } else {
-                                quote_spanned! { pat.span() => ::std::convert::Into::into(<#ty as ::robusta_jni::convert::IntoJavaValue>::into(#pat, &env)), }
+                                quote_spanned! { ty.span() => ::std::convert::Into::into(<#ty as ::robusta_jni::convert::IntoJavaValue>::into(#pat, &env)), }
                             };
                             conversion.to_tokens(&mut tok);
                             tok
