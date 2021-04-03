@@ -1,6 +1,6 @@
 use inflector::cases::camelcase::to_camel_case;
 use proc_macro2::{TokenStream, TokenTree};
-use proc_macro_error::{abort, emit_error};
+use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::spanned::Spanned;
@@ -116,31 +116,45 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 let output_conversion = match signature.output {
                     ReturnType::Default => quote_spanned!(signature.output.span() => ),
                     ReturnType::Type(_arrow, ref ty) => {
-                        if let CallType::Safe(_) = call_type {
-                            let inner_result_ty = match &**ty {
-                                Type::Path(TypePath { path, .. }) => {
-                                    path.segments.last().map(|s| match &s.arguments {
-                                        PathArguments::AngleBracketed(a) => {
-                                            match &a.args.first().expect("return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`") {
-                                                GenericArgument::Type(t) => t,
-                                                _ => abort!(a, "first generic argument in return type must be a type")
-                                            }
-                                        },
-                                        PathArguments::None => {
-                                            let user_attribute_message = call_type_attribute.as_ref().map(|_| "because of this attribute");
-                                            abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`";
+                        match call_type {
+                            CallType::Safe(_) => {
+                                let inner_result_ty = match &**ty {
+                                    Type::Path(TypePath { path, .. }) => {
+                                        path.segments.last().map(|s| match &s.arguments {
+                                            PathArguments::AngleBracketed(a) => {
+                                                match &a.args.first().expect("return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`") {
+                                                    GenericArgument::Type(t) => t,
+                                                    _ => abort!(a, "first generic argument in return type must be a type")
+                                                }
+                                            },
+                                            PathArguments::None => {
+                                                let user_attribute_message = call_type_attribute.as_ref().map(|_| "because of this attribute");
+                                                abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`";
                                                                         help = "replace `{}` with `Result<{}>`", s.ident, s.ident;
                                                                         help =? call_type_attribute.as_ref().map(|c| c.attr.span()).unwrap() => user_attribute_message)
-                                        },
-                                        _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
-                                    })
-                                },
-                                _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
-                            }.unwrap();
+                                            },
+                                            _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
+                                        })
+                                    },
+                                    _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
+                                }.unwrap();
 
-                            quote_spanned! { output_type_span => <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
-                        } else {
-                            quote_spanned! { output_type_span => <#ty as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE }
+                                quote_spanned! { output_type_span => <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
+                            }
+                            CallType::Unchecked(_) => {
+                                if let Type::Path(TypePath { path, .. }) = ty.as_ref() {
+                                    if let Some(r) = path.segments.last().filter(|i| i.ident.to_string() == "Result") {
+                                        if let PathArguments::AngleBracketed(_) = r.arguments {
+                                            let call_type_span = call_type_attribute.as_ref().map(|c| c.attr.span());
+                                            let call_type_hint = call_type_span.map(|_| "maybe you meant `#[call_type(safe)]`?");
+
+                                            emit_warning!(ty, "using a `Result` type in a `#[call_type(unchecked)]` method";
+                                            hint =? call_type_span.unwrap() => call_type_hint)
+                                        }
+                                    }
+                                }
+                                quote_spanned! { output_type_span => <#ty as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE }
+                            }
                         }
                     }
                 };
