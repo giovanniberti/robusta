@@ -4,7 +4,7 @@ use robusta_jni::bridge;
 pub mod jni {
     use std::convert::TryInto;
 
-    use robusta_jni::convert::{IntoJavaValue, JValueWrapper, Signature, TryFromJavaValue};
+    use robusta_jni::convert::{IntoJavaValue, JValueWrapper, Signature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::jni;
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::jni::objects::AutoLocal;
@@ -47,6 +47,22 @@ pub mod jni {
         }
     }
 
+    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for &User<'e, 'b> {
+        type Target = JObject<'e>;
+
+        fn try_into(self, _env: &JNIEnv<'e>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
+            Ok(IntoJavaValue::into(self, _env))
+        }
+    }
+
+    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for User<'e, 'b> {
+        type Target = JObject<'e>;
+
+        fn try_into(self, _env: &JNIEnv<'e>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
+            Ok(IntoJavaValue::into(self, _env))
+        }
+    }
+
     impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {
         pub extern "jni" fn initNative() {
             std::env::var("RUST_LOG").unwrap_or_else(|_| {
@@ -70,5 +86,8 @@ pub mod jni {
         pub extern "java" fn getPassword(&self, env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<String> {}
 
         pub extern "java" fn getTotalUsersCount(env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<i32> {}
+
+        #[constructor]
+        pub extern "java" fn new(env: &'borrow JNIEnv<'env>, username: String, password: String) -> ::robusta_jni::jni::errors::Result<Self> {}
     }
 }

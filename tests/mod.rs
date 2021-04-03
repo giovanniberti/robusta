@@ -1,8 +1,19 @@
 use std::process::Command;
-use robusta_jni::jni::{InitArgsBuilder, JavaVM};
+use robusta_jni::jni::{InitArgsBuilder, JavaVM, JNIEnv};
 use native::jni::User;
 use jni::objects::JString;
 use robusta_jni::convert::FromJavaValue;
+
+fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
+    let ex = env.exception_occurred()?;
+    env.exception_clear()?;
+    let res = env.call_method(ex, "toString", "()Ljava/lang/String;", &[])?;
+    let message: JString = From::from(res.l()?);
+    let s: String = FromJavaValue::from(message, env);
+    println!("Java exception occurred: {}", s);
+    Ok(())
+}
+
 
 #[test]
 fn java_integration_tests() {
@@ -30,19 +41,24 @@ fn vm_creation_and_object_usage() {
 
     User::initNative();
 
-    let count = {
-        User::getTotalUsersCount(&env)
+    let count = User::getTotalUsersCount(&env)
             .or_else(|e| {
-                let ex = env.exception_occurred()?;
-                env.exception_clear()?;
-                let res = env.call_method(ex, "toString","()Ljava/lang/String;", &[])?;
-                let message: JString = From::from(res.l()?);
-                let s: String = FromJavaValue::from(message, &env);
-                println!("Java exception occurred: {}", s);
+                let _ = print_exception(&env);
                 Err(e)
             })
-            .expect("can't get user count")
-    };
+            .expect("can't get user count");
 
     assert_eq!(count, 0);
+
+    let u = User::new(&env, "user".into(), "password".into()).expect("can't create user instance");
+
+    let count = User::getTotalUsersCount(&env)
+        .or_else(|e| {
+            let _ = print_exception(&env);
+            Err(e)
+        })
+        .expect("can't get user count");
+    assert_eq!(count, 1);
+
+    assert_eq!(u.getPassword(&env).expect("can't get user password"), "password")
 }
