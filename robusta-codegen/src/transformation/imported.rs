@@ -237,7 +237,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                             CallType::Safe(_) => {
                                 parse_quote_spanned! { self_span => {
                                     let env: &::robusta_jni::jni::JNIEnv = #env_ident;
-                                    let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::IntoJavaValue::into(self, &env), &env), #java_method_name, #java_signature, &[#input_conversions]);
+                                    let res = env.call_method(::robusta_jni::convert::JavaValue::autobox(::robusta_jni::convert::TryIntoJavaValue::try_into(self, &env)?, &env), #java_method_name, #java_signature, &[#input_conversions]);
                                     #return_expr
                                 }}
                             }
