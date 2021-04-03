@@ -1,4 +1,5 @@
 use std::collections::{BTreeSet, HashSet};
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 use darling::FromMeta;
@@ -20,6 +21,7 @@ use crate::transformation::exported::ExportedMethodTransformer;
 use crate::utils::{canonicalize_path, get_abi, unique_ident};
 use crate::validation::JNIBridgeModule;
 use crate::transformation::context::StructContext;
+use std::fmt;
 
 #[macro_use]
 mod utils;
@@ -275,12 +277,18 @@ impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub(crate) struct JavaPath(String);
 
+impl Display for JavaPath {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl FromStr for JavaPath {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let input = s.to_string().replace(' ', "");
-        if input.contains("-") {
+        if input.contains('-') {
             Err("package names can't contain dashes".into())
         } else {
             Ok(JavaPath(input))
@@ -290,11 +298,7 @@ impl FromStr for JavaPath {
 
 impl JavaPath {
     pub fn to_snake_case(&self) -> String {
-        return self.0.replace('.', "_")
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.clone()
+        self.0.replace('.', "_")
     }
 }
 
