@@ -24,7 +24,7 @@ use jni::JNIEnv;
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
 use crate::convert::{JavaValue, Signature};
 
-pub use robusta_codegen::TryIntoJavaValue;
+pub use robusta_codegen::{TryIntoJavaValue, TryFromJavaValue};
 
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
 pub trait TryIntoJavaValue<'env>: Signature {

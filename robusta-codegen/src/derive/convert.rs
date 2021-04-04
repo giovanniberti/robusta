@@ -144,7 +144,7 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
             <#field_type as Signature>::SIG_TYPE
         };
         quote_spanned! { f.span() =>
-            let #field_ident = ::robusta_jni::convert::JValueWrapper::from(env.get_field(source, #field_name, #field_type_sig).unwrap()).try_into().unwrap();
+            let #field_ident: #field_type = ::robusta_jni::convert::FromJavaValue::from(::robusta_jni::convert::JValueWrapper::from(env.get_field(source, #field_name, #field_type_sig).unwrap()).try_into().unwrap(), env);
         }
     }).collect();
 
@@ -162,6 +162,57 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
                     #instance_ident: ::robusta_jni::jni::objects::AutoLocal::new(env, source),
                     #(#fields_struct_init),*
                 }
+            }
+        }
+    })
+}
+
+pub(crate) fn tryfrom_java_value_macro_derive(input: DeriveInput) -> TokenStream {
+    let input_span = input.span();
+    match tryfrom_java_value_macro_derive_impl(input) {
+        Ok(t) => t,
+        Err(_) => quote_spanned! { input_span => }
+    }
+}
+
+fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
+    let TraitAutoDeriveData {
+        instance_field_type_assertion,
+        impl_target,
+        generics,
+        instance_ident,
+        generic_args,
+        data_fields
+    } = get_trait_impl_components("FromJavaValue", input);
+
+
+    let fields_struct_init: Vec<_> = data_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
+    let fields_env_init: Vec<_> = data_fields.iter().map(|f| {
+        let field_ident = f.ident.as_ref().unwrap();
+        let field_name = field_ident.to_string();
+        let field_type = &f.ty;
+        let field_type_sig = quote_spanned! { field_type.span() =>
+            <#field_type as Signature>::SIG_TYPE
+        };
+        quote_spanned! { f.span() =>
+            let #field_ident: #field_type = ::robusta_jni::convert::TryFromJavaValue::try_from(::robusta_jni::convert::JValueWrapper::from(env.get_field(source, #field_name, #field_type_sig)?).try_into()?, env)?;
+        }
+    }).collect();
+
+    Ok(quote! {
+        #instance_field_type_assertion
+
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow> for #impl_target#generic_args {
+            type Source = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn try_from(source: Self::Source, env: &'borrow ::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
+                #(#fields_env_init)*
+
+                Ok(Self {
+                    #instance_ident: ::robusta_jni::jni::objects::AutoLocal::new(env, source),
+                    #(#fields_struct_init),*
+                })
             }
         }
     })

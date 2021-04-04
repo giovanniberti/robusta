@@ -5,24 +5,15 @@ pub mod jni {
     use std::convert::TryInto;
 
     use robusta_jni::convert::{IntoJavaValue, JValueWrapper, Signature, TryFromJavaValue, TryIntoJavaValue};
-    use robusta_jni::jni;
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::jni::objects::AutoLocal;
-    use robusta_jni::jni::objects::JObject;
 
-    #[derive(Signature, TryIntoJavaValue, IntoJavaValue)]
+    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package()]
     pub struct User<'env: 'borrow, 'borrow> {
         #[instance]
-        raw: AutoLocal<'env, 'borrow>
-    }
-
-    impl<'e: 'b, 'b> TryFromJavaValue<'e, 'b> for User<'e, 'b> {
-        type Source = JObject<'e>;
-
-        fn try_from(_s: Self::Source, _env: &'b JNIEnv<'e>) -> jni::errors::Result<Self> {
-            Ok(User { raw: AutoLocal::new(_env,_s) })
-        }
+        raw: AutoLocal<'env, 'borrow>,
+        password: String
     }
 
     impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {
@@ -40,8 +31,8 @@ pub mod jni {
             users_count.to_string()
         }
 
-        pub extern "jni" fn hashedPassword(self, env: &JNIEnv, _seed: i32) -> String {
-            let user_pw: String = self.getPassword(env).unwrap();
+        pub extern "jni" fn hashedPassword(self, _env: &JNIEnv, _seed: i32) -> String {
+            let user_pw: String = self.password;
             user_pw + "_pass"
         }
 
