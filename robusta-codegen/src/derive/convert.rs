@@ -3,16 +3,17 @@ use std::collections::HashMap;
 use proc_macro2::{TokenStream, Ident};
 use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote, quote_spanned};
-use syn::{Data, DataStruct, DeriveInput, GenericParam, LifetimeDef, Type, TypePath, PathArguments, GenericArgument, AngleBracketedGenericArguments, Generics};
+use syn::{Data, DataStruct, DeriveInput, GenericParam, LifetimeDef, Type, TypePath, PathArguments, GenericArgument, AngleBracketedGenericArguments, Generics, Field};
 use syn::spanned::Spanned;
 use crate::derive::utils::generic_params_to_args;
 
 struct TraitAutoDeriveData {
     instance_field_type_assertion: TokenStream,
-    ident: Ident,
+    impl_target: Ident,
     generics: Generics,
     instance_ident: Ident,
-    generic_args: AngleBracketedGenericArguments
+    generic_args: AngleBracketedGenericArguments,
+    data_fields: Vec<Field>
 }
 
 pub(crate) fn into_java_value_macro_derive(input: DeriveInput) -> TokenStream {
@@ -26,17 +27,18 @@ pub(crate) fn into_java_value_macro_derive(input: DeriveInput) -> TokenStream {
 fn into_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
     let TraitAutoDeriveData {
         instance_field_type_assertion,
-        ident,
+        impl_target,
         generics,
         instance_ident,
-        generic_args
+        generic_args,
+        ..
     } = get_trait_impl_components("IntoJavaValue", input);
 
     Ok(quote! {
         #instance_field_type_assertion
 
         #[automatically_derived]
-        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for #ident#generic_args {
+        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for #impl_target#generic_args {
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
@@ -45,7 +47,7 @@ fn into_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
         }
 
         #[automatically_derived]
-        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &#ident#generic_args {
+        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &#impl_target#generic_args {
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
@@ -54,7 +56,7 @@ fn into_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
         }
 
         #[automatically_derived]
-        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &mut #ident#generic_args {
+        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &mut #impl_target#generic_args {
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
@@ -75,17 +77,18 @@ pub(crate) fn tryinto_java_value_macro_derive(input: DeriveInput) -> TokenStream
 fn tryinto_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
     let TraitAutoDeriveData {
         instance_field_type_assertion,
-        ident,
+        impl_target,
         generics,
         instance_ident,
-        generic_args
+        generic_args,
+        ..
     } = get_trait_impl_components("TryIntoJavaValue", input);
 
     Ok(quote! {
         #instance_field_type_assertion
 
         #[automatically_derived]
-        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for #ident#generic_args {
+        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for #impl_target#generic_args {
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
@@ -94,7 +97,7 @@ fn tryinto_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
         }
 
         #[automatically_derived]
-        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for &#ident#generic_args {
+        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for &#impl_target#generic_args {
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
@@ -103,11 +106,62 @@ fn tryinto_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
         }
 
         #[automatically_derived]
-        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for &mut #ident#generic_args {
+        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for &mut #impl_target#generic_args {
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
                 ::robusta_jni::convert::TryIntoJavaValue::try_into(self, env)
+            }
+        }
+    })
+}
+
+pub(crate) fn from_java_value_macro_derive(input: DeriveInput) -> TokenStream {
+    let input_span = input.span();
+    match from_java_value_macro_derive_impl(input) {
+        Ok(t) => t,
+        Err(_) => quote_spanned! { input_span => }
+    }
+}
+
+fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
+    let TraitAutoDeriveData {
+        instance_field_type_assertion,
+        impl_target,
+        generics,
+        instance_ident,
+        generic_args,
+        data_fields
+    } = get_trait_impl_components("FromJavaValue", input);
+
+
+    let fields_struct_init: Vec<_> = data_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
+    let fields_env_init: Vec<_> = data_fields.iter().map(|f| {
+        let field_ident = f.ident.as_ref().unwrap();
+        let field_name = field_ident.to_string();
+        let field_type = &f.ty;
+        let field_type_sig = quote_spanned! { field_type.span() =>
+            <#field_type as Signature>::SIG_TYPE
+        };
+        quote_spanned! { f.span() =>
+            let #field_ident = ::robusta_jni::convert::JValueWrapper::from(env.get_field(source, #field_name, #field_type_sig).unwrap()).try_into().unwrap();
+        }
+    }).collect();
+
+    Ok(quote! {
+        #instance_field_type_assertion
+
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::FromJavaValue<'env, 'borrow> for #impl_target#generic_args {
+            type Source = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn from(source: Self::Source, env: &'borrow ::robusta_jni::jni::JNIEnv<'env>) -> Self {
+                #(#fields_env_init)*
+
+                Self {
+                    #instance_ident: ::robusta_jni::jni::objects::AutoLocal::new(env, source),
+                    #(#fields_struct_init),*
+                }
             }
         }
     })
@@ -184,10 +238,11 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
 
                     TraitAutoDeriveData {
                         instance_field_type_assertion,
-                        ident,
+                        impl_target: ident,
                         generics,
                         instance_ident: instance_ident.clone(),
-                        generic_args
+                        generic_args,
+                        data_fields: fields.clone().into_iter().filter(|f| f.ident.as_ref() != Some(instance_ident)).collect()
                     }
                 }
             }

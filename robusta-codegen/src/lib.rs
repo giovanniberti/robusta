@@ -7,7 +7,7 @@ use validation::JNIBridgeModule;
 
 use crate::transformation::ModTransformer;
 use derive::signature::signature_macro_derive;
-use crate::derive::convert::{into_java_value_macro_derive, tryinto_java_value_macro_derive};
+use crate::derive::convert::{into_java_value_macro_derive, tryinto_java_value_macro_derive, from_java_value_macro_derive};
 
 mod transformation;
 mod utils;
@@ -47,4 +47,12 @@ pub fn tryinto_java_value_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 
     tryinto_java_value_macro_derive(input).into()
+}
+
+#[proc_macro_error]
+#[proc_macro_derive(FromJavaValue, attributes(instance))]
+pub fn from_java_value_derive(raw_input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(raw_input as DeriveInput);
+
+    from_java_value_macro_derive(input).into()
 }
