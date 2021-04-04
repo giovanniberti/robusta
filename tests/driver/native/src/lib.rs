@@ -10,13 +10,11 @@ pub mod jni {
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::objects::JObject;
 
+    #[derive(Signature, IntoJavaValue)]
     #[package()]
     pub struct User<'env: 'borrow, 'borrow> {
+        #[instance]
         raw: AutoLocal<'env, 'borrow>
-    }
-
-    impl<'e: 'b, 'b> Signature for User<'e, 'b> {
-        const SIG_TYPE: &'static str = "LUser;";
     }
 
     impl<'e: 'b, 'b> TryFromJavaValue<'e, 'b> for User<'e, 'b> {
@@ -24,26 +22,6 @@ pub mod jni {
 
         fn try_from(_s: Self::Source, _env: &'b JNIEnv<'e>) -> jni::errors::Result<Self> {
             Ok(User { raw: AutoLocal::new(_env,_s) })
-        }
-    }
-
-    impl<'e: 'b, 'b> IntoJavaValue<'e> for User<'e, 'b> {
-        type Target = JObject<'e>;
-
-        fn into(self, env: &JNIEnv<'e>) -> Self::Target {
-            IntoJavaValue::into(&self, env)
-        }
-    }
-
-    impl<'e: 'b, 'b> Signature for &User<'e, 'b> {
-        const SIG_TYPE: &'static str = <User as Signature>::SIG_TYPE;
-    }
-
-    impl<'e: 'b, 'b> IntoJavaValue<'e> for &User<'e, 'b> {
-        type Target = JObject<'e>;
-
-        fn into(self, _env: &JNIEnv<'e>) -> Self::Target {
-            self.raw.as_obj()
         }
     }
 

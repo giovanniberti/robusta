@@ -16,6 +16,7 @@ documentation = "https://docs.rs/robusta/"
 robusta-codegen = { version = "0.0.3", path = "./robusta-codegen" }
 jni = { version = "0.17.0", features = ["invocation"] }
 paste = "1.0.0"
+static_assertions = "1.1.0"
 
 [dev-dependencies]
 native = { path = "./tests/driver/native" }

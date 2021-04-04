@@ -144,3 +144,5 @@ pub use robusta_codegen::bridge;
 pub mod convert;
 
 pub use jni;
+
+pub use static_assertions::assert_type_eq_all;

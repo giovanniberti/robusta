@@ -17,6 +17,8 @@ use jni::JNIEnv;
 
 use crate::convert::{JavaValue, Signature};
 
+pub use robusta_codegen::IntoJavaValue;
+
 /// Conversion trait from Rust values to Java values, analogous to [Into]. Used when converting types returned from JNI-available functions.
 pub trait IntoJavaValue<'env>: Signature {
     type Target: JavaValue<'env>;
