@@ -2,62 +2,18 @@ use robusta_jni::bridge;
 
 #[bridge]
 mod jni {
-    use jni::objects::JObject;
-
     use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue};
     use robusta_jni::jni::JNIEnv;
+    use robusta_jni::jni::objects::AutoLocal;
 
-    #[derive(Signature)]
+    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, FromJavaValue)]
     #[package(com.example.robusta)]
-    pub struct HelloWorld {
-        _marker: (),
+    pub struct HelloWorld<'env: 'borrow, 'borrow> {
+        #[instance]
+        raw: AutoLocal<'env, 'borrow>
     }
 
-    impl<'e> IntoJavaValue<'e> for HelloWorld {
-        type Target = JObject<'e>;
-
-        fn into(self, env: &JNIEnv<'e>) -> Self::Target {
-            env.new_object("com/example/robusta/HelloWorld", "()V", &[])
-                .unwrap()
-        }
-    }
-
-    impl<'e> IntoJavaValue<'e> for &HelloWorld {
-        type Target = JObject<'e>;
-
-        fn into(self, env: &JNIEnv<'e>) -> Self::Target {
-            env.new_object("com/example/robusta/HelloWorld", "()V", &[])
-                .unwrap()
-        }
-    }
-
-    impl<'e: 'b, 'b> FromJavaValue<'e, 'b> for HelloWorld {
-        type Source = JObject<'e>;
-
-        fn from(_s: Self::Source, _env: &'b JNIEnv<'e>) -> Self {
-            HelloWorld {
-                _marker: (),
-            }
-        }
-    }
-
-    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for HelloWorld {
-        type Target = JObject<'e>;
-
-        fn try_into(self, env: &JNIEnv<'e>) -> robusta_jni::jni::errors::Result<Self::Target> {
-            TryIntoJavaValue::try_into(&self, env)
-        }
-    }
-
-    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for &HelloWorld {
-        type Target = JObject<'e>;
-
-        fn try_into(self, env: &JNIEnv<'e>) -> robusta_jni::jni::errors::Result<Self::Target> {
-            Ok(IntoJavaValue::into(self, env))
-        }
-    }
-
-    impl HelloWorld {
+    impl<'env: 'borrow, 'borrow> HelloWorld<'env, 'borrow> {
         #[call_type(unchecked)]
         pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
             input1.push(input2);

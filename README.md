@@ -31,9 +31,11 @@ but you can switch to `#[call_type(unchecked)]` at any time, most likely with fe
 ### Rust side
 ```rust
 use robusta_jni::bridge;
+use robusta_jni::convert::Signature;
 
 #[bridge]
 mod jni {
+    #[derive(Signature)]
     #[package(com.example.robusta)]
     struct HelloWorld;
 
