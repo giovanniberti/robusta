@@ -4,7 +4,7 @@ use robusta_jni::bridge;
 mod jni {
     use jni::objects::JObject;
 
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue};
+    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue};
     use robusta_jni::jni::JNIEnv;
 
     #[derive(Signature)]
@@ -41,8 +41,24 @@ mod jni {
         }
     }
 
+    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for HelloWorld {
+        type Target = JObject<'e>;
+
+        fn try_into(self, env: &JNIEnv<'e>) -> robusta_jni::jni::errors::Result<Self::Target> {
+            TryIntoJavaValue::try_into(&self, env)
+        }
+    }
+
+    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for &HelloWorld {
+        type Target = JObject<'e>;
+
+        fn try_into(self, env: &JNIEnv<'e>) -> robusta_jni::jni::errors::Result<Self::Target> {
+            Ok(IntoJavaValue::into(self, env))
+        }
+    }
+
     impl HelloWorld {
-        #[call_type(safe)]
+        #[call_type(unchecked)]
         pub extern "jni" fn special(mut input1: Vec<i32>, input2: i32) -> Vec<String> {
             input1.push(input2);
             input1.iter().map(ToString::to_string).collect()
@@ -62,13 +78,9 @@ mod jni {
             _env: &JNIEnv,
             i: i32,
             u: i32,
-        ) -> ::robusta_jni::jni::errors::Result<i32> {}
+        ) -> jni::errors::Result<i32> {}
 
         #[call_type(unchecked)]
-        pub extern "java" fn staticJavaAdd(
-            env: &JNIEnv,
-            i: i32,
-            u: i32,
-        ) -> i32 {}
+        pub extern "java" fn staticJavaAdd(env: &JNIEnv, i: i32, u: i32) -> i32 {}
     }
 }
