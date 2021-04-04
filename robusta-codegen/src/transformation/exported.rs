@@ -585,7 +585,7 @@ impl JNISignature {
         struct_context: &StructContext,
         call_type: CallType,
     ) -> JNISignature {
-        let freestanding_transformer = FreestandingTransformer::new(struct_context.struct_type.clone(), struct_context.struct_name.clone(), signature.ident.to_string());
+        let freestanding_transformer = FreestandingTransformer::new(struct_context.struct_type.clone());
         let mut jni_signature_transformer = JNISignatureTransformer::new(
             freestanding_transformer,
             struct_context.struct_lifetimes.clone(),

@@ -18,7 +18,7 @@ use syn::visit::Visit;
 use imported::ImportedMethodTransformer;
 
 use crate::transformation::exported::ExportedMethodTransformer;
-use crate::utils::{canonicalize_path, get_abi, unique_ident};
+use crate::utils::{canonicalize_path, get_abi};
 use crate::validation::JNIBridgeModule;
 use crate::transformation::context::StructContext;
 use std::fmt;
@@ -395,16 +395,12 @@ impl Fold for ImplCleaner {
 
 struct FreestandingTransformer {
     struct_type: Path,
-    struct_name: String,
-    fn_name: String,
 }
 
 impl FreestandingTransformer {
-    fn new(struct_type: Path, struct_name: String, fn_name: String) -> Self {
+    fn new(struct_type: Path) -> Self {
         FreestandingTransformer {
             struct_type,
-            struct_name,
-            fn_name,
         }
     }
 }
@@ -456,10 +452,7 @@ impl Fold for FreestandingTransformer {
                         attrs: vec![],
                         by_ref: None,
                         mutability: None,
-                        ident: unique_ident(
-                            &format!("receiver_{}_{}", self.struct_name, self.fn_name),
-                            receiver_span,
-                        ),
+                        ident: Ident::new("receiver", receiver_span),
                         subpat: None,
                     })),
                     colon_token: Token![:](receiver_span),
@@ -477,10 +470,7 @@ impl Fold for FreestandingTransformer {
                             attrs: ident.attrs.clone(),
                             by_ref: ident.by_ref,
                             mutability: ident.mutability,
-                            ident: unique_ident(
-                                &format!("receiver_{}_{}", self.struct_name, self.fn_name),
-                                pat_span,
-                            ),
+                            ident: Ident::new("receiver", pat_span),
                             subpat: ident.subpat.clone(),
                         })),
                         colon_token: t.colon_token,
