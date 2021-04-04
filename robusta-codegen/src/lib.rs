@@ -6,7 +6,7 @@ use syn::{parse_macro_input, DeriveInput};
 use validation::JNIBridgeModule;
 
 use crate::transformation::ModTransformer;
-use crate::derive::signature_macro_derive;
+use derive::signature::signature_macro_derive;
 
 mod transformation;
 mod utils;
