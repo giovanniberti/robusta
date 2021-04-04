@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use proc_macro2::{TokenStream, Ident};
-use proc_macro_error::{abort, emit_error};
+use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote, quote_spanned};
 use syn::{Data, DataStruct, DeriveInput, GenericParam, LifetimeDef, Type, TypePath, PathArguments, GenericArgument, AngleBracketedGenericArguments, Generics};
 use syn::spanned::Spanned;
@@ -135,13 +135,24 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                 _ => emit_error!(input_span, "deriving struct must have `'env` and `'borrow` lifetime parameters")
             }
 
-            let instance_field = fields.into_iter().find(|f| {
-                f.attrs.iter().any(|a| a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("instance"))
-            });
+            let instance_fields: Vec<_> = fields.iter().filter_map(|f| {
+                let attr = f.attrs.iter().find(|a| a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("instance"));
+                attr.map(|a| (f, a))
+            }).collect();
 
-            match instance_field {
+            if instance_fields.len() > 1 {
+                emit_error!(input_span, "cannot have more than one `#[instance]` attribute")
+            }
+
+            let instance_field_data = instance_fields.get(0);
+
+            match instance_field_data {
                 None => abort!(input_span, "missing `#[instance] field attribute"),
-                Some(instance) => {
+                Some((instance, attr)) => {
+                    if !attr.tokens.is_empty() {
+                        emit_warning!(attr.tokens, "`#[instance]` attribute doesn't have any arguments")
+                    }
+
                     let ty = {
                         let mut t = instance.ty.clone();
                         if let Type::Path(TypePath { path, .. }) = &mut t {
@@ -165,7 +176,7 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                     let ident = input.ident;
                     let generics = input.generics;
                     let instance_span = instance.span();
-                    let instance_ident = instance.ident.unwrap_or_else(|| {
+                    let instance_ident = instance.ident.as_ref().unwrap_or_else(|| {
                         abort!(instance_span, "instance field must have a name")
                     });
 
@@ -175,7 +186,7 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                         instance_field_type_assertion,
                         ident,
                         generics,
-                        instance_ident,
+                        instance_ident: instance_ident.clone(),
                         generic_args
                     }
                 }
