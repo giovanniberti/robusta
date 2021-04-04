@@ -27,7 +27,7 @@ pub fn bridge(_args: TokenStream, raw_input: TokenStream) -> TokenStream {
 #[proc_macro_error]
 #[proc_macro_derive(Signature, attributes(package))]
 pub fn signature_derive(raw_input: TokenStream) -> TokenStream {
-    let module_data = parse_macro_input!(raw_input as DeriveInput);
+    let input = parse_macro_input!(raw_input as DeriveInput);
 
-    signature_macro_derive(module_data).into()
+    signature_macro_derive(input).into()
 }

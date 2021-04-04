@@ -6,6 +6,8 @@ use syn::spanned::Spanned;
 
 use crate::transformation::JavaPath;
 
+use super::utils::generic_params_to_args;
+
 pub(crate) fn signature_macro_derive(input: DeriveInput) -> TokenStream {
     let input_span = input.span();
     match signature_macro_derive_impl(input) {
@@ -35,20 +37,22 @@ fn signature_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
                     };
 
                     let signature = ["L", package_str.as_str(), struct_name.to_string().as_str(), ";"].join("");
+                    let generics = input.generics.clone();
+                    let generic_args = generic_params_to_args(input.generics);
 
                     Ok(quote! {
                         #[automatically_derived]
-                        impl ::robusta_jni::convert::Signature for #struct_name {
+                        impl#generics ::robusta_jni::convert::Signature for #struct_name#generic_args {
                             const SIG_TYPE: &'static str = #signature;
                         }
 
                         #[automatically_derived]
-                        impl ::robusta_jni::convert::Signature for &#struct_name {
+                        impl#generics ::robusta_jni::convert::Signature for &#struct_name#generic_args {
                             const SIG_TYPE: &'static str = <#struct_name as ::robusta_jni::convert::Signature>::SIG_TYPE;
                         }
 
                         #[automatically_derived]
-                        impl ::robusta_jni::convert::Signature for &mut #struct_name {
+                        impl#generics ::robusta_jni::convert::Signature for &mut #struct_name#generic_args {
                             const SIG_TYPE: &'static str = <#struct_name as ::robusta_jni::convert::Signature>::SIG_TYPE;
                         }
                     })
