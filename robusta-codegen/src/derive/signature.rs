@@ -26,7 +26,15 @@ fn signature_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
                 Some(attr) => {
                     let struct_name = input.ident;
                     let package = attr.parse_args::<JavaPath>()?;
-                    let signature = ["L", package.to_string().replace('.', "/").as_str(), "/", struct_name.to_string().as_str(), ";"].join("");
+                    let package_str = {
+                        let mut s = package.to_string().replace('.', "/");
+                        if !s.is_empty() {
+                            s.push_str("/")
+                        }
+                        s
+                    };
+
+                    let signature = ["L", package_str.as_str(), struct_name.to_string().as_str(), ";"].join("");
 
                     Ok(quote! {
                         #[automatically_derived]
