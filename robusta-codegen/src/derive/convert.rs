@@ -3,9 +3,17 @@ use std::collections::HashMap;
 use proc_macro2::{TokenStream, Ident};
 use proc_macro_error::{abort, emit_error};
 use quote::{quote, quote_spanned};
-use syn::{Data, DataStruct, DeriveInput, GenericParam, LifetimeDef, Type, TypePath, PathArguments, GenericArgument};
+use syn::{Data, DataStruct, DeriveInput, GenericParam, LifetimeDef, Type, TypePath, PathArguments, GenericArgument, AngleBracketedGenericArguments, Generics};
 use syn::spanned::Spanned;
 use crate::derive::utils::generic_params_to_args;
+
+struct TraitAutoDeriveData {
+    instance_field_type_assertion: TokenStream,
+    ident: Ident,
+    generics: Generics,
+    instance_ident: Ident,
+    generic_args: AngleBracketedGenericArguments
+}
 
 pub(crate) fn into_java_value_macro_derive(input: DeriveInput) -> TokenStream {
     let input_span = input.span();
@@ -16,30 +24,119 @@ pub(crate) fn into_java_value_macro_derive(input: DeriveInput) -> TokenStream {
 }
 
 fn into_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
-    let input_span = input.span();
+    let TraitAutoDeriveData {
+        instance_field_type_assertion,
+        ident,
+        generics,
+        instance_ident,
+        generic_args
+    } = get_trait_impl_components("IntoJavaValue", input);
 
-    let lifetimes: HashMap<String, &LifetimeDef> = input.generics.params.iter().filter_map(|g| match g {
-        GenericParam::Lifetime(l) => Some(l),
-        _ => None
-    }).map(|l| {
-        (l.lifetime.ident.to_string(), l)
-    }).collect();
+    Ok(quote! {
+        #instance_field_type_assertion
 
-    match (lifetimes.get("env"), lifetimes.get("borrow")) {
-        (Some(env_lifetime), Some(borrow_lifetime)) => {
-            if env_lifetime.bounds.iter().find(|l| **l == borrow_lifetime.lifetime).is_none() {
-                emit_error!(env_lifetime, "`'env` lifetime must have a `'borrow` lifetime bound";
-                    help = "try adding `'env: 'borrow`")
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for #ident#generic_args {
+            type Target = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
+                ::robusta_jni::convert::IntoJavaValue::into(self, env)
             }
-        },
-        _ => emit_error!(input, "deriving struct must have `'env` and `'borrow` lifetime parameters")
+        }
+
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &#ident#generic_args {
+            type Target = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
+                self.#instance_ident.as_obj()
+            }
+        }
+
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &mut #ident#generic_args {
+            type Target = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
+                ::robusta_jni::convert::IntoJavaValue::into(self, env)
+            }
+        }
+    })
+}
+
+pub(crate) fn tryinto_java_value_macro_derive(input: DeriveInput) -> TokenStream {
+    let input_span = input.span();
+    match tryinto_java_value_macro_derive_impl(input) {
+        Ok(t) => t,
+        Err(_) => quote_spanned! { input_span => }
     }
+}
+
+fn tryinto_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
+    let TraitAutoDeriveData {
+        instance_field_type_assertion,
+        ident,
+        generics,
+        instance_ident,
+        generic_args
+    } = get_trait_impl_components("TryIntoJavaValue", input);
+
+    Ok(quote! {
+        #instance_field_type_assertion
+
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for #ident#generic_args {
+            type Target = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
+                ::robusta_jni::convert::TryIntoJavaValue::try_into(self, env)
+            }
+        }
+
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for &#ident#generic_args {
+            type Target = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
+                Ok(self.#instance_ident.as_obj())
+            }
+        }
+
+        #[automatically_derived]
+        impl#generics ::robusta_jni::convert::TryIntoJavaValue<'env> for &mut #ident#generic_args {
+            type Target = ::robusta_jni::jni::objects::JObject<'env>;
+
+            fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
+                ::robusta_jni::convert::TryIntoJavaValue::try_into(self, env)
+            }
+        }
+    })
+}
+
+fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoDeriveData {
+    let input_span = input.span();
 
     match input.data {
         Data::Struct(DataStruct { fields, .. }) => {
+            let lifetimes: HashMap<String, &LifetimeDef> = input.generics.params.iter().filter_map(|g| match g {
+                GenericParam::Lifetime(l) => Some(l),
+                _ => None
+            }).map(|l| {
+                (l.lifetime.ident.to_string(), l)
+            }).collect();
 
-            let instance_field = fields.iter().find(|f| {
-                f.attrs.iter().find(|a| a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("instance")).is_some()
+            match (lifetimes.get("env"), lifetimes.get("borrow")) {
+                (Some(env_lifetime), Some(borrow_lifetime)) => {
+                    if !env_lifetime.bounds.iter().any(|l| *l == borrow_lifetime.lifetime) {
+                        emit_error!(env_lifetime, "`'env` lifetime must have a `'borrow` lifetime bound";
+                                    help = "try adding `'env: 'borrow`")
+                    }
+                },
+                _ => emit_error!(input_span, "deriving struct must have `'env` and `'borrow` lifetime parameters")
+            }
+
+            let instance_field = fields.into_iter().find(|f| {
+                f.attrs.iter().any(|a| a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("instance"))
             });
 
             match instance_field {
@@ -67,45 +164,23 @@ fn into_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
 
                     let ident = input.ident;
                     let generics = input.generics;
-                    let instance_ident = instance.ident.as_ref().unwrap_or_else(|| {
-                        abort!(instance, "instance field must have a name")
+                    let instance_span = instance.span();
+                    let instance_ident = instance.ident.unwrap_or_else(|| {
+                        abort!(instance_span, "instance field must have a name")
                     });
 
                     let generic_args = generic_params_to_args(generics.clone());
 
-                    Ok(quote! {
-                        #instance_field_type_assertion
-
-                        #[automatically_derived]
-                        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for #ident#generic_args {
-                            type Target = ::robusta_jni::jni::objects::JObject<'env>;
-
-                            fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
-                                ::robusta_jni::convert::IntoJavaValue::into(self, env)
-                            }
-                        }
-
-                        #[automatically_derived]
-                        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &#ident#generic_args {
-                            type Target = ::robusta_jni::jni::objects::JObject<'env>;
-
-                            fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
-                                self.#instance_ident.as_obj()
-                            }
-                        }
-
-                        #[automatically_derived]
-                        impl#generics ::robusta_jni::convert::IntoJavaValue<'env> for &mut #ident#generic_args {
-                            type Target = ::robusta_jni::jni::objects::JObject<'env>;
-
-                            fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
-                                ::robusta_jni::convert::IntoJavaValue::into(self, env)
-                            }
-                        }
-                    })
+                    TraitAutoDeriveData {
+                        instance_field_type_assertion,
+                        ident,
+                        generics,
+                        instance_ident,
+                        generic_args
+                    }
                 }
             }
         },
-        _ => abort!(input_span, "`IntoJavaValue` auto-derive implemented for structs only"),
+        _ => abort!(input, "`{}` auto-derive implemented for structs only", trait_name),
     }
 }

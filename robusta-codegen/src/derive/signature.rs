@@ -31,7 +31,7 @@ fn signature_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
                     let package_str = {
                         let mut s = package.to_string().replace('.', "/");
                         if !s.is_empty() {
-                            s.push_str("/")
+                            s.push('/')
                         }
                         s
                     };

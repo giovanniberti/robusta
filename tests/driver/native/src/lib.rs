@@ -10,7 +10,7 @@ pub mod jni {
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::objects::JObject;
 
-    #[derive(Signature, IntoJavaValue)]
+    #[derive(Signature, TryIntoJavaValue, IntoJavaValue)]
     #[package()]
     pub struct User<'env: 'borrow, 'borrow> {
         #[instance]
@@ -22,22 +22,6 @@ pub mod jni {
 
         fn try_from(_s: Self::Source, _env: &'b JNIEnv<'e>) -> jni::errors::Result<Self> {
             Ok(User { raw: AutoLocal::new(_env,_s) })
-        }
-    }
-
-    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for &User<'e, 'b> {
-        type Target = JObject<'e>;
-
-        fn try_into(self, _env: &JNIEnv<'e>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
-            Ok(IntoJavaValue::into(self, _env))
-        }
-    }
-
-    impl<'e: 'b, 'b> TryIntoJavaValue<'e> for User<'e, 'b> {
-        type Target = JObject<'e>;
-
-        fn try_into(self, _env: &JNIEnv<'e>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
-            Ok(IntoJavaValue::into(self, _env))
         }
     }
 
