@@ -115,7 +115,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     .struct_context
                     .package
                     .as_ref()
-                    .map(|p| p.to_snake_case())
+                    .map(|p| p.to_string())
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "".into())
                     .replace('.', "/");
