@@ -1,6 +1,6 @@
 [package]
 name = "robusta_jni"
-version = "0.0.3"
+version = "0.1.0"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
 repository = "https://github.com/giovanniberti/robusta"
 description = "Easy interop between Rust and Java"
@@ -13,7 +13,7 @@ exclude = ["/robusta-codegen", "/robusta-example", "README.md"]
 documentation = "https://docs.rs/robusta/"
 
 [dependencies]
-robusta-codegen = { version = "0.0.3", path = "./robusta-codegen" }
+robusta-codegen = { version = "0.1", path = "./robusta-codegen" }
 jni = { version = "0.17.0", features = ["invocation"] }
 paste = "1.0.0"
 static_assertions = "1.1.0"
