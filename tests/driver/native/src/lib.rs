@@ -7,6 +7,7 @@ pub mod jni {
     use robusta_jni::convert::{IntoJavaValue, JValueWrapper, Signature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::jni::objects::AutoLocal;
+    use robusta_jni::jni::errors::Result as JniResult;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package()]
@@ -41,6 +42,6 @@ pub mod jni {
         pub extern "java" fn getTotalUsersCount(env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<i32> {}
 
         #[constructor]
-        pub extern "java" fn new(env: &'borrow JNIEnv<'env>, username: String, password: String) -> ::robusta_jni::jni::errors::Result<Self> {}
+        pub extern "java" fn new(env: &'borrow JNIEnv<'env>, username: String, password: String) -> JniResult<Self> {}
     }
 }

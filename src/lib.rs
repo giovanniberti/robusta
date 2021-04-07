@@ -51,7 +51,8 @@
 //!
 //! Native methods can optionally accept a [`JNIEnv`] parameter as first parameter (after `self` if present).
 //!
-//! Methods are declared as standard Rust functions with public visibility and "jni" ABI. No special handling is needed.
+//! Methods are declared as standard Rust functions with public visibility and "jni" ABI, and are matched by name with Java methods.
+//! No special handling is needed.
 //!
 //! Example:
 //!
@@ -100,8 +101,10 @@
 //! Again, **all input and output types must implement proper conversion traits**: in this case it's the reverse from the Java🠖Rust case
 //! (input types must implement `(Try)IntoJavaValue` and output types must implement `(Try)FromJavaValue`).
 //!
-//! Methods are declared as standard Rust functions with public visibility, a "java" ABI and an empty body.
+//! Methods are declared as standard Rust functions with public visibility, a "java" ABI and an empty body, and are matched by name with Java methods.
 //! Both static and non-static methods must accept a [`JNIEnv`] parameter as first parameter (after self if present).
+//!
+//! Constructors can be declared via a `#[constructor]` attribute on static methods, and are matched by their type signature.
 //!
 //! When using `#[call_type(safe)]` or omitting `call_type` attribute, the output type **must** be [`jni::errors::Result<T>`](jni::errors::Result)
 //! with `T` being the actual method return type. Otherwise when using `#[call_type(unchecked)]` `T` is sufficient.
