@@ -9,7 +9,6 @@
 //!
 //! # Getting started
 //! The [`#[bridge]`](bridge) attribute is `robusta_jni`'s entry point. It must be applied to a module.
-//! The `#[bridge]` attribute is `robusta_jni`'s entry point. It must be applied to a module.
 //! `robusta_jni` will then generate proper function definitions and trait implementations depending on declared methods.
 //!
 //! # Declaring classes
