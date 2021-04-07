@@ -20,18 +20,47 @@ use crate::convert::{JavaValue, Signature};
 pub use robusta_codegen::{IntoJavaValue, FromJavaValue};
 
 /// Conversion trait from Rust values to Java values, analogous to [Into]. Used when converting types returned from JNI-available functions.
+///
+/// The usage of this trait in the generated code can be enabled with the `#[call_type(unchecked)]` attribute on a per-method basis.
+///
+/// When using this trait the conversion is assumed to be infallible.
+/// Should a conversion fail, a panic will be raised.
+///
+/// # Notes on the derive macro
+///
+/// The same notes on [`TryIntoJavaValue`] apply.
+///
+/// [`TryIntoJavaValue`]: crate::convert::TryIntoJavaValue
+///
 pub trait IntoJavaValue<'env>: Signature {
+    /// Conversion target type.
     type Target: JavaValue<'env>;
+
+    /// [Signature](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/types.html#type-signatures) of the source type.
+    /// By default, use the one defined on the [`Signature`] trait for the implementing type.
     const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
+    /// Perform the conversion.
     fn into(self, env: &JNIEnv<'env>) -> Self::Target;
 }
 
 /// Conversion trait from Java values to Rust values, analogous to [From]. Used when converting types that are input to JNI-available functions.
+///
+/// # Notes on derive macro
+///
+/// The same notes on [`TryFromJavaValue`] apply.
+///
+/// [`TryFromJavaValue`]: crate::convert::TryFromJavaValue
+///
 pub trait FromJavaValue<'env: 'borrow, 'borrow>: Signature {
+    /// Conversion source type.
     type Source: JavaValue<'env>;
+
+    /// [Signature](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/types.html#type-signatures) of the target type.
+    /// By default, use the one defined on the [`Signature`] trait for the implementing type.
     const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
+    /// Perform the conversion.
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self;
 }
 

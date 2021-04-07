@@ -48,17 +48,26 @@ pub use unchecked::*;
 pub mod safe;
 pub mod unchecked;
 
-/// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JOBject](jni::objects::JObject) and [jobject](jni::sys::jobject).
+/// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JObject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
 pub trait JavaValue<'env> {
+    /// Convert instance to a [`JObject`].
     fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env>;
 
+    /// Convert [`JObject`] to the implementing type.
     fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self;
 }
 
-/// A trait for types that can provide a reference to a [JNIEnv](jni::JNIEnv) object. Used when generating Java methods that take a "self" parameter.
-pub trait JNIEnvLink<'env> {
-    fn get_env(&self) -> &JNIEnv<'env>;
+/// This trait provides [type signatures](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/types.html#type-signatures) for types.
+/// It is necessary to support conversions to/from Java types.
+///
+/// While you can implement this trait manually, you should probably use the derive macro.
+///
+/// The derive macro requires a `#[package()]` attribute on implementing structs (most likely you already have that).
+///
+pub trait Signature {
+    /// [Java type signature](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/types.html#type-signatures) for the implementing type.
+    const SIG_TYPE: &'static str;
 }
 
 macro_rules! jvalue_types {
@@ -280,8 +289,4 @@ impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
             _ => Err(ErrorKind::WrongJValueType("string", value.0.type_name()).into()),
         }
     }
-}
-
-pub trait Signature {
-    const SIG_TYPE: &'static str;
 }

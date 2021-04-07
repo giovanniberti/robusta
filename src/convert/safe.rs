@@ -27,20 +27,70 @@ use crate::convert::{JavaValue, Signature};
 pub use robusta_codegen::{TryIntoJavaValue, TryFromJavaValue};
 
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
+///
+/// This is the default trait used when converting values from Rust to Java.
+///
+/// # Notes on derive macro
+/// The same notes on [`TryFromJavaValue`] apply.
+///
+/// Note that when autoderiving `TryIntoJavaValue` for `T`, an implementation for all of `T`, `&T` and `&mut T` is generated (for ergonomics).
+///
 pub trait TryIntoJavaValue<'env>: Signature {
+    /// Conversion target type.
     type Target: JavaValue<'env>;
+
+    /// [Signature](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/types.html#type-signatures) of the source type.
+    /// By default, use the one defined on the [`Signature`] trait for the implementing type.
     const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
+    /// Perform the conversion.
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target>;
 }
 
 /// Conversion trait from Java values to Rust values, analogous to [TryFrom](std::convert::TryInto). Used when converting types that are input to JNI-available functions.
+///
+/// This is the default trait used when converting values from Java to Rust.
+///
+/// # Notes on the derive macro
+/// When using the derive macro, the deriving struct **must** have a [`AutoLocal`] field annotated with both `'env` and `'borrow` lifetimes and a `#[instance]` attribute.
+/// This fields keeps a [local reference](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/design.html#global-and-local-references) to the underlying Java object.
+/// All other fields are automatically initialized from fields on the Java instance with the same name.
+///
+/// Example:
+///
+/// ```rust
+/// # use robusta_jni::bridge;
+/// use robusta_jni::convert::{Signature, TryFromJavaValue};
+/// use robusta_jni::jni::objects::AutoLocal;
+/// #
+/// # #[bridge]
+/// # mod jni {
+///     # use robusta_jni::jni::JNIEnv;
+///     # use jni::objects::{JObject, AutoLocal};
+///
+/// #[derive(Signature, TryFromJavaValue)]
+/// #[package()]
+/// struct A<'env: 'borrow, 'borrow> {
+///     #[instance]
+///     raw: AutoLocal<'env, 'borrow>,
+///     foo: i32
+/// }
+/// # }
+/// ```
+///
+/// [`AutoLocal`]: jni::objects::AutoLocal
+///
 pub trait TryFromJavaValue<'env: 'borrow, 'borrow>
 where
     Self: Sized + Signature, {
+    /// Conversion source type.
     type Source: JavaValue<'env>;
+
+    /// [Signature](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/types.html#type-signatures) of the target type.
+    /// By default, use the one defined on the [`Signature`] trait for the implementing type.
     const SIG_TYPE: &'static str = <Self as Signature>::SIG_TYPE;
 
+    /// Perform the conversion.
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self>;
 }
 
