@@ -188,6 +188,39 @@
 //! # }
 //! ```
 //!
+//! ## Constructors
+//!
+//! Example:
+//! ```rust
+//! # use robusta_jni::bridge;
+//! # use robusta_jni::convert::{Signature, TryFromJavaValue};
+//! #
+//! # #[bridge]
+//! # mod jni {
+//!     # use robusta_jni::convert::{Signature, TryFromJavaValue, JavaValue};
+//!     # use robusta_jni::jni::JNIEnv;
+//!     # use jni::objects::JObject;
+//!     # #[derive(Signature)]
+//!     # #[package()]
+//!     # struct A;
+//!     #
+//!     # impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for A {
+//!     #    type Source = JObject<'env>;
+//!     #
+//!     #    fn try_from(s: Self::Source,env: &'borrow JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
+//!     #         Ok(A)
+//!     #     }
+//!     # }
+//!     #
+//! impl A {
+//!     #[constructor]  //   vvv------ this method can be anything because it's a constructor
+//!     pub extern "java" fn new(
+//!         env: &JNIEnv
+//!     ) -> ::robusta_jni::jni::errors::Result<i32> {}
+//! }
+//! # }
+//! ```
+//!
 //! # Conversion details and special lifetimes
 //! The procedural macro handles two special lifetimes specially: `'env` and `'borrow`.
 //!
