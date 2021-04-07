@@ -31,7 +31,7 @@ before_deploy:
 deploy:
   strategy: git
   provider: pages
-  cleanup: false
+  skip_cleanup: true
   token: $GITHUB_TOKEN  
   keep_history: false  
   local_dir: public
