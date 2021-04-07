@@ -216,7 +216,7 @@
 //!     #[constructor]  //   vvv------ this method can be anything because it's a constructor
 //!     pub extern "java" fn new(
 //!         env: &JNIEnv
-//!     ) -> ::robusta_jni::jni::errors::Result<i32> {}
+//!     ) -> ::robusta_jni::jni::errors::Result<Self> {}
 //! }
 //! # }
 //! ```
