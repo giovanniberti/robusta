@@ -16,6 +16,7 @@ script:
   - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
   - chmod +x $TRAVIS_BUILD_DIR/install-jdk.sh
   - export JAVA_HOME=$HOME/openjdk11
+  - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server
   - $TRAVIS_BUILD_DIR/install-jdk.sh -F 15 --target $JAVA_HOME
   - cargo build --verbose
   - cargo test --verbose
