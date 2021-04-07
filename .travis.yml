@@ -1,5 +1,6 @@
 language: rust
-sudo: false
+os: linux
+dist: xenial
 
 rust:
   - stable
@@ -9,7 +10,14 @@ rust:
 cache:
   - cargo
 
+jdk: openjdk10
+
 script:
+  - jdk_switcher use openjdk10
+  - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
+  - chmod +x $TRAVIS_BUILD_DIR/install-jdk.sh
+  - export JAVA_HOME=$HOME/openjdk11
+  - $TRAVIS_BUILD_DIR/install-jdk.sh -F 15 --target $JAVA_HOME
   - cargo build --verbose
   - cargo test --verbose
 
@@ -21,10 +29,11 @@ before_deploy:
   - ls
 
 deploy:
+  strategy: git
   provider: pages
-  skip-cleanup: true
-  github-token: $GITHUB_TOKEN  
-  keep-history: false  
-  local-dir: public
+  cleanup: false
+  token: $GITHUB_TOKEN  
+  keep_history: false  
+  local_dir: public
   on:
     branch: master
