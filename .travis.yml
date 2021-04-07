@@ -13,7 +13,6 @@ cache:
 jdk: openjdk10
 
 script:
-  - jdk_switcher use openjdk10
   - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
   - chmod +x $TRAVIS_BUILD_DIR/install-jdk.sh
   - export JAVA_HOME=$HOME/openjdk11
