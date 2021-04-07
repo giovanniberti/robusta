@@ -65,6 +65,7 @@ pub trait TryIntoJavaValue<'env>: Signature {
 /// #
 /// # #[bridge]
 /// # mod jni {
+///     # use robusta_jni::convert::{Signature, TryFromJavaValue};
 ///     # use robusta_jni::jni::JNIEnv;
 ///     # use jni::objects::{JObject, AutoLocal};
 ///
