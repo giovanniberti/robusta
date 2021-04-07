@@ -1,4 +1,4 @@
-//! `robusta_jni` is a library provides a procedural macro to make easier to write JNI-compatible code in Rust.
+//! `robusta_jni` is a library that provides a procedural macro to make easier to write JNI-compatible code in Rust.
 //!
 //! It can perform automatic conversion of Rust-y input and output types.
 //!
