@@ -98,7 +98,7 @@
 //!
 //! # Adding Java methods
 //! You can also declare Java methods and `robusta` will generate binding glue to convert types and call methods on the Java side.
-//! Again, **all input and output types must implement proper conversion traits**: in this case it's the reverse from the Java🠖Rust case
+//! Again, **all input and output types must implement proper conversion traits**: in this case it's the reverse from the Java to Rust case
 //! (input types must implement `(Try)IntoJavaValue` and output types must implement `(Try)FromJavaValue`).
 //!
 //! Methods are declared as standard Rust functions with public visibility, a "java" ABI and an empty body, and are matched by name with Java methods.
@@ -213,7 +213,7 @@
 //!     # }
 //!     #
 //! impl A {
-//!     #[constructor]  //   vvv------ this method can be anything because it's a constructor
+//!     #[constructor]  //   vvv ---- this method name can be anything because it's a constructor
 //!     pub extern "java" fn new(
 //!         env: &JNIEnv
 //!     ) -> ::robusta_jni::jni::errors::Result<Self> {}
