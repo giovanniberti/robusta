@@ -1,0 +1,30 @@
+language: rust
+sudo: false
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+cache:
+  - cargo
+
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+
+before_deploy:
+  - cargo doc
+  - mkdir public
+  - cp -r target/doc public/
+  - pwd
+  - ls
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN  
+  keep-history: false  
+  local-dir: public
+  on:
+    branch: master
