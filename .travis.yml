@@ -31,6 +31,7 @@ before_deploy:
 deploy:
   strategy: git
   provider: pages
+  repo: giovanniberti/giovanniberti.github.io
   skip_cleanup: true
   token: $GITHUB_TOKEN  
   keep_history: false  
