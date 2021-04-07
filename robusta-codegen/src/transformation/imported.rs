@@ -251,13 +251,12 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     CallType::Unchecked(_) => {
                         if is_constructor {
                             quote_spanned! { output_type_span =>
-                                res.and_then(|v| ::robusta_jni::convert::TryFromJavaValue::try_from(v, &env))
-                                    .unwrap()
+                                ::robusta_jni::convert::FromJavaValue::from(res, &env)
                             }
                         } else {
                             quote_spanned! { output_type_span =>
                                 ::std::convert::TryInto::try_into(::robusta_jni::convert::JValueWrapper::from(res))
-                                    .and_then(|v| ::robusta_jni::convert::TryFromJavaValue::try_from(v, &env))
+                                    .map(|v| ::robusta_jni::convert::FromJavaValue::from(v, &env))
                                     .unwrap()
                             }
                         }
