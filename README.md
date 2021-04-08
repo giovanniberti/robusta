@@ -29,7 +29,19 @@ On the other hand, if you need to call Java function from Rust, you add a `"java
 On these methods you can attach a `call_type` attribute that manages how conversions and errors are handled: by default, `#[call_type(safe)]` is implied,
 but you can switch to `#[call_type(unchecked)]` at any time, most likely with few or no code changes.
 
-## Example
+## Code example
+
+You can find an example under `./robusta-example`. To run it you should have `java` and `javac` on your PATH and then execute:
+
+```bash
+$ cd robusta-example
+$ make java_run
+
+# if you don't have `make` installed:
+$ cargo build && javac com/example/robusta/HelloWorld.java && RUST_BACKTRACE=full java -Djava.library.path=../target/debug com.example.robusta.HelloWorld
+```
+
+## Example usage
 ### Rust side
 ```rust
 use robusta_jni::bridge;
