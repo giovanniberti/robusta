@@ -247,6 +247,7 @@
 //! | f64                                                                                | double                            |
 //! | i64                                                                                | long                              |
 //! | i16                                                                                | short                             |
+//! | String                                                                             | String                            |
 //! | Vec\<T\>†                                                                          | ArrayList\<T\>                    |
 //! | [jni::JObject<'env>](jni::objects::JObject)                                      ‡ | *(any Java object as input type)* |
 //! | [jni::jobject](jni::sys::jobject)                                                    | *(any Java object as output)*     |

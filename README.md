@@ -92,6 +92,7 @@ however to provide maximum compatibility with `robusta`, we suggest using the re
 | f64                                                                                | double                            |
 | i64                                                                                | long                              |
 | i16                                                                                | short                             |
+| String                                                                             | String                            |
 | Vec\<T\>†                                                                          | ArrayList\<T\>                    |
 | [jni::JObject<'env>](https://docs.rs/jni/0.17.0/jni/objects/struct.JObject.html) ‡ | *(any Java object as input type)* |
 | [jni::jobject](https://docs.rs/jni/0.17.0/jni/sys/type.jobject.html)               | *(any Java object as output)*     |
