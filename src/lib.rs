@@ -235,6 +235,10 @@
 //! When using `*FromJavaValue` derive macros your structs will be required to have both `'env` and `'borrow`,
 //! with the same bounds as in the trait definition. For more information, see the relevant traits documentation.
 //!
+//! ## Raising exceptions
+//! You can make a Rust native method raise a Java exception simply by returning a [`jni::errors::Result`] with an `Err` variant.
+//! See the [`convert`] module documentation for more information.
+//!
 //! ## Library-provided conversions
 //!
 //! | **Rust**                                                                           | **Java**                          |
