@@ -300,6 +300,10 @@ impl JavaPath {
     pub fn to_snake_case(&self) -> String {
         self.0.replace('.', "_")
     }
+
+    pub fn to_classpath_path(&self) -> String {
+        self.0.replace('.', "/")
+    }
 }
 
 impl Parse for JavaPath {

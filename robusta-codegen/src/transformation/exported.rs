@@ -136,7 +136,7 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                 };
 
                 let (default_exception_class, default_message) =
-                    ("java/lang/RuntimeException", "JNI conversion error!");
+                    ("java.lang.RuntimeException".parse().unwrap(), "JNI call error!");
                 let (exception_class, message) = match exception_details {
                     Some(SafeParams {
                         exception_class,
@@ -144,18 +144,17 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                     }) => {
                         let exception_class_result = exception_class
                             .as_ref()
-                            .map(|v| &v.0)
-                            .map(AsRef::as_ref)
-                            .unwrap_or(default_exception_class);
+                            .unwrap_or(&default_exception_class);
                         let message_result = message
-                            .as_ref()
-                            .map(AsRef::as_ref)
+                            .as_deref()
                             .unwrap_or(default_message);
 
                         (exception_class_result, message_result)
                     }
-                    None => (default_exception_class, default_message),
+                    None => (&default_exception_class, default_message),
                 };
+
+                let exception_classpath_path = exception_class.to_classpath_path();
 
                 parse_quote_spanned! { node.span() => {
                     #outer_signature {
@@ -164,8 +163,8 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
 
                     match outer(#outer_call_inputs) {
                         Ok(result) => result,
-                        Err(_) => {
-                            env.throw_new(#exception_class, #message).unwrap();
+                        Err(e) => {
+                            env.throw_new(#exception_classpath_path, format!("{}. Cause: {}", #message, e.description())).unwrap();
 
                             /* We never hand out Rust references and the object returned is ignored
                              * by the JVM, so it should be safe to just return zeroed memory.
