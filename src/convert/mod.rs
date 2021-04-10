@@ -30,6 +30,13 @@
 //! }
 //! ```
 //!
+//! # Raising exceptions from native code
+//! If you want to have the option of throwing a Java exception from native code (conversion errors aside), you can
+//! annotate your function signature with a [`jni::errors::Result<T>`] return type.
+//!
+//! When used with `#[call_type(safe)]`, if an `Err` is returned a Java exception is thrown (the one specified in the `call_type` attribute,
+//! or `java.lang.RuntimeException` if omitted).
+//!
 
 use std::convert::TryFrom;
 use std::str::FromStr;
@@ -154,6 +161,10 @@ impl<'env> JavaValue<'env> for JString<'env> {
     fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
         From::from(s)
     }
+}
+
+impl<T: Signature> Signature for jni::errors::Result<T> {
+    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
 }
 
 pub struct JValueWrapper<'a>(JValue<'a>);

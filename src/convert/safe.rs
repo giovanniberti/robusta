@@ -246,3 +246,18 @@ where
             .collect()
     }
 }
+
+/// When returning a [`jni::errors::Result`], if the returned variant is `Ok(v)` then the value `v` is returned as usual.
+///
+/// If the returned value is `Err`, the Java exception specified in the `#[call_type(safe)]` attribute is thrown
+/// (by default `java.lang.RuntimeException`)
+impl<'env, T> TryIntoJavaValue<'env> for jni::errors::Result<T>
+where
+    T: TryIntoJavaValue<'env>
+{
+    type Target = <T as TryIntoJavaValue<'env>>::Target;
+
+    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        self.and_then(|s| TryIntoJavaValue::try_into(s, env))
+    }
+}

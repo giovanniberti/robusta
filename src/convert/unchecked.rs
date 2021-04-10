@@ -220,3 +220,14 @@ where
             .collect()
     }
 }
+
+impl<'env, T> IntoJavaValue<'env> for jni::errors::Result<T>
+where
+    T: IntoJavaValue<'env>
+{
+    type Target = <T as IntoJavaValue<'env>>::Target;
+
+    fn into(self, env: &JNIEnv<'env>) -> Self::Target {
+        self.map(|s| IntoJavaValue::into(s, env)).unwrap()
+    }
+}

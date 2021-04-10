@@ -92,6 +92,9 @@ is necessary to allow the library to perform automatic type conversion.
 These traits make use of type provided by the  [`jni`](https://crates.io/crates/jni) crate,
 however to provide maximum compatibility with `robusta`, we suggest using the re-exported version under `robusta_jni::jni`.
 
+### Raising exceptions
+You can make a Rust native method raise a Java exception simply by returning a `jni::errors::Result` with an `Err` variant.
+
 ### Conversion table
 
 | **Rust**                                                                           | **Java**                          |

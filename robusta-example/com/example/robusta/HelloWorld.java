@@ -10,6 +10,9 @@ class HelloWorld {
         return i + u;
     }
 
+    // pub extern "jni" fn catchMe(self, _env: &JNIEnv) -> JniResult<i32>
+    private native void catchMe() throws IllegalArgumentException;
+
     // pub extern "java" fn javaAdd(&self, i: i32, u: i32) -> i32 {}
     public int javaAdd(int i, int u) {
         return i + u;
@@ -33,5 +36,13 @@ class HelloWorld {
         HelloWorld h = new HelloWorld();
         System.out.println(h.nativeFun(false));
         System.out.println(h.nativeFun(true));
+
+        try {
+            h.catchMe();
+        } catch (IllegalArgumentException e) {
+            System.out.println("Caught exception. Message: \"" + e.getMessage() + "\"");
+            System.out.println("Printing stacktrace:");
+            e.printStackTrace();
+        }
 	}
 }

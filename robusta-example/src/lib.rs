@@ -6,6 +6,7 @@ mod jni {
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::errors::Result as JniResult;
+    use robusta_jni::jni::errors::Error as JniError;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, FromJavaValue, TryFromJavaValue)]
     #[package(com.example.robusta)]
@@ -24,13 +25,18 @@ mod jni {
             input1.iter().map(ToString::to_string).collect()
         }
 
-        #[call_type(unchecked)]
-        pub extern "jni" fn nativeFun(self, _env: &JNIEnv, static_call: bool) -> i32 {
+        pub extern "jni" fn nativeFun(self, env: &JNIEnv, static_call: bool) -> JniResult<i32> {
             if static_call {
-                HelloWorld::staticJavaAdd(_env, 1, 2)
+                Ok(HelloWorld::staticJavaAdd(env, 1, 2))
             } else {
-                self.javaAdd(_env, 1, 2).unwrap()
+                let a = self.javaAdd(env, 0, 0)?;
+                Ok(a + self.javaAdd(env, 1, 2)?)
             }
+        }
+
+        #[call_type(safe(exception_class = "java.lang.IllegalArgumentException", message = "something bad happened"))]
+        pub extern "jni" fn catchMe(self, _env: &JNIEnv) -> JniResult<i32> {
+            Err(JniError::from("catch me if you can"))
         }
 
         pub extern "java" fn javaAdd(
