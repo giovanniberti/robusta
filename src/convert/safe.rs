@@ -18,7 +18,7 @@
 
 use jni::errors::{Result, Error};
 use jni::objects::{JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
+use jni::sys::{jboolean, jbooleanArray, jchar, jobject};
 use jni::JNIEnv;
 
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
@@ -118,11 +118,11 @@ where
 }
 
 impl<'env> TryIntoJavaValue<'env> for String {
-    type Target = jstring;
+    type Target = JString<'env>;
     const SIG_TYPE: &'static str = "Ljava/lang/String;";
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        env.new_string(self).map(|s| s.into_inner())
+        env.new_string(self)
     }
 }
 

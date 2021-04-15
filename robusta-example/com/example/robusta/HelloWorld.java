@@ -3,6 +3,8 @@ package com.example.robusta;
 import java.util.*;
 
 class HelloWorld {
+    private String foo = "";
+
     private static native ArrayList<String> special(ArrayList<Integer> input1, int in2);
 
     // pub extern "java" fn staticJavaAdd(i: i32, u: i32) -> i32 {}
@@ -29,6 +31,8 @@ class HelloWorld {
         System.loadLibrary("robusta_example");
     }
 
+    private native void setStringHelloWorld();
+
     public static void main(String[] args) {
         ArrayList<String> output = HelloWorld.special(new ArrayList<Integer>(List.of(1, 2, 3)), 4);
         System.out.println(output);
@@ -44,5 +48,9 @@ class HelloWorld {
             System.out.println("Printing stacktrace:");
             e.printStackTrace();
         }
+
+        System.out.println("Now h.foo is: \"" + h.foo + "\"");
+        h.setStringHelloWorld();
+        System.out.println("After setStringHelloWorld() h.foo is: \"" + h.foo + "\"");
 	}
 }

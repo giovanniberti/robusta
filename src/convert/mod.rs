@@ -51,9 +51,11 @@ use paste::paste;
 pub use robusta_codegen::Signature;
 pub use safe::*;
 pub use unchecked::*;
+pub use field::*;
 
 pub mod safe;
 pub mod unchecked;
+pub mod field;
 
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JObject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
@@ -167,7 +169,7 @@ impl<T: Signature> Signature for jni::errors::Result<T> {
     const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
 }
 
-pub struct JValueWrapper<'a>(JValue<'a>);
+pub struct JValueWrapper<'a>(pub JValue<'a>);
 
 impl<'a> From<JValue<'a>> for JValueWrapper<'a> {
     fn from(v: JValue<'a>) -> Self {

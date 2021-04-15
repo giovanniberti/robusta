@@ -6,14 +6,17 @@ use quote::{quote, quote_spanned};
 use syn::{Data, DataStruct, DeriveInput, GenericParam, LifetimeDef, Type, TypePath, PathArguments, GenericArgument, AngleBracketedGenericArguments, Generics, Field};
 use syn::spanned::Spanned;
 use crate::derive::utils::generic_params_to_args;
+use crate::transformation::JavaPath;
 
 struct TraitAutoDeriveData {
     instance_field_type_assertion: TokenStream,
     impl_target: Ident,
+    classpath_path: String,
     generics: Generics,
     instance_ident: Ident,
     generic_args: AngleBracketedGenericArguments,
-    data_fields: Vec<Field>
+    data_fields: Vec<Field>,
+    class_fields: Vec<Field>,
 }
 
 pub(crate) fn into_java_value_macro_derive(input: DeriveInput) -> TokenStream {
@@ -128,15 +131,17 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
     let TraitAutoDeriveData {
         instance_field_type_assertion,
         impl_target,
+        classpath_path,
         generics,
         instance_ident,
         generic_args,
-        data_fields
+        data_fields,
+        class_fields
     } = get_trait_impl_components("FromJavaValue", input);
 
 
-    let fields_struct_init: Vec<_> = data_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
-    let fields_env_init: Vec<_> = data_fields.iter().map(|f| {
+    let data_fields_struct_init: Vec<_> = data_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
+    let data_fields_env_init: Vec<_> = data_fields.iter().map(|f| {
         let field_ident = f.ident.as_ref().unwrap();
         let field_name = field_ident.to_string();
         let field_type = &f.ty;
@@ -148,6 +153,20 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
         }
     }).collect();
 
+    let class_fields_struct_init: Vec<_> = class_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
+    let class_fields_env_init: Vec<_> = class_fields.iter().map(|f| {
+        let field_ident = f.ident.as_ref().unwrap();
+        let field_name = field_ident.to_string();
+        let field_type = &f.ty;
+
+        quote_spanned! { f.span() =>
+            let #field_ident: #field_type = ::robusta_jni::convert::Field::field_from(source,
+                #classpath_path,
+                #field_name,
+                env);
+        }
+    }).collect();
+
     Ok(quote! {
         #instance_field_type_assertion
 
@@ -156,11 +175,13 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
             type Source = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn from(source: Self::Source, env: &'borrow ::robusta_jni::jni::JNIEnv<'env>) -> Self {
-                #(#fields_env_init)*
+                #(#data_fields_env_init)*
+                #(#class_fields_env_init)*
 
                 Self {
                     #instance_ident: ::robusta_jni::jni::objects::AutoLocal::new(env, source),
-                    #(#fields_struct_init),*
+                    #(#data_fields_struct_init),*
+                    #(#class_fields_struct_init),*
                 }
             }
         }
@@ -179,15 +200,17 @@ fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
     let TraitAutoDeriveData {
         instance_field_type_assertion,
         impl_target,
+        classpath_path,
         generics,
         instance_ident,
         generic_args,
-        data_fields
+        data_fields,
+        class_fields
     } = get_trait_impl_components("FromJavaValue", input);
 
 
-    let fields_struct_init: Vec<_> = data_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
-    let fields_env_init: Vec<_> = data_fields.iter().map(|f| {
+    let data_fields_struct_init: Vec<_> = data_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
+    let data_fields_env_init: Vec<_> = data_fields.iter().map(|f| {
         let field_ident = f.ident.as_ref().unwrap();
         let field_name = field_ident.to_string();
         let field_type = &f.ty;
@@ -199,6 +222,20 @@ fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
         }
     }).collect();
 
+    let class_fields_struct_init: Vec<_> = class_fields.iter().map(|f| f.ident.as_ref().unwrap()).collect();
+    let class_fields_env_init: Vec<_> = class_fields.iter().map(|f| {
+        let field_ident = f.ident.as_ref().unwrap();
+        let field_name = field_ident.to_string();
+        let field_type = &f.ty;
+
+        quote_spanned! { f.span() =>
+            let #field_ident: #field_type = ::robusta_jni::convert::Field::field_try_from(source,
+                #classpath_path,
+                #field_name,
+                env)?;
+        }
+    }).collect();
+
     Ok(quote! {
         #instance_field_type_assertion
 
@@ -207,11 +244,13 @@ fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
             type Source = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn try_from(source: Self::Source, env: &'borrow ::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self> {
-                #(#fields_env_init)*
+                #(#data_fields_env_init)*
+                #(#class_fields_env_init)*
 
                 Ok(Self {
                     #instance_ident: ::robusta_jni::jni::objects::AutoLocal::new(env, source),
-                    #(#fields_struct_init),*
+                    #(#data_fields_struct_init),*
+                    #(#class_fields_struct_init),*
                 })
             }
         }
@@ -220,9 +259,30 @@ fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
 
 fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoDeriveData {
     let input_span = input.span();
+    let input_ident = &input.ident;
 
     match input.data {
         Data::Struct(DataStruct { fields, .. }) => {
+            let package_attr = input.attrs.iter().find(|a| a.path.get_ident().map(ToString::to_string).as_deref() == Some("package"));
+            if package_attr.is_none() {
+                abort!(input_span, "missing `#[package]` attribute")
+            }
+
+            let classpath_path = package_attr.unwrap().parse_args()
+                .map(|p: JavaPath| p.to_classpath_path())
+                .map(|s| {
+                    let mut s = s.clone();
+                    if !s.is_empty() {
+                        s.push('/');
+                    }
+                    s.push_str(&input_ident.to_string());
+                    s
+                })
+                .unwrap_or_else(|_| {
+                    emit_error!(package_attr, "invalid Java class path");
+                    "".to_string()
+                });
+
             let lifetimes: HashMap<String, &LifetimeDef> = input.generics.params.iter().filter_map(|g| match g {
                 GenericParam::Lifetime(l) => Some(l),
                 _ => None
@@ -243,6 +303,11 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
             let instance_fields: Vec<_> = fields.iter().filter_map(|f| {
                 let attr = f.attrs.iter().find(|a| a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("instance"));
                 attr.map(|a| (f, a))
+            }).collect();
+
+            let class_fields: Vec<_> = fields.iter().filter(|f| {
+                let attr = f.attrs.iter().find(|a| a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("field"));
+                attr.is_some()
             }).collect();
 
             if instance_fields.len() > 1 {
@@ -278,7 +343,6 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                         ::robusta_jni::assert_type_eq_all!(#ty, ::robusta_jni::jni::objects::AutoLocal<'static, 'static>);
                     };
 
-                    let ident = input.ident;
                     let generics = input.generics;
                     let instance_span = instance.span();
                     let instance_ident = instance.ident.as_ref().unwrap_or_else(|| {
@@ -287,13 +351,20 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
 
                     let generic_args = generic_params_to_args(generics.clone());
 
+                    let data_fields: Vec<_> = fields.iter().filter(|f| {
+                        f.ident.as_ref() != Some(instance_ident) &&
+                            class_fields.iter().all(|g| g != f)
+                    }).cloned().collect();
+
                     TraitAutoDeriveData {
                         instance_field_type_assertion,
-                        impl_target: ident,
+                        impl_target: input.ident,
+                        classpath_path,
                         generics,
                         instance_ident: instance_ident.clone(),
                         generic_args,
-                        data_fields: fields.clone().into_iter().filter(|f| f.ident.as_ref() != Some(instance_ident)).collect()
+                        data_fields,
+                        class_fields: class_fields.into_iter().cloned().collect()
                     }
                 }
             }

@@ -2,17 +2,18 @@ use robusta_jni::bridge;
 
 #[bridge]
 mod jni {
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue};
+    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::errors::Error as JniError;
 
-    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, FromJavaValue, TryFromJavaValue)]
+    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package(com.example.robusta)]
     pub struct HelloWorld<'env: 'borrow, 'borrow> {
         #[instance]
-        raw: AutoLocal<'env, 'borrow>
+        raw: AutoLocal<'env, 'borrow>,
+        #[field] foo: Field<'env, 'borrow, String>
     }
 
     impl<'env: 'borrow, 'borrow> HelloWorld<'env, 'borrow> {
@@ -48,5 +49,11 @@ mod jni {
 
         #[call_type(unchecked)]
         pub extern "java" fn staticJavaAdd(env: &JNIEnv, i: i32, u: i32) -> i32 {}
+
+        pub extern "jni" fn setStringHelloWorld(mut self) -> JniResult<()> {
+            println!("[rust]: self.foo: \"{}\"", self.foo.get()?);
+            self.foo.set("hello world".into())?;
+            Ok(())
+        }
     }
 }
