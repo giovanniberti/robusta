@@ -164,7 +164,11 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                     match outer(#outer_call_inputs) {
                         Ok(result) => result,
                         Err(e) => {
-                            env.throw_new(#exception_classpath_path, format!("{}. Cause: {}", #message, e.description())).unwrap();
+                            let r = env.throw_new(#exception_classpath_path, format!("{}. Cause: {}", #message, e.description()));
+
+                            if let Err(e) = r {
+                                println!("Error while throwing Java exception: {}", e.description());
+                            }
 
                             /* We never hand out Rust references and the object returned is ignored
                              * by the JVM, so it should be safe to just return zeroed memory.
