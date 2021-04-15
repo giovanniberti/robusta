@@ -29,7 +29,7 @@ fn signature_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
                     let struct_name = input.ident;
                     let package = attr.parse_args::<JavaPath>()?;
                     let package_str = {
-                        let mut s = package.to_string().replace('.', "/");
+                        let mut s = package.to_classpath_path();
                         if !s.is_empty() {
                             s.push('/')
                         }
