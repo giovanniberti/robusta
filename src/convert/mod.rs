@@ -25,7 +25,7 @@
 //!         }
 //!
 //!         #[call_type(safe(exception_class = "java.lang.IllegalArgumentException", message = "invalid value"))]
-//!         pub extern "jni" fn bar(foo: i32) -> i32 { foo }
+//!         pub extern "jni" fn bar(foo: i32) -> ::robusta_jni::jni::errors::Result<i32> { Ok(foo) }
 //!     }
 //! }
 //! ```
