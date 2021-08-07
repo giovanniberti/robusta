@@ -4,7 +4,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! robusta_jni = "0.1"
+//! robusta_jni = "0.2"
 //! ```
 //!
 //! # Getting started

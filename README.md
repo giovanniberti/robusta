@@ -1,5 +1,5 @@
 # robusta &mdash; easy interop between Rust and Java
-[![Build Status](https://travis-ci.com/giovanniberti/robusta.svg?branch=master)](https://travis-ci.com/giovanniberti/robusta) [![Latest Version](https://img.shields.io/crates/v/robusta_jni.svg)](https://crates.io/crates/robusta_jni) [![Docs](https://docs.rs/robusta_jni/badge.svg?version=0.1.0)](https://docs.rs/robusta_jni)
+[![Build Status](https://travis-ci.com/giovanniberti/robusta.svg?branch=master)](https://travis-ci.com/giovanniberti/robusta) [![Latest Version](https://img.shields.io/crates/v/robusta_jni.svg)](https://crates.io/crates/robusta_jni) [![Docs](https://docs.rs/robusta_jni/badge.svg?version=0.2.0)](https://docs.rs/robusta_jni)
 
 [Master branch docs](https://giovanniberti.github.io/doc/robusta_jni/)
 
@@ -9,7 +9,7 @@ It can perform automatic conversion of Rust-y input and output types (see the [l
 
 ```toml
 [dependencies]
-robusta_jni = "0.1"
+robusta_jni = "0.2"
 ```
 
 ## Usage
