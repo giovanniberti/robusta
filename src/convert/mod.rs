@@ -131,6 +131,10 @@ impl<'env> JavaValue<'env> for () {
     fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
 }
 
+impl<'env> Signature for JObject<'env> {
+    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
+}
+
 impl<'env> JavaValue<'env> for JObject<'env> {
     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
         self
