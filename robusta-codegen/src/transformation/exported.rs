@@ -164,10 +164,10 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                     match outer(#outer_call_inputs) {
                         Ok(result) => result,
                         Err(e) => {
-                            let r = env.throw_new(#exception_classpath_path, format!("{}. Cause: {}", #message, e.description()));
+                            let r = env.throw_new(#exception_classpath_path, format!("{}. Cause: {}", #message, e));
 
                             if let Err(e) = r {
-                                println!("Error while throwing Java exception: {}", e.description());
+                                println!("Error while throwing Java exception: {}", e);
                             }
 
                             /* We never hand out Rust references and the object returned is ignored

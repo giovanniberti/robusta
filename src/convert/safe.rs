@@ -167,7 +167,7 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for char {
 
         match res {
             Some(Ok(c)) => Ok(c),
-            Some(Err(_)) | None => Err(Error::from(format!("invalid `jchar` value encountered when casting to `char`: {}", s)))
+            Some(Err(_)) | None => Err(Error::WrongJValueType("char", "jchar"))
         }
     }
 }

@@ -41,7 +41,7 @@
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-use jni::errors::ErrorKind;
+use jni::errors::Error;
 use jni::JNIEnv;
 use jni::objects::{JObject, JString, JValue};
 use jni::signature::JavaType;
@@ -193,7 +193,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jboolean {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Bool(b) => Ok(b),
-            _ => Err(ErrorKind::WrongJValueType("bool", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("bool", value.0.type_name()).into()),
         }
     }
 }
@@ -204,7 +204,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jbyte {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Byte(b) => Ok(b),
-            _ => Err(ErrorKind::WrongJValueType("byte", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("byte", value.0.type_name()).into()),
         }
     }
 }
@@ -215,7 +215,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jchar {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Char(c) => Ok(c),
-            _ => Err(ErrorKind::WrongJValueType("char", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("char", value.0.type_name()).into()),
         }
     }
 }
@@ -226,7 +226,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jdouble {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Double(d) => Ok(d),
-            _ => Err(ErrorKind::WrongJValueType("double", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("double", value.0.type_name()).into()),
         }
     }
 }
@@ -237,7 +237,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jfloat {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Float(f) => Ok(f),
-            _ => Err(ErrorKind::WrongJValueType("float", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("float", value.0.type_name()).into()),
         }
     }
 }
@@ -248,7 +248,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jint {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Int(i) => Ok(i),
-            _ => Err(ErrorKind::WrongJValueType("int", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("int", value.0.type_name()).into()),
         }
     }
 }
@@ -259,7 +259,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jshort {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Short(s) => Ok(s),
-            _ => Err(ErrorKind::WrongJValueType("short", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("short", value.0.type_name()).into()),
         }
     }
 }
@@ -270,7 +270,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for jlong {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Long(l) => Ok(l),
-            _ => Err(ErrorKind::WrongJValueType("long", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("long", value.0.type_name()).into()),
         }
     }
 }
@@ -281,7 +281,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for () {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Void => Ok(()),
-            _ => Err(ErrorKind::WrongJValueType("void", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("void", value.0.type_name()).into()),
         }
     }
 }
@@ -292,7 +292,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for JObject<'a> {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Object(o) => Ok(o),
-            _ => Err(ErrorKind::WrongJValueType("object", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("object", value.0.type_name()).into()),
         }
     }
 }
@@ -303,7 +303,7 @@ impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
     fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
         match value.0 {
             JValue::Object(o) => Ok(From::from(o)),
-            _ => Err(ErrorKind::WrongJValueType("string", value.0.type_name()).into()),
+            _ => Err(Error::WrongJValueType("string", value.0.type_name()).into()),
         }
     }
 }
