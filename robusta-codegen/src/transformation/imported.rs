@@ -128,6 +128,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     .join("/");
                 let java_method_name = to_camel_case(&signature.ident.to_string());
 
+                println!("signature inouts: {:?}", signature.inputs);
                 let input_types_conversions = signature
                     .inputs
                     .iter()
@@ -307,6 +308,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                     }}
                                 } else {
                                     parse_quote! {{
+                                        println!("computed sig {}", #java_signature);
                                         let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
                                         let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]);
                                         #return_expr
