@@ -39,7 +39,7 @@ pub mod jni {
 
         pub extern "java" fn getPassword(&self, env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<String> {}
 
-        pub extern "java" fn getTotalUsersCount(env: &JNIEnv, context: JObject) -> ::robusta_jni::jni::errors::Result<i32> {}
+        pub extern "java" fn getTotalUsersCount(env: &JNIEnv, #[object_sig("Landroid/content/Context;")] context: JObject) -> ::robusta_jni::jni::errors::Result<i32> {}
 
         #[constructor]
         pub extern "java" fn new(env: &'borrow JNIEnv<'env>, username: String, password: String) -> JniResult<Self> {}
