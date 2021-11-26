@@ -1,5 +1,5 @@
 use inflector::cases::camelcase::to_camel_case;
-use proc_macro2::{TokenStream, TokenTree, Group, Literal};
+use proc_macro2::{TokenStream, TokenTree, Group};
 use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use crate::transformation::context::StructContext;
 
 pub struct ImportedMethodTransformer<'ctx> {
-    pub(crate) struct_context: &'ctx StructContext,
+    pub(crate) struct_context: &'ctx StructContext
 }
 
 impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
@@ -30,7 +30,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                 emit_warning!(a.tokens, "#[constructor] attribute does not take parameters")
                             }
                             true
-                        }
+                        },
                         None => false
                     }
                 };
@@ -190,11 +190,11 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                             }
                         });
 
-                        if let CallType::Safe(_) = call_type {
-                            quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
+                        if let Some(override_type) = ovrride_type {
+                            quote_spanned! { span => #override_type, }
                         } else {
-                            if let Some(override_type) = ovrride_type {
-                                quote_spanned! { span => #override_type, }
+                            if let CallType::Safe(_) = call_type {
+                                quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
                             } else {
                                 quote_spanned! { span => <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
                             }
