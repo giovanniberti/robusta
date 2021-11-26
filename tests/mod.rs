@@ -1,7 +1,7 @@
 use std::process::Command;
 use robusta_jni::jni::{InitArgsBuilder, JavaVM, JNIEnv};
 use native::jni::User;
-use jni::objects::{JObject, JString};
+use jni::objects::JString;
 use robusta_jni::convert::FromJavaValue;
 
 fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
@@ -42,24 +42,20 @@ fn vm_creation_and_object_usage() {
     let current_dir = std::env::current_dir().expect("Couldn't get current dir");
     let classpath = current_dir.join("./tests/driver/build/classes/java/main");
 
-    let vm_args = InitArgsBuilder::new()
-        .option(&*format!(
-            "-Djava.class.path={}",
-            classpath.to_string_lossy()
-        ))
-        .build()
-        .expect("can't create vm args");
+    let vm_args  = InitArgsBuilder::new()
+        .option(&*format!("-Djava.class.path={}", classpath.to_string_lossy()))
+        .build().expect("can't create vm args");
     let vm = JavaVM::new(vm_args).expect("can't create vm");
     let env = vm.attach_current_thread().expect("can't get vm env");
 
     User::initNative();
 
     let count = User::getTotalUsersCount(&env)
-        .or_else(|e| {
-            let _ = print_exception(&env);
-            Err(e)
-        })
-        .expect("can't get user count");
+            .or_else(|e| {
+                let _ = print_exception(&env);
+                Err(e)
+            })
+            .expect("can't get user count");
 
     assert_eq!(count, 0);
 
