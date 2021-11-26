@@ -140,13 +140,12 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         FnArg::Receiver(_) => None,
                     })
                     .map(|(t, span, attrs)| {
-                        let ovrride_type = attrs.iter().next().and_then(|attr| {
+                        let override_jobject_type = attrs.iter().next().and_then(|attr| {
                             if attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "object_sig").is_some() {
                                 let token_tree: Group = syn::parse2::<Group>(attr.clone().tokens).unwrap();
-                                let test: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
+                                let token_tree_lit: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
 
-                                println!("token_tree : {:?}", token_tree);
-                                if let Lit::Str(literal) = test {
+                                if let Lit::Str(literal) = token_tree_lit {
                                     Some(literal.value())
                                 } else {
                                     None
@@ -156,8 +155,8 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                             }
                         });
 
-                        if let Some(override_type) = ovrride_type {
-                            quote_spanned! { span => #override_type, }
+                        if let Some(override_jobject_type) = override_jobject_type {
+                            quote_spanned! { span => #override_jobject_type, }
                         } else {
                             if let CallType::Safe(_) = call_type {
                                 quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
@@ -170,7 +169,6 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         t.to_tokens(&mut tok);
                         tok
                     });
-                println!("input_types_conversions: {:?}", input_types_conversions);
 
                 let output_type_span = {
                     match &signature.output {
@@ -307,7 +305,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         FnArg::Receiver(_) => {}
                     });
 
-                let test = ImplItemMethod {
+                ImplItemMethod {
                     sig: Signature {
                         abi: None,
                         ..original_signature
@@ -367,9 +365,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     },
                     attrs: impl_item_attributes,
                     ..node
-                };
-                println!("test : {:#?}", test);
-                test
+                }
             }
 
             _ => node,
