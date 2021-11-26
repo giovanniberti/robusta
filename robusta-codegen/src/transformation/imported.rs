@@ -1,11 +1,11 @@
 use inflector::cases::camelcase::to_camel_case;
-use proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::{TokenStream, TokenTree, Group, Literal};
 use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::spanned::Spanned;
 use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
-use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
+use syn::{FnArg, ImplItemMethod, Pat, PatIdent, Lit, ReturnType, Signature};
 
 use crate::utils::{get_abi, get_env_arg, is_self_method};
 use crate::transformation::utils::get_call_type;
@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use crate::transformation::context::StructContext;
 
 pub struct ImportedMethodTransformer<'ctx> {
-    pub(crate) struct_context: &'ctx StructContext
+    pub(crate) struct_context: &'ctx StructContext,
 }
 
 impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
@@ -30,7 +30,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                 emit_warning!(a.tokens, "#[constructor] attribute does not take parameters")
                             }
                             true
-                        },
+                        }
                         None => false
                     }
                 };
@@ -42,9 +42,9 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     )
                 }
 
-                let original_signature = node.sig.clone();
+                let mut original_signature = node.sig.clone();
                 let self_method = is_self_method(&node.sig);
-                let (signature, env_arg) = get_env_arg(node.sig.clone());
+                let (mut signature, env_arg) = get_env_arg(node.sig.clone());
 
                 let impl_item_attributes: Vec<_> = {
                     let discarded_known_attributes: HashSet<&str> = {
@@ -103,7 +103,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 let call_type_attribute = get_call_type(&node);
                 let call_type = call_type_attribute.as_ref().map(|c| &c.call_type).unwrap_or(&CallType::Safe(None));
 
-                if let Some(CallTypeAttribute { attr, ..}) = &call_type_attribute {
+                if let Some(CallTypeAttribute { attr, .. }) = &call_type_attribute {
                     if let CallType::Safe(Some(params)) = call_type {
                         if let SafeParams { message: Some(_), .. } | SafeParams { exception_class: Some(_), .. } = params {
                             abort!(attr, "can't have exception message or exception class for imported methods")
@@ -131,25 +131,80 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 println!("signature inouts: {:?}", signature.inputs);
                 let input_types_conversions = signature
                     .inputs
-                    .iter()
+                    .iter_mut()
                     .filter_map(|i| match i {
                         FnArg::Typed(t) => match &*t.pat {
                             Pat::Ident(PatIdent { ident, .. }) if ident == "self" => None,
-                            _ => Some((&t.ty, t.ty.span()))
+                            _ => Some((&t.ty, t.ty.span(), &mut t.attrs))
                         },
                         FnArg::Receiver(_) => None,
                     })
-                    .map(|(t, span)| {
+                    .map(|(t, span, attrs)| {
+                        /*
+                        Attribute {
+                            pound_token: Pound,
+                            style: Outer,
+                            bracket_token: Bracket,
+                            path: Path {
+                                leading_colon: None,
+                                segments: [
+                                    PathSegment {
+                                        ident: Ident {
+                                            ident: "object_sig",
+                                            span: #0 bytes(1656..1666),
+                                        },
+                                        arguments: None,
+                                    },
+                                ],
+                            },
+                            tokens: TokenStream [
+                                Group {
+                                    delimiter: Parenthesis,
+                                    stream: TokenStream [
+                                        Literal {
+                                            kind: Str,
+                                            symbol: "Landroid/content/Context;",
+                                            suffix: None,
+                                            span: #0 bytes(1667..1694),
+                                        },
+                                    ],
+                                    span: #0 bytes(1666..1695),
+                                },
+                            ],
+                        },
+
+                         */
+                        let ovrride_type = attrs.iter().next().and_then(|attr| {
+                            if attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "object_sig").is_some() {
+                                let token_tree: Group = syn::parse2::<Group>(attr.clone().tokens).unwrap();
+                                let test: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
+
+                                println!("token_tree : {:?}", token_tree);
+                                if let Lit::Str(literal) = test {
+                                    Some(literal.value())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        });
+
                         if let CallType::Safe(_) = call_type {
                             quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
                         } else {
-                            quote_spanned! { span => <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
+                            if let Some(override_type) = ovrride_type {
+                                quote_spanned! { span => #override_type, }
+                            } else {
+                                quote_spanned! { span => <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
+                            }
                         }
                     })
                     .fold(TokenStream::new(), |t, mut tok| {
                         t.to_tokens(&mut tok);
                         tok
                     });
+                println!("input_types_conversions: {:?}", input_types_conversions);
 
                 let output_type_span = {
                     match &signature.output {
@@ -174,16 +229,16 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                                         GenericArgument::Type(t) => t,
                                                         _ => abort!(a, "first generic argument in return type must be a type")
                                                     }
-                                                },
+                                                }
                                                 PathArguments::None => {
                                                     let user_attribute_message = call_type_attribute.as_ref().map(|_| "because of this attribute");
                                                     abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`";
                                                                         help = "replace `{}` with `Result<{}>`", s.ident, s.ident;
                                                                         help =? call_type_attribute.as_ref().map(|c| c.attr.span()).unwrap() => user_attribute_message)
-                                                },
+                                                }
                                                 _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
                                             })
-                                        },
+                                        }
                                         _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
                                     }.unwrap();
 
@@ -270,11 +325,23 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                             Pat::Ident(PatIdent { ident, .. }) => ident,
                             _ => panic!("non-ident pat in FnArg")
                         }
-                    },
+                    }
                     _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
                 };
 
-                ImplItemMethod {
+                original_signature.inputs
+                    .iter_mut()
+                    .for_each(|i| match i {
+                        FnArg::Typed(t) => match &*t.pat {
+                            Pat::Ident(PatIdent { ident, .. }) if ident == "self" => {}
+                            _ => {
+                               t.attrs.clear();
+                            }
+                        },
+                        FnArg::Receiver(_) => {}
+                    });
+
+                let test = ImplItemMethod {
                     sig: Signature {
                         abi: None,
                         ..original_signature
@@ -314,7 +381,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                         #return_expr
                                     }}
                                 }
-                            },
+                            }
                             CallType::Unchecked(_) => {
                                 if is_constructor {
                                     parse_quote! {{
@@ -334,7 +401,9 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     },
                     attrs: impl_item_attributes,
                     ..node
-                }
+                };
+                println!("test : {:#?}", test);
+                test
             }
 
             _ => node,

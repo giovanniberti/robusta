@@ -7,6 +7,7 @@ mod jni {
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::errors::Error as JniError;
+    use jni::objects::JObject;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package(com.example.robusta)]
@@ -48,7 +49,8 @@ mod jni {
         ) -> JniResult<i32> {}
 
         #[call_type(unchecked)]
-        pub extern "java" fn staticJavaAdd(env: &JNIEnv, i: i32, u: i32) -> i32 {}
+        pub extern "java" fn staticJavaAdd(env: &JNIEnv, i: i32, u: i32, #[object_sig("Landroid/content/Context;")]
+        context: JObject) -> i32 {}
 
         pub extern "jni" fn setStringHelloWorld(mut self) -> JniResult<()> {
             println!("[rust]: self.foo: \"{}\"", self.foo.get()?);
