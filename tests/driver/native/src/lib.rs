@@ -6,7 +6,7 @@ pub mod jni {
 
     use robusta_jni::convert::{IntoJavaValue, JValueWrapper, Signature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::jni::JNIEnv;
-    use robusta_jni::jni::objects::{AutoLocal, JObject};
+    use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::errors::Result as JniResult;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
@@ -40,9 +40,7 @@ pub mod jni {
         pub extern "java" fn getPassword(&self, env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<String> {}
 
 
-        pub extern "java" fn getTotalUsersCount(env: &JNIEnv,
-                                                #[input_type("Landroid/content/Context;")]
-                                                context: JObject) -> ::robusta_jni::jni::errors::Result<i32> {}
+        pub extern "java" fn getTotalUsersCount(env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<i32> {}
 
         #[constructor]
         pub extern "java" fn new(env: &'borrow JNIEnv<'env>, username: String, password: String) -> JniResult<Self> {}

@@ -30,9 +30,9 @@ fn java_integration_tests() {
 
 #[test]
 fn vm_creation_and_object_usage() {
-    let mut child = Command::new("./tests/driver/gradlew")
+    let mut child = Command::new("./gradlew")
         .args(&["test", "-i"])
-        //.current_dir("./tests/driver")
+        .current_dir("./tests/driver")
         .spawn()
         .expect("Failed to execute command");
 
@@ -42,27 +42,30 @@ fn vm_creation_and_object_usage() {
     let current_dir = std::env::current_dir().expect("Couldn't get current dir");
     let classpath = current_dir.join("./tests/driver/build/classes/java/main");
 
-    let vm_args  = InitArgsBuilder::new()
-        .option(&*format!("-Djava.class.path={}", classpath.to_string_lossy()))
-        .build().expect("can't create vm args");
+    let vm_args = InitArgsBuilder::new()
+        .option(&*format!(
+            "-Djava.class.path={}",
+            classpath.to_string_lossy()
+        ))
+        .build()
+        .expect("can't create vm args");
     let vm = JavaVM::new(vm_args).expect("can't create vm");
     let env = vm.attach_current_thread().expect("can't get vm env");
 
     User::initNative();
 
-    let context = JObject::null();
-    let count = User::getTotalUsersCount(&env, context)
-            .or_else(|e| {
-                let _ = print_exception(&env);
-                Err(e)
-            })
-            .expect("can't get user count");
+    let count = User::getTotalUsersCount(&env)
+        .or_else(|e| {
+            let _ = print_exception(&env);
+            Err(e)
+        })
+        .expect("can't get user count");
 
     assert_eq!(count, 0);
 
     let u = User::new(&env, "user".into(), "password".into()).expect("can't create user instance");
 
-    let count = User::getTotalUsersCount(&env, context)
+    let count = User::getTotalUsersCount(&env)
         .or_else(|e| {
             let _ = print_exception(&env);
             Err(e)
