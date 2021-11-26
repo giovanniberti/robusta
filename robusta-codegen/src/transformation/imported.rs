@@ -128,7 +128,6 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     .join("/");
                 let java_method_name = to_camel_case(&signature.ident.to_string());
 
-                println!("signature inouts: {:?}", signature.inputs);
                 let input_types_conversions = signature
                     .inputs
                     .iter_mut()
@@ -140,8 +139,8 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         FnArg::Receiver(_) => None,
                     })
                     .map(|(t, span, attrs)| {
-                        let override_jobject_type = attrs.iter().next().and_then(|attr| {
-                            if attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "object_sig").is_some() {
+                        let override_input_type = attrs.iter().next().and_then(|attr| {
+                            if attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "input_type").is_some() {
                                 let token_tree: Group = syn::parse2::<Group>(attr.clone().tokens).unwrap();
                                 let token_tree_lit: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
 
@@ -155,8 +154,8 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                             }
                         });
 
-                        if let Some(override_jobject_type) = override_jobject_type {
-                            quote_spanned! { span => #override_jobject_type, }
+                        if let Some(override_input_type) = override_input_type {
+                            quote_spanned! { span => #override_input_type, }
                         } else {
                             if let CallType::Safe(_) = call_type {
                                 quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
@@ -339,7 +338,6 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                     }}
                                 } else {
                                     parse_quote! {{
-                                        println!("computed sig {}", #java_signature);
                                         let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
                                         let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]);
                                         #return_expr

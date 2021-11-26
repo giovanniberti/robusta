@@ -29,6 +29,8 @@ On the other hand, if you need to call Java function from Rust, you add a `"java
 On these methods you can attach a `call_type` attribute that manages how conversions and errors are handled: by default, `#[call_type(safe)]` is implied,
 but you can switch to `#[call_type(unchecked)]` at any time, most likely with few or no code changes.
 
+You can also force a Java type on input arguments via `#[input_type]` attribute, which can be useful for Android JNI development for example.
+
 ## Code example
 
 You can find an example under `./robusta-example`. To run it you should have `java` and `javac` on your PATH and then execute:

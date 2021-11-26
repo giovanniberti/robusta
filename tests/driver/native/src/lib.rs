@@ -41,7 +41,7 @@ pub mod jni {
 
 
         pub extern "java" fn getTotalUsersCount(env: &JNIEnv,
-                                                #[object_sig("Landroid/content/Context;")]
+                                                #[input_type("Landroid/content/Context;")]
                                                 context: JObject) -> ::robusta_jni::jni::errors::Result<i32> {}
 
         #[constructor]
