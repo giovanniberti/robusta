@@ -37,7 +37,7 @@ fn vm_creation_and_object_usage() {
         .expect("Failed to execute command");
 
     let exit_status = child.wait().expect("Failed to wait on gradle build");
-    //assert!(exit_status.success());
+    assert!(exit_status.success());
 
     let current_dir = std::env::current_dir().expect("Couldn't get current dir");
     let classpath = current_dir.join("./tests/driver/build/classes/java/main");

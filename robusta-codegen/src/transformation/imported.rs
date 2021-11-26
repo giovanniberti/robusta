@@ -140,40 +140,6 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         FnArg::Receiver(_) => None,
                     })
                     .map(|(t, span, attrs)| {
-                        /*
-                        Attribute {
-                            pound_token: Pound,
-                            style: Outer,
-                            bracket_token: Bracket,
-                            path: Path {
-                                leading_colon: None,
-                                segments: [
-                                    PathSegment {
-                                        ident: Ident {
-                                            ident: "object_sig",
-                                            span: #0 bytes(1656..1666),
-                                        },
-                                        arguments: None,
-                                    },
-                                ],
-                            },
-                            tokens: TokenStream [
-                                Group {
-                                    delimiter: Parenthesis,
-                                    stream: TokenStream [
-                                        Literal {
-                                            kind: Str,
-                                            symbol: "Landroid/content/Context;",
-                                            suffix: None,
-                                            span: #0 bytes(1667..1694),
-                                        },
-                                    ],
-                                    span: #0 bytes(1666..1695),
-                                },
-                            ],
-                        },
-
-                         */
                         let ovrride_type = attrs.iter().next().and_then(|attr| {
                             if attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "object_sig").is_some() {
                                 let token_tree: Group = syn::parse2::<Group>(attr.clone().tokens).unwrap();
