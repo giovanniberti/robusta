@@ -11,6 +11,13 @@ mod jni {
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::errors::Error as JniError;
 
+    #[derive(Signature, TryIntoJavaValue, TryFromJavaValue)]
+    #[package(android.content.Context)]
+    pub struct JContext<'env: 'borrow, 'borrow> {
+        #[instance]
+        raw: AutoLocal<'env, 'borrow>,
+    }
+
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package(com.example.robustaandroidexample)]
     pub struct RobustaAndroidExample<'env: 'borrow, 'borrow> {
@@ -20,7 +27,7 @@ mod jni {
 
     impl<'env: 'borrow, 'borrow> RobustaAndroidExample<'env, 'borrow> {
 
-        pub extern "jni" fn runRustExample(self, env: &JNIEnv, context: JObject<'env>) {
+        pub extern "jni" fn runRustExample(self, env: &JNIEnv, context: JContext<'env, 'borrow>) {
             android_logger::init_once(
                 Config::default()
                     .with_min_level(log::Level::Debug)
@@ -32,7 +39,7 @@ mod jni {
 
         pub extern "java" fn getAppFilesDir(
             env: &JNIEnv,
-            context: JObject
+            context: JContext
         ) -> JniResult<String> {}
     }
 }

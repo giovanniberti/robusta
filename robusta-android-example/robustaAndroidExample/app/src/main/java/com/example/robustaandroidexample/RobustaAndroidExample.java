@@ -9,8 +9,8 @@ public class RobustaAndroidExample {
 
     public static native void runRustExample(Context context);
 
-    public static String getAppFilesDir(Object context) {
-        return ((Context) context).getFilesDir().toString();
+    public static String getAppFilesDir(Context context) {
+        return context.getFilesDir().toString();
     }
 
 }
