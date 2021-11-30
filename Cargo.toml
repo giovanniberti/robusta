@@ -9,7 +9,7 @@ license = "MIT"
 edition = "2018"
 readme = "README.md"
 categories = ["development-tools::ffi", "api-bindings"]
-exclude = ["/robusta-codegen", "/robusta-example", "README.md"]
+exclude = ["/robusta-codegen", "/robusta-example", "README.md", "robusta-android-example"]
 documentation = "https://docs.rs/robusta/"
 
 [dependencies]
@@ -23,4 +23,4 @@ native = { path = "./tests/driver/native" }
 jni = { version = "0.19.0", features = ["invocation"] }
 
 [workspace]
-members = ["robusta-codegen", "robusta-example", "tests/driver/native"]
+members = ["robusta-codegen", "robusta-example", "tests/driver/native", "robusta-android-example"]
