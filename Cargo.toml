@@ -9,7 +9,7 @@ license = "MIT"
 edition = "2018"
 readme = "README.md"
 categories = ["development-tools::ffi", "api-bindings"]
-exclude = ["/robusta-codegen", "/robusta-example", "README.md", "robusta-android-example"]
+exclude = ["/robusta-codegen", "/robusta-example", "README.md", "/robusta-android-example"]
 documentation = "https://docs.rs/robusta/"
 
 [dependencies]
