@@ -120,7 +120,7 @@ jvalue_types! {
 }
 
 impl Signature for () {
-    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
+    const SIG_TYPE: &'static str = "V";
 }
 
 impl<'env> JavaValue<'env> for () {
