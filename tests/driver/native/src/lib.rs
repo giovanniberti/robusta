@@ -37,6 +37,8 @@ pub mod jni {
             user_pw + "_pass"
         }
 
+        pub extern "jni" fn getBool(self, b: bool) -> bool { b }
+
         pub extern "java" fn getPassword(&self, env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<String> {}
 
         pub extern "java" fn getTotalUsersCount(env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<i32> {}

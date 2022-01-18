@@ -19,6 +19,12 @@ public class UserTest {
     }
 
     @Test
+    public void boolTest() {
+        boolean expected = true;
+        assertEquals(u.getBool(expected), expected);
+    }
+
+    @Test
     public void staticMethod() {
         assertEquals(String.valueOf(User.getTotalUsersCount()), User.userCountStatus());
     }

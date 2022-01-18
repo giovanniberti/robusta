@@ -9,6 +9,8 @@ public class User {
     private String username;
     private String password;
 
+    public native boolean getBool(boolean x);
+
     private native static void initNative();
 
     public native static String userCountStatus();
