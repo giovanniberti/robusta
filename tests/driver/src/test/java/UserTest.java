@@ -107,6 +107,7 @@ public class UserTest {
         assertValueRoundTrip(u::getString, "아주 좋습니다");
         // pirate flag https://unicode.org/emoji/charts/emoji-zwj-sequences.html
         assertValueRoundTrip(u::getString, "️🏴‍☠️");
+        assertValueRoundTrip(u::getString, "️️𒅄"); // 4 bytes in utf-8
     }
 
     @Test
