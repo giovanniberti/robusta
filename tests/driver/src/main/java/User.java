@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.List;
+
 public class User {
     static {
         System.loadLibrary("native");
@@ -9,7 +12,25 @@ public class User {
     private String username;
     private String password;
 
+    public native int getInt(int x);
+
     public native boolean getBool(boolean x);
+
+    public native char getChar(char x);
+
+    public native byte getByte(byte x);
+
+    public native float getFloat(float x);
+
+    public native double getDouble(double x);
+
+    public native long getLong(long x);
+
+    public native short getShort(short x);
+
+    public native String getString(String x);
+
+    public native List<String> getStringArray(List<String> x);
 
     private native static void initNative();
 
