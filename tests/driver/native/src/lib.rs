@@ -57,6 +57,24 @@ pub mod jni {
 
         pub extern "jni" fn getStringArray(self, v: Vec<String>) -> Vec<String> { v }
 
+        pub extern "jni" fn intToString(self, v: i32) -> String { format!("{}", v) }
+
+        pub extern "jni" fn boolToString(self, v: bool) -> String { format!("{}", v) }
+
+        pub extern "jni" fn charToString(self, v: char) -> String { format!("{}", v) }
+
+        pub extern "jni" fn byteToString(self, v: i8) -> String { format!("{}", v) }
+
+        pub extern "jni" fn floatToString(self, v: f32) -> String { format!("{}", v) }
+
+        pub extern "jni" fn doubleToString(self, v: f64) -> String { format!("{}", v) }
+
+        pub extern "jni" fn longToString(self, v: i64) -> String { format!("{}", v) }
+
+        pub extern "jni" fn shortToString(self, v: i16) -> String { format!("{}", v) }
+
+        pub extern "jni" fn stringArrayToString(self, v: Vec<String>) -> String { format!("{:?}", v) }
+
         pub extern "java" fn getPassword(&self, env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<String> {}
 
         pub extern "java" fn getTotalUsersCount(env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<i32> {}

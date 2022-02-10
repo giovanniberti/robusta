@@ -31,6 +31,24 @@ public class User {
 
     public native List<String> getStringArray(List<String> x);
 
+    public native String intToString(int x);
+
+    public native String boolToString(boolean x);
+
+    public native String charToString(char x);
+
+    public native String byteToString(byte x);
+
+    public native String floatToString(float x);
+
+    public native String doubleToString(double x);
+
+    public native String longToString(long x);
+
+    public native String shortToString(short x);
+
+    public native String stringArrayToString(List<String> x);
+
     private native static void initNative();
 
     public native static String userCountStatus();
