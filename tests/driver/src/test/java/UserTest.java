@@ -124,6 +124,12 @@ public class UserTest {
     }
 
     @Test
+    public void intArrayTest() {
+        assertValueRoundTrip(u::getIntArray, u::intArrayToString, List.of(), "[]");
+        assertValueRoundTrip(u::getIntArray, u::intArrayToString, List.of(1, 2), "[1, 2]");
+    }
+
+    @Test
     public void stringArrayTest() {
         assertValueRoundTrip(u::getStringArray, u::stringArrayToString, List.of(), "[]");
         assertValueRoundTrip(u::getStringArray, u::stringArrayToString, List.of("a", "b", "c"), "[\"a\", \"b\", \"c\"]");

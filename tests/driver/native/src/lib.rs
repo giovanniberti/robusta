@@ -55,6 +55,8 @@ pub mod jni {
 
         pub extern "jni" fn getString(self, v: String) -> String { v }
 
+        pub extern "jni" fn getIntArray(self, v: Vec<i32>) -> Vec<i32> { v }
+
         pub extern "jni" fn getStringArray(self, v: Vec<String>) -> Vec<String> { v }
 
         pub extern "jni" fn intToString(self, v: i32) -> String { format!("{}", v) }
@@ -72,6 +74,8 @@ pub mod jni {
         pub extern "jni" fn longToString(self, v: i64) -> String { format!("{}", v) }
 
         pub extern "jni" fn shortToString(self, v: i16) -> String { format!("{}", v) }
+
+        pub extern "jni" fn intArrayToString(self, v: Vec<i32>) -> String { format!("{:?}", v) }
 
         pub extern "jni" fn stringArrayToString(self, v: Vec<String>) -> String { format!("{:?}", v) }
 

@@ -29,6 +29,8 @@ public class User {
 
     public native String getString(String x);
 
+    public native List<Integer> getIntArray(List<Integer> x);
+
     public native List<String> getStringArray(List<String> x);
 
     public native String intToString(int x);
@@ -46,6 +48,8 @@ public class User {
     public native String longToString(long x);
 
     public native String shortToString(short x);
+
+    public native String intArrayToString(List<Integer> x);
 
     public native String stringArrayToString(List<String> x);
 
