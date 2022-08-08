@@ -139,16 +139,14 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         FnArg::Receiver(_) => None,
                     })
                     .map(|(t, span, attrs)| {
-                        let override_input_type = attrs.iter().next().and_then(|attr| {
-                            if attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "input_type").is_some() {
-                                let token_tree: Group = syn::parse2::<Group>(attr.clone().tokens).unwrap();
-                                let token_tree_lit: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
+                        let override_input_type = attrs.iter().find(|attr| {
+                            attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "input_type").is_some()
+                        }).and_then(|a| {
+                            let token_tree: Group = syn::parse2::<Group>(a.clone().tokens).unwrap();
+                            let token_tree_lit: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
 
-                                if let Lit::Str(literal) = token_tree_lit {
-                                    Some(literal.value())
-                                } else {
-                                    None
-                                }
+                            if let Lit::Str(literal) = token_tree_lit {
+                                Some(literal)
                             } else {
                                 None
                             }
