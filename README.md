@@ -43,6 +43,17 @@ $ make java_run
 $ cargo build && javac com/example/robusta/HelloWorld.java && RUST_BACKTRACE=full java -Djava.library.path=../target/debug com.example.robusta.HelloWorld
 ```
 
+### Usage on Android example
+
+You can find an example of Robusta used for Android in `./robusta-android-example`.
+To run it, open the project robustaAndroidExample with Android Studio.
+
+Cargo build is automatically run by grable.
+
+The rust lib.rs is the image of the Java class RobustaAndroidExample.
+
+This example only gets the files authorized path of the App.
+
 ## Example usage
 ### Rust side
 ```rust
