@@ -292,13 +292,24 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
                 };
 
+                let sig_discarded_known_attributes: HashSet<&str> = {
+                    let mut h = HashSet::new();
+                    h.insert("input_type");
+
+                    h
+                };
+
                 original_signature.inputs
                     .iter_mut()
                     .for_each(|i| match i {
                         FnArg::Typed(t) => match &*t.pat {
                             Pat::Ident(PatIdent { ident, .. }) if ident == "self" => {}
                             _ => {
-                               t.attrs.clear();
+                                t.attrs = t.attrs.clone().into_iter().filter(|a| {
+                                   !a.path.segments.iter().find(|s| {
+                                       sig_discarded_known_attributes.iter().any(|d| s.ident.to_string().contains(d))
+                                   }).is_some()
+                               }).collect()
                             }
                         },
                         FnArg::Receiver(_) => {}
