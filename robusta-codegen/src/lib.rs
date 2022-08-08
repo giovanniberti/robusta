@@ -34,7 +34,7 @@ pub fn signature_derive(raw_input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(IntoJavaValue, attributes(instance, field))]
+#[proc_macro_derive(IntoJavaValue, attributes(package, instance, field))]
 pub fn into_java_value_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 
@@ -42,7 +42,7 @@ pub fn into_java_value_derive(raw_input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(TryIntoJavaValue, attributes(instance, field))]
+#[proc_macro_derive(TryIntoJavaValue, attributes(package, instance, field))]
 pub fn tryinto_java_value_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 
@@ -50,7 +50,7 @@ pub fn tryinto_java_value_derive(raw_input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(FromJavaValue, attributes(instance, field))]
+#[proc_macro_derive(FromJavaValue, attributes(package, instance, field))]
 pub fn from_java_value_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 
@@ -58,7 +58,7 @@ pub fn from_java_value_derive(raw_input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(TryFromJavaValue, attributes(instance, field))]
+#[proc_macro_derive(TryFromJavaValue, attributes(package, instance, field))]
 pub fn tryfrom_java_value_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 

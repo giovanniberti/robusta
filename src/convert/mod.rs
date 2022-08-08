@@ -48,10 +48,10 @@ use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 use paste::paste;
 
+pub use field::*;
 pub use robusta_codegen::Signature;
 pub use safe::*;
 pub use unchecked::*;
-pub use field::*;
 
 pub mod safe;
 pub mod unchecked;
@@ -89,7 +89,7 @@ macro_rules! jvalue_types {
             fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
                 env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
                     (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
-                    JavaType::from_str(concat!("java/lang/", stringify!($boxed))).unwrap(),
+                    JavaType::from_str(concat!("Ljava/lang/", stringify!($boxed), ";")).unwrap(),
                     &[Into::into(self)]).unwrap().l().unwrap()
             }
 
@@ -120,7 +120,7 @@ jvalue_types! {
 }
 
 impl Signature for () {
-    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
+    const SIG_TYPE: &'static str = "V";
 }
 
 impl<'env> JavaValue<'env> for () {
