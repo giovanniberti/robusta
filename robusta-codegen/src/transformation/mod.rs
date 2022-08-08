@@ -211,24 +211,35 @@ impl Fold for ModTransformer {
             /* The `#[bridge]` attribute macro has to discard `#[package()]` attributes, because they don't exists in standard Rust
              * and currently there is no way for attribute macros to automatically introduce inert attributes (see: https://doc.rust-lang.org/reference/attributes.html#active-and-inert-attributes
              * and rust-lang/issues/#65823).
-             * However, we want `#[package()]` to also be used in combination with `Signature` auto-derive, and it *needs* a `#[package]` attribute on the struct it's applied on.
-             * If we remove the package attribute blindly `Signature` cannot see it, and if we keep it `Signature` cannot remove it (auto-derive macros cannot modify the existing token stream as proc macros).
-             * Here we check wether the struct has a `#[derive(Signature)]` (crudely with a string comparison and hoping the user never writes `#[derive(::robusta_jni::convert::Signature)]`)
+             * However, we want `#[package()]` to also be used in combination with auto-derive, and conversion traits (i.e. `Signature`, `(Try)IntoJavaValue`, `(Try)FromJavaValue`) *need* a `#[package]` attribute on the struct they are applied on.
+             * If we remove the package attribute blindly the traits cannot see it, and if we keep it the auto-derived traits cannot remove it (auto-derive macros cannot modify the existing token stream as proc macros).
+             * Here we check wether the struct has a `#[derive(TRAIT)]` (crudely with a string comparison and hoping the user never writes `#[derive(::robusta_jni::convert::TRAIT)]`)
              * if it is present we don't remove `#[package]`, otherwise we remove it.
-             * This works because `Signature` auto-derive macros also declares `#[package]` as a helper attribute
+             * This works because all conversion traits auto-derive macros also declare `#[package]` as a helper attribute
              */
             let attributes = node.attrs.clone();
+            let traits_with_package_attr = HashSet::from([
+                "Signature",
+                "FromJavaValue",
+                "TryFromJavaValue",
+                "IntoJavaValue",
+                "TryIntoJavaValue"
+            ]);
 
-            let has_derive_signature = node.attrs.iter()
+            let has_package_trait = node.attrs.iter()
                 .any(|a| {
                     let is_derive = a.path.get_ident().map(ToString::to_string).as_deref() == Some("derive");
-                    let derived_traits = a.parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated);
-                    let has_signature = derived_traits.map(|p| p.iter().any(|i| i.to_string().as_str() == "Signature")).unwrap_or(false);
+                    let derived_traits = a.parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated)
+                        .iter()
+                        .flat_map(|p: &syn::punctuated::Punctuated<Ident, Token![,]>| p)
+                        .map(|i| i.to_string())
+                        .collect::<HashSet<String>>();
+                    let needs_package_attr = derived_traits.iter().any(|t| traits_with_package_attr.contains(t.as_str()));
 
-                    is_derive && has_signature
+                    is_derive && needs_package_attr
                 });
 
-            if !has_derive_signature {
+            if !has_package_trait {
                 attributes
                     .into_iter()
                     .filter(|a| {

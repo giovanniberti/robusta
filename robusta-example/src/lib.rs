@@ -2,7 +2,7 @@ use robusta_jni::bridge;
 
 #[bridge]
 mod jni {
-    use robusta_jni::convert::{Signature, IntoJavaValue, FromJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
+    use robusta_jni::convert::{Signature, IntoJavaValue, TryIntoJavaValue, TryFromJavaValue, Field};
     use robusta_jni::jni::JNIEnv;
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::errors::Result as JniResult;
@@ -37,7 +37,7 @@ mod jni {
 
         #[call_type(safe(exception_class = "java.lang.IllegalArgumentException", message = "something bad happened"))]
         pub extern "jni" fn catchMe(self, _env: &JNIEnv) -> JniResult<i32> {
-            Err(JniError::from("catch me if you can"))
+            Err(JniError::NullPtr("catch me if you can"))
         }
 
         pub extern "java" fn javaAdd(

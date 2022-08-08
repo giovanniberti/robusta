@@ -126,7 +126,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for bool {
     type Source = jboolean;
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
-        s == 0
+        s == 1
     }
 }
 
