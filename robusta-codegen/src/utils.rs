@@ -30,7 +30,7 @@ pub fn is_self_method(signature: &Signature) -> bool {
     })
 }
 
-pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
+pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>, Option<FnArg>) {
     let self_method = is_self_method(&signature);
 
     // Check whether second argument (first exluding self) is of type &JNIEnv, if so we take it out from the signature
@@ -69,7 +69,7 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
         false
     };
 
-    let (transformed_signature, env_arg): (Signature, Option<FnArg>) = if has_explicit_env_arg {
+    let (transformed_signature, env_arg, class_arg): (Signature, Option<FnArg>, Option<FnArg>) = if has_explicit_env_arg {
         let mut inner_signature = signature;
 
         let mut iter = inner_signature.inputs.into_iter();
@@ -77,20 +77,22 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
         if self_method {
             let self_arg = iter.next();
             let env_arg = iter.next();
+            let class_arg = iter.next();
 
             inner_signature.inputs = iter::once(self_arg.unwrap()).chain(iter).collect();
-            (inner_signature, env_arg)
+            (inner_signature, env_arg, class_arg)
         } else {
             let env_arg = iter.next();
+            let class_arg = iter.next();
             inner_signature.inputs = iter.collect();
 
-            (inner_signature, env_arg)
+            (inner_signature, env_arg, class_arg)
         }
     } else {
-        (signature, None)
+        (signature, None, None)
     };
 
-    (transformed_signature, env_arg)
+    (transformed_signature, env_arg, class_arg)
 }
 
 pub fn get_abi(sig: &Signature) -> Option<String> {

@@ -44,7 +44,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
 
                 let mut original_signature = node.sig.clone();
                 let self_method = is_self_method(&node.sig);
-                let (mut signature, env_arg) = get_env_arg(node.sig.clone());
+                let (mut signature, env_arg, class_arg) = get_env_arg(node.sig.clone());
 
                 let impl_item_attributes: Vec<_> = {
                     let discarded_known_attributes: HashSet<&str> = {
@@ -313,6 +313,16 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         FnArg::Receiver(_) => {}
                     });
 
+                let class_ident = match class_arg.unwrap() {
+                    FnArg::Typed(t) => {
+                        match *t.pat {
+                            Pat::Ident(PatIdent { ident, .. }) => ident,
+                            _ => panic!("non-ident pat in FnArg")
+                        }
+                    },
+                    _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
+                };
+
                 ImplItemMethod {
                     sig: Signature {
                         abi: None,
@@ -348,7 +358,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                 } else {
                                     parse_quote! {{
                                         let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
-                                        let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]);
+                                        let res = env.call_static_method(#class_ident, #java_method_name, #java_signature, &[#input_conversions]);
                                         #return_expr
                                     }}
                                 }
