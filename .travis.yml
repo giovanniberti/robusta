@@ -13,7 +13,7 @@ cache:
 jdk: openjdk10
 
 script:
-  - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
+  - wget https://github.com/sormuras/bach/tree/releases/11/install-jdk.sh
   - chmod +x $TRAVIS_BUILD_DIR/install-jdk.sh
   - export JAVA_HOME=$HOME/openjdk11
   - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server
