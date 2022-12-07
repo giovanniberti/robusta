@@ -6,7 +6,7 @@ use std::convert::{TryFrom, TryInto};
 use jni::errors::Result as JniResult;
 use jni::errors::Error as JniError;
 use jni::objects::{JFieldID, JObject};
-use jni::signature::JavaType;
+use jni::signature::ReturnType;
 use jni::JNIEnv;
 
 use crate::convert::{
@@ -20,7 +20,7 @@ pub struct Field<'env: 'borrow, 'borrow, T>
 where
     T: Signature, {
     env: &'borrow JNIEnv<'env>,
-    field_id: JFieldID<'env>,
+    field_id: JFieldID,
     obj: JObject<'env>,
     marker: PhantomData<T>,
 }
@@ -67,7 +67,7 @@ where
         let res: JValue = self.env.get_field_unchecked(
             self.obj,
             self.field_id,
-            JavaType::from_str(<T as Signature>::SIG_TYPE).unwrap(),
+            ReturnType::from_str(<T as Signature>::SIG_TYPE).unwrap(),
         )?;
 
         let f = JValueWrapper::from(res);
@@ -120,7 +120,7 @@ where
             .get_field_unchecked(
                 self.obj,
                 self.field_id,
-                JavaType::from_str(<T as Signature>::SIG_TYPE).unwrap(),
+                ReturnType::from_str(<T as Signature>::SIG_TYPE).unwrap(),
             )
             .unwrap();
 
