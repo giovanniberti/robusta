@@ -1,20 +1,20 @@
 use inflector::cases::camelcase::to_camel_case;
-use proc_macro2::{TokenStream, TokenTree, Group};
+use proc_macro2::{Group, TokenStream, TokenTree};
 use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::spanned::Spanned;
-use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
-use syn::{FnArg, ImplItemMethod, Pat, PatIdent, Lit, ReturnType, Signature};
+use syn::{parse_quote, GenericArgument, PathArguments, Type, TypePath};
+use syn::{FnArg, ImplItemMethod, Lit, Pat, PatIdent, ReturnType, Signature};
 
-use crate::utils::{get_abi, get_env_arg, is_self_method};
+use crate::transformation::context::StructContext;
 use crate::transformation::utils::get_call_type;
 use crate::transformation::{CallType, CallTypeAttribute, SafeParams};
+use crate::utils::{get_abi, get_class_arg_if_any, get_env_arg, is_self_method};
 use std::collections::HashSet;
-use crate::transformation::context::StructContext;
 
 pub struct ImportedMethodTransformer<'ctx> {
-    pub(crate) struct_context: &'ctx StructContext
+    pub(crate) struct_context: &'ctx StructContext,
 }
 
 impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
@@ -22,16 +22,21 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (_, Some("java")) => {
-                let constructor_attribute = node.attrs.iter().find(|a| a.path.get_ident().map(ToString::to_string).as_deref() == Some("constructor"));
+                let constructor_attribute = node.attrs.iter().find(|a| {
+                    a.path.get_ident().map(ToString::to_string).as_deref() == Some("constructor")
+                });
                 let is_constructor = {
                     match constructor_attribute {
                         Some(a) => {
                             if !a.tokens.is_empty() {
-                                emit_warning!(a.tokens, "#[constructor] attribute does not take parameters")
+                                emit_warning!(
+                                    a.tokens,
+                                    "#[constructor] attribute does not take parameters"
+                                )
                             }
                             true
-                        },
-                        None => false
+                        }
+                        None => false,
                     }
                 };
 
@@ -44,7 +49,8 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
 
                 let mut original_signature = node.sig.clone();
                 let self_method = is_self_method(&node.sig);
-                let (mut signature, env_arg, class_arg) = get_env_arg(node.sig.clone());
+                let (signature, env_arg) = get_env_arg(node.sig.clone());
+                let (mut signature, class_ref_arg) = get_class_arg_if_any(signature.clone());
 
                 let impl_item_attributes: Vec<_> = {
                     let discarded_known_attributes: HashSet<&str> = {
@@ -57,7 +63,8 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         h
                     };
 
-                    node.clone().attrs
+                    node.clone()
+                        .attrs
                         .into_iter()
                         .filter(|a| {
                             !discarded_known_attributes
@@ -79,8 +86,10 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 };
 
                 if is_constructor && self_method {
-                    emit_error!(original_signature,
-                        "cannot have self methods declared as constructors");
+                    emit_error!(
+                        original_signature,
+                        "cannot have self methods declared as constructors"
+                    );
 
                     return dummy;
                 }
@@ -101,11 +110,21 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 }
 
                 let call_type_attribute = get_call_type(&node);
-                let call_type = call_type_attribute.as_ref().map(|c| &c.call_type).unwrap_or(&CallType::Safe(None));
+                let call_type = call_type_attribute
+                    .as_ref()
+                    .map(|c| &c.call_type)
+                    .unwrap_or(&CallType::Safe(None));
 
                 if let Some(CallTypeAttribute { attr, .. }) = &call_type_attribute {
                     if let CallType::Safe(Some(params)) = call_type {
-                        if let SafeParams { message: Some(_), .. } | SafeParams { exception_class: Some(_), .. } = params {
+                        if let SafeParams {
+                            message: Some(_), ..
+                        }
+                        | SafeParams {
+                            exception_class: Some(_),
+                            ..
+                        } = params
+                        {
                             abort!(attr, "can't have exception message or exception class for imported methods")
                         }
                     }
@@ -170,7 +189,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 let output_type_span = {
                     match &signature.output {
                         ReturnType::Default => signature.output.span(),
-                        ReturnType::Type(_arrow, ref ty) => ty.span()
+                        ReturnType::Type(_arrow, ref ty) => ty.span(),
                     }
                 };
 
@@ -207,10 +226,16 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                 }
                                 CallType::Unchecked(_) => {
                                     if let Type::Path(TypePath { path, .. }) = ty.as_ref() {
-                                        if let Some(r) = path.segments.last().filter(|i| i.ident == "Result") {
+                                        if let Some(r) =
+                                            path.segments.last().filter(|i| i.ident == "Result")
+                                        {
                                             if let PathArguments::AngleBracketed(_) = r.arguments {
-                                                let call_type_span = call_type_attribute.as_ref().map(|c| c.attr.span());
-                                                let call_type_hint = call_type_span.map(|_| "maybe you meant `#[call_type(safe)]`?");
+                                                let call_type_span = call_type_attribute
+                                                    .as_ref()
+                                                    .map(|c| c.attr.span());
+                                                let call_type_hint = call_type_span.map(|_| {
+                                                    "maybe you meant `#[call_type(safe)]`?"
+                                                });
 
                                                 emit_warning!(ty, "using a `Result` type in a `#[call_type(unchecked)]` method";
                                             hint =? call_type_span.unwrap() => call_type_hint)
@@ -224,8 +249,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     }
                 };
 
-                let java_signature =
-                    quote_spanned! { signature.span() => ["(", #input_types_conversions ")", #output_conversion].join("") };
+                let java_signature = quote_spanned! { signature.span() => ["(", #input_types_conversions ")", #output_conversion].join("") };
 
                 let input_conversions = signature.inputs.iter().fold(TokenStream::new(), |mut tok, input| {
                     match input {
@@ -297,31 +321,44 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     h
                 };
 
-                original_signature.inputs
-                    .iter_mut()
-                    .for_each(|i| match i {
-                        FnArg::Typed(t) => match &*t.pat {
-                            Pat::Ident(PatIdent { ident, .. }) if ident == "self" => {}
-                            _ => {
-                                t.attrs = t.attrs.clone().into_iter().filter(|a| {
-                                   !a.path.segments.iter().find(|s| {
-                                       sig_discarded_known_attributes.iter().any(|d| s.ident.to_string().contains(d))
-                                   }).is_some()
-                               }).collect()
+                let class_arg_ident = if let Some(class_ref_arg) = class_ref_arg {
+                    match class_ref_arg {
+                        FnArg::Typed(t) => {
+                            match *t.pat {
+                                Pat::Ident(PatIdent { ident, .. }) => Some(ident),
+                                _ => panic!("non-ident pat in FnArg")
                             }
                         },
-                        FnArg::Receiver(_) => {}
-                    });
+                        _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
+                    }
+                } else {
+                    None
+                };
 
-                let class_ident = match class_arg.unwrap() {
-                    FnArg::Typed(t) => {
-                        match *t.pat {
-                            Pat::Ident(PatIdent { ident, .. }) => ident,
-                            _ => panic!("non-ident pat in FnArg")
+                original_signature.inputs.iter_mut().for_each(|i| match i {
+                    FnArg::Typed(t) => match &*t.pat {
+                        Pat::Ident(PatIdent { ident, .. }) if ident == "self" => {}
+                        _ => {
+                            t.attrs = t
+                                .attrs
+                                .clone()
+                                .into_iter()
+                                .filter(|a| {
+                                    !a.path
+                                        .segments
+                                        .iter()
+                                        .find(|s| {
+                                            sig_discarded_known_attributes
+                                                .iter()
+                                                .any(|d| s.ident.to_string().contains(d))
+                                        })
+                                        .is_some()
+                                })
+                                .collect()
                         }
                     },
-                    _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
-                };
+                    FnArg::Receiver(_) => {}
+                });
 
                 ImplItemMethod {
                     sig: Signature {
@@ -350,32 +387,64 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         match call_type {
                             CallType::Safe(_) => {
                                 if is_constructor {
-                                    parse_quote! {{
-                                        let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
-                                        let res = env.new_object(#java_class_path, #java_signature, &[#input_conversions]);
-                                        #return_expr
-                                    }}
+                                    if let Some(class_arg_ident) = class_arg_ident {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.new_object(#class_arg_ident, #java_signature, &[#input_conversions]);
+                                            #return_expr
+                                        }}
+                                    } else {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.new_object(#java_class_path, #java_signature, &[#input_conversions]);
+                                            #return_expr
+                                        }}
+                                    }
                                 } else {
-                                    parse_quote! {{
-                                        let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
-                                        let res = env.call_static_method(#class_ident, #java_method_name, #java_signature, &[#input_conversions]);
-                                        #return_expr
-                                    }}
+                                    if let Some(class_arg_ident) = class_arg_ident {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.call_static_method(#class_arg_ident, #java_method_name, #java_signature, &[#input_conversions]);
+                                            #return_expr
+                                        }}
+                                    } else {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]);
+                                            #return_expr
+                                        }}
+                                    }
                                 }
                             }
                             CallType::Unchecked(_) => {
                                 if is_constructor {
-                                    parse_quote! {{
-                                        let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
-                                        let res = env.new_object(#java_class_path, #java_signature, &[#input_conversions]).unwrap();
-                                        #return_expr
-                                    }}
+                                    if let Some(class_arg_ident) = class_arg_ident {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.new_object(#class_arg_ident, #java_signature, &[#input_conversions]).unwrap();
+                                            #return_expr
+                                        }}
+                                    } else {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.new_object(#java_class_path, #java_signature, &[#input_conversions]).unwrap();
+                                            #return_expr
+                                        }}
+                                    }
                                 } else {
-                                    parse_quote! {{
-                                        let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
-                                        let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]).unwrap();
-                                        #return_expr
-                                    }}
+                                    if let Some(class_arg_ident) = class_arg_ident {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.call_static_method(#class_arg_ident, #java_method_name, #java_signature, &[#input_conversions]).unwrap();
+                                            #return_expr
+                                        }}
+                                    } else {
+                                        parse_quote! {{
+                                            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = #env_ident;
+                                            let res = env.call_static_method(#java_class_path, #java_method_name, #java_signature, &[#input_conversions]).unwrap();
+                                            #return_expr
+                                        }}
+                                    }
                                 }
                             }
                         }

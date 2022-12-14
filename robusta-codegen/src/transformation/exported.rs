@@ -596,7 +596,7 @@ impl JNISignature {
         );
 
         let self_method = is_self_method(&signature);
-        let (transformed_signature, env_arg, class_arg) = get_env_arg(signature);
+        let (transformed_signature, env_arg) = get_env_arg(signature);
 
         let transformed_signature = jni_signature_transformer.fold_signature(transformed_signature);
 
