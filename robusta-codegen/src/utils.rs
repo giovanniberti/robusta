@@ -123,22 +123,18 @@ pub fn get_class_arg_if_any(signature: Signature) -> (Signature, Option<FnArg>) 
         false
     };
 
-    let (transformed_signature, class_arg): (Signature, Option<FnArg>) = if has_explicit_class_ref_arg {
+    if has_explicit_class_ref_arg {
         let mut inner_signature = signature;
 
         let mut iter = inner_signature.inputs.into_iter();
-
         let class_arg = iter.next();
 
         inner_signature.inputs = iter.collect();
-
         (inner_signature, class_arg)
 
     } else {
         (signature, None)
-    };
-
-    (transformed_signature, class_arg)
+    }
 }
 
 pub fn get_abi(sig: &Signature) -> Option<String> {
