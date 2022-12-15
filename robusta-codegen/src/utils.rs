@@ -106,7 +106,7 @@ pub fn get_class_arg_if_any(signature: Signature) -> (Signature, Option<FnArg>) 
                 false
             }
         } else if let Type::Path(t) = &**ty {
-            /* If the user has input `class_ref: GlobalRef` instead of `class_ref: &GlobalRef`, we let her know. */
+            /* If the user has input `class_ref: GlobalRef` instead of `class_ref: &GlobalRef`, we let them know. */
             let full_path: Path = parse_quote! { ::robusta_jni::jni::objects::GlobalRef };
             let imported_path: Path = parse_quote! { GlobalRef };
             let canonicalized_type_path = canonicalize_path(&t.path);
