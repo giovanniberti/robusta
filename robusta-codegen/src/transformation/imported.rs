@@ -1,11 +1,11 @@
 use inflector::cases::camelcase::to_camel_case;
-use proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::{TokenStream, TokenTree, Group};
 use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::spanned::Spanned;
 use syn::{parse_quote, TypePath, Type, PathArguments, GenericArgument};
-use syn::{FnArg, ImplItemMethod, Pat, PatIdent, ReturnType, Signature};
+use syn::{FnArg, ImplItemMethod, Pat, PatIdent, Lit, ReturnType, Signature};
 
 use crate::utils::{get_abi, get_env_arg, is_self_method};
 use crate::transformation::utils::get_call_type;
@@ -42,9 +42,9 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     )
                 }
 
-                let original_signature = node.sig.clone();
+                let mut original_signature = node.sig.clone();
                 let self_method = is_self_method(&node.sig);
-                let (signature, env_arg) = get_env_arg(node.sig.clone());
+                let (mut signature, env_arg) = get_env_arg(node.sig.clone());
 
                 let impl_item_attributes: Vec<_> = {
                     let discarded_known_attributes: HashSet<&str> = {
@@ -103,7 +103,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 let call_type_attribute = get_call_type(&node);
                 let call_type = call_type_attribute.as_ref().map(|c| &c.call_type).unwrap_or(&CallType::Safe(None));
 
-                if let Some(CallTypeAttribute { attr, ..}) = &call_type_attribute {
+                if let Some(CallTypeAttribute { attr, .. }) = &call_type_attribute {
                     if let CallType::Safe(Some(params)) = call_type {
                         if let SafeParams { message: Some(_), .. } | SafeParams { exception_class: Some(_), .. } = params {
                             abort!(attr, "can't have exception message or exception class for imported methods")
@@ -130,19 +130,36 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
 
                 let input_types_conversions = signature
                     .inputs
-                    .iter()
+                    .iter_mut()
                     .filter_map(|i| match i {
                         FnArg::Typed(t) => match &*t.pat {
                             Pat::Ident(PatIdent { ident, .. }) if ident == "self" => None,
-                            _ => Some((&t.ty, t.ty.span()))
+                            _ => Some((&t.ty, t.ty.span(), &mut t.attrs))
                         },
                         FnArg::Receiver(_) => None,
                     })
-                    .map(|(t, span)| {
-                        if let CallType::Safe(_) = call_type {
-                            quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
+                    .map(|(t, span, attrs)| {
+                        let override_input_type = attrs.iter().find(|attr| {
+                            attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "input_type").is_some()
+                        }).and_then(|a| {
+                            let token_tree: Group = syn::parse2::<Group>(a.clone().tokens).unwrap();
+                            let token_tree_lit: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
+
+                            if let Lit::Str(literal) = token_tree_lit {
+                                Some(literal)
+                            } else {
+                                None
+                            }
+                        });
+
+                        if let Some(override_input_type) = override_input_type {
+                            quote_spanned! { span => #override_input_type, }
                         } else {
-                            quote_spanned! { span => <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
+                            if let CallType::Safe(_) = call_type {
+                                quote_spanned! { span => <#t as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE, }
+                            } else {
+                                quote_spanned! { span => <#t as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE, }
+                            }
                         }
                     })
                     .fold(TokenStream::new(), |t, mut tok| {
@@ -173,16 +190,16 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                                         GenericArgument::Type(t) => t,
                                                         _ => abort!(a, "first generic argument in return type must be a type")
                                                     }
-                                                },
+                                                }
                                                 PathArguments::None => {
                                                     let user_attribute_message = call_type_attribute.as_ref().map(|_| "because of this attribute");
                                                     abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`";
                                                                         help = "replace `{}` with `Result<{}>`", s.ident, s.ident;
                                                                         help =? call_type_attribute.as_ref().map(|c| c.attr.span()).unwrap() => user_attribute_message)
-                                                },
+                                                }
                                                 _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
                                             })
-                                        },
+                                        }
                                         _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
                                     }.unwrap();
 
@@ -269,9 +286,32 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                             Pat::Ident(PatIdent { ident, .. }) => ident,
                             _ => panic!("non-ident pat in FnArg")
                         }
-                    },
+                    }
                     _ => panic!("Bug -- please report to library author. Expected env parameter, found receiver")
                 };
+
+                let sig_discarded_known_attributes: HashSet<&str> = {
+                    let mut h = HashSet::new();
+                    h.insert("input_type");
+
+                    h
+                };
+
+                original_signature.inputs
+                    .iter_mut()
+                    .for_each(|i| match i {
+                        FnArg::Typed(t) => match &*t.pat {
+                            Pat::Ident(PatIdent { ident, .. }) if ident == "self" => {}
+                            _ => {
+                                t.attrs = t.attrs.clone().into_iter().filter(|a| {
+                                   !a.path.segments.iter().find(|s| {
+                                       sig_discarded_known_attributes.iter().any(|d| s.ident.to_string().contains(d))
+                                   }).is_some()
+                               }).collect()
+                            }
+                        },
+                        FnArg::Receiver(_) => {}
+                    });
 
                 ImplItemMethod {
                     sig: Signature {
@@ -312,7 +352,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                         #return_expr
                                     }}
                                 }
-                            },
+                            }
                             CallType::Unchecked(_) => {
                                 if is_constructor {
                                     parse_quote! {{
