@@ -1,0 +1,31 @@
+on:
+  push:
+    # Pattern matched against refs/tags
+    tags:        
+      - '*'           # Push events to every tag not containing /
+      # Allow manual triggering
+  workflow_dispatch:
+
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Publish release
+        run: cargo publish --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
