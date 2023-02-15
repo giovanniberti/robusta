@@ -12,11 +12,12 @@ jobs:
     steps:
       - name: Install JDK
         run: |
+          TEMP_DIR=$(mktemp -d)
           wget https://raw.githubusercontent.com/travis-ci/travis-cookbooks/master/cookbooks/travis_jdk/files/install-jdk.sh
-          chmod +x $TRAVIS_BUILD_DIR/install-jdk.sh
+          chmod +x $TEMP_DIR/install-jdk.sh
           export JAVA_HOME=$HOME/openjdk11
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server
-          $TRAVIS_BUILD_DIR/install-jdk.sh -F 17 --target $JAVA_HOME
+          $TEMP_DIR/install-jdk.sh -F 17 --target $JAVA_HOME
       - name: Checkout sources
         uses: actions/checkout@v2
 
