@@ -73,4 +73,8 @@ public class User {
     public String getPassword() {
         return password;
     }
+
+    public String multipleParameters(int i, String s) {
+        return s;
+    }
 }
