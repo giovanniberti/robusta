@@ -1,0 +1,29 @@
+on: push
+
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install JDK
+        run: |
+          TEMP_DIR=$(mktemp -d)
+          wget https://raw.githubusercontent.com/travis-ci/travis-cookbooks/master/cookbooks/travis_jdk/files/install-jdk.sh -P $TEMP_DIR
+          chmod +x $TEMP_DIR/install-jdk.sh
+          export JAVA_HOME=$HOME/openjdk11
+          echo "JAVA_HOME=$HOME/openjdk11" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+          $TEMP_DIR/install-jdk.sh -F 17 --target $JAVA_HOME
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
