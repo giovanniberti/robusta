@@ -83,6 +83,8 @@ pub mod jni {
 
         pub extern "java" fn getTotalUsersCount(env: &JNIEnv) -> ::robusta_jni::jni::errors::Result<i32> {}
 
+        pub extern "java" fn multipleParameters(&self, env: &JNIEnv, v: i32, s: String) -> ::robusta_jni::jni::errors::Result<String> {}
+
         #[constructor]
         pub extern "java" fn new(env: &'borrow JNIEnv<'env>, username: String, password: String) -> JniResult<Self> {}
     }

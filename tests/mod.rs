@@ -69,5 +69,7 @@ fn vm_creation_and_object_usage() {
         .expect("can't get user count");
     assert_eq!(count, 1);
 
-    assert_eq!(u.getPassword(&env).expect("can't get user password"), "password")
+    assert_eq!(u.getPassword(&env).expect("can't get user password"), "password");
+
+    assert_eq!(u.multipleParameters(&env, 10, "test".to_string()).expect("Can't test multipleParameters"), "test")
 }
