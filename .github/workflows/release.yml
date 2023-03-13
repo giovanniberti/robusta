@@ -16,6 +16,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Add $JAVA_HOME to library path
+        run: |
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+
       - name: Checkout sources
         uses: actions/checkout@v2
 
