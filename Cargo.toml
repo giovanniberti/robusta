@@ -1,6 +1,6 @@
 [package]
 name = "robusta_jni"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
 repository = "https://github.com/giovanniberti/robusta"
 description = "Easy interop between Rust and Java"
