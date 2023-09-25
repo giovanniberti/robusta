@@ -30,13 +30,14 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
-    ndkVersion "22.0.7026061"
+    ndkVersion "25.2.9519653"
     sourceSets {
         main.jniLibs.srcDirs += "$buildDir/rustJniLibs/android"
     }
 }
 
 cargo {
+    pythonCommand = "python3"
     module  = "../../"
     libname = "robustaandroidexample"
     targets = ["arm64"]
