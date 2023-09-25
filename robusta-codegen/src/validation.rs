@@ -4,12 +4,10 @@ use std::collections::BTreeMap;
 
 use proc_macro_error::{emit_error, emit_warning};
 use quote::ToTokens;
-use syn::{
-    Attribute, Error, GenericParam, Item, ItemImpl, ItemMod, ItemStruct, Result, Type,
-};
 use syn::parse::{Parse, ParseBuffer};
 use syn::spanned::Spanned;
 use syn::visit::Visit;
+use syn::{Attribute, Error, GenericParam, Item, ItemImpl, ItemMod, ItemStruct, Result, Type};
 
 use crate::transformation::JavaPath;
 
@@ -212,14 +210,10 @@ impl Parse for JNIBridgeModule {
             .module_impls
             .iter()
             .filter_map(|item_impl| match &*item_impl.self_ty {
-                Type::Path(p) => {
-                    structs_idents
-                        .iter()
-                        .position(|id| *id == &p.path.segments.last().unwrap().ident)
-                        .map(|pos| {
-                            (bridged_structs[pos], *item_impl)
-                    })
-                }
+                Type::Path(p) => structs_idents
+                    .iter()
+                    .position(|id| *id == &p.path.segments.last().unwrap().ident)
+                    .map(|pos| (bridged_structs[pos], *item_impl)),
                 _ => None,
             })
             .map(|(s, i)| (s.clone(), i.clone()))
@@ -281,10 +275,7 @@ impl Parse for JNIBridgeModule {
                     .attrs
                     .iter()
                     .filter(|a| a.path.segments.last().unwrap().ident == "package")
-                    .map(|a| {
-                        a.parse_args::<JavaPath>()
-                            .unwrap()
-                    })
+                    .map(|a| a.parse_args::<JavaPath>().unwrap())
                     .next()
                     .unwrap();
 

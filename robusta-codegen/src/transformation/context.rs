@@ -1,5 +1,5 @@
-use syn::{Path, LifetimeDef};
 use crate::transformation::JavaPath;
+use syn::{LifetimeDef, Path};
 
 #[derive(Clone)]
 pub(crate) struct StructContext {

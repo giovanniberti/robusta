@@ -16,7 +16,7 @@
 //! Both of these parameters are optional. By default, the exception class is `java.lang.RuntimeException`.
 //!
 
-use jni::errors::{Result, Error};
+use jni::errors::{Error, Result};
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jchar, jobject};
 use jni::JNIEnv;
@@ -24,7 +24,7 @@ use jni::JNIEnv;
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
 use crate::convert::{JavaValue, Signature};
 
-pub use robusta_codegen::{TryIntoJavaValue, TryFromJavaValue};
+pub use robusta_codegen::{TryFromJavaValue, TryIntoJavaValue};
 
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
 ///
@@ -83,7 +83,8 @@ pub trait TryIntoJavaValue<'env>: Signature {
 ///
 pub trait TryFromJavaValue<'env: 'borrow, 'borrow>
 where
-    Self: Sized + Signature, {
+    Self: Sized + Signature,
+{
     /// Conversion source type.
     type Source: JavaValue<'env>;
 
@@ -162,12 +163,11 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for char {
     type Source = jchar;
 
     fn try_from(s: Self::Source, _env: &JNIEnv<'env>) -> Result<Self> {
-        let res = std::char::decode_utf16(std::iter::once(s))
-            .next();
+        let res = std::char::decode_utf16(std::iter::once(s)).next();
 
         match res {
             Some(Ok(c)) => Ok(c),
-            Some(Err(_)) | None => Err(Error::WrongJValueType("char", "jchar"))
+            Some(Err(_)) | None => Err(Error::WrongJValueType("char", "jchar")),
         }
     }
 }
@@ -253,7 +253,7 @@ where
 /// (by default `java.lang.RuntimeException`)
 impl<'env, T> TryIntoJavaValue<'env> for jni::errors::Result<T>
 where
-    T: TryIntoJavaValue<'env>
+    T: TryIntoJavaValue<'env>,
 {
     type Target = <T as TryIntoJavaValue<'env>>::Target;
 

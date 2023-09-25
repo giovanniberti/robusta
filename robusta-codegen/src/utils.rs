@@ -1,10 +1,9 @@
 use std::iter;
 
-use syn::{
-    parse_quote, FnArg, Pat, PatIdent, PatType, Path, PathArguments, Signature, Type,
-    TypeReference,
-};
 use proc_macro_error::emit_error;
+use syn::{
+    parse_quote, FnArg, Pat, PatIdent, PatType, Path, PathArguments, Signature, Type, TypeReference,
+};
 
 pub fn canonicalize_path(path: &Path) -> Path {
     let mut result = path.clone();
@@ -58,7 +57,10 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
             let canonicalized_type_path = canonicalize_path(&t.path);
 
             if canonicalized_type_path == imported_path || canonicalized_type_path == full_path {
-                emit_error!(t, "explicit environment parameter must be of type `&JNIEnv`");
+                emit_error!(
+                    t,
+                    "explicit environment parameter must be of type `&JNIEnv`"
+                );
             }
 
             false
@@ -94,8 +96,7 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
 }
 
 pub fn get_abi(sig: &Signature) -> Option<String> {
-    sig
-        .abi
+    sig.abi
         .as_ref()
         .and_then(|l| l.name.as_ref().map(|n| n.value()))
 }

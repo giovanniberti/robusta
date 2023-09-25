@@ -3,26 +3,26 @@ use std::collections::HashSet;
 use proc_macro2::Ident;
 use proc_macro_error::{emit_error, emit_warning};
 use quote::ToTokens;
-use syn::{GenericParam, Generics, LifetimeDef, parse_quote, TypeTuple};
-use syn::{
-    Abi, Block, Expr, FnArg, ImplItemMethod, LitStr, Pat,
-    PatIdent, PatType, ReturnType, Signature, Type, Visibility, VisPublic,
-};
 use syn::fold::Fold;
-use syn::Lifetime;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::Token;
 use syn::token::Extern;
+use syn::Lifetime;
+use syn::Token;
+use syn::{parse_quote, GenericParam, Generics, LifetimeDef, TypeTuple};
+use syn::{
+    Abi, Block, Expr, FnArg, ImplItemMethod, LitStr, Pat, PatIdent, PatType, ReturnType, Signature,
+    Type, VisPublic, Visibility,
+};
 
-use crate::transformation::{CallType, FreestandingTransformer, SafeParams};
-use crate::transformation::utils::get_call_type;
-use crate::utils::{get_abi, get_env_arg, is_self_method};
 use crate::transformation::context::StructContext;
+use crate::transformation::utils::get_call_type;
+use crate::transformation::{CallType, FreestandingTransformer, SafeParams};
+use crate::utils::{get_abi, get_env_arg, is_self_method};
 use std::iter::FromIterator;
 
 pub struct ExportedMethodTransformer<'ctx> {
-    pub(crate) struct_context: &'ctx StructContext
+    pub(crate) struct_context: &'ctx StructContext,
 }
 
 impl<'ctx> Fold for ExportedMethodTransformer<'ctx> {
@@ -30,12 +30,12 @@ impl<'ctx> Fold for ExportedMethodTransformer<'ctx> {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (Visibility::Public(_), Some("jni")) => {
-                let call_type_attribute = get_call_type(&node).map(|c| c.call_type).unwrap_or(CallType::Safe(None));
+                let call_type_attribute = get_call_type(&node)
+                    .map(|c| c.call_type)
+                    .unwrap_or(CallType::Safe(None));
 
-                let mut jni_method_transformer = ExternJNIMethodTransformer::new(
-                    self.struct_context,
-                    call_type_attribute,
-                );
+                let mut jni_method_transformer =
+                    ExternJNIMethodTransformer::new(self.struct_context, call_type_attribute);
                 jni_method_transformer.fold_impl_item_method(node)
             }
             _ => node,
@@ -49,10 +49,7 @@ struct ExternJNIMethodTransformer<'ctx> {
 }
 
 impl<'ctx> ExternJNIMethodTransformer<'ctx> {
-    fn new(
-        struct_context: &'ctx StructContext,
-        call_type: CallType,
-    ) -> Self {
+    fn new(struct_context: &'ctx StructContext, call_type: CallType) -> Self {
         ExternJNIMethodTransformer {
             struct_context,
             call_type,
@@ -80,15 +77,16 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
 
             CallType::Safe(exception_details) => {
                 let outer_call_inputs = {
-                    let mut inputs: Punctuated<Expr, Token![,]> = jni_signature.args_iter()
+                    let mut inputs: Punctuated<Expr, Token![,]> = jni_signature
+                        .args_iter()
                         .map(|p| -> Expr {
                             let PatType { pat, .. } = p;
 
                             match &**pat {
-                                Pat::Ident(PatIdent { ident, ..}) => {
+                                Pat::Ident(PatIdent { ident, .. }) => {
                                     parse_quote_spanned!(ident.span() => #ident)
                                 }
-                                _ => panic!("Non-identifier argument pattern in function")
+                                _ => panic!("Non-identifier argument pattern in function"),
                             }
                         })
                         .collect();
@@ -129,25 +127,26 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
 
                     s.output = ReturnType::Type(
                         Token![->](outer_signature_span),
-                        Box::new(parse_quote_spanned!(outer_output_type.span() => ::robusta_jni::jni::errors::Result<#outer_output_type>)),
+                        Box::new(
+                            parse_quote_spanned!(outer_output_type.span() => ::robusta_jni::jni::errors::Result<#outer_output_type>),
+                        ),
                     );
                     s.abi = None;
                     s
                 };
 
-                let (default_exception_class, default_message) =
-                    ("java.lang.RuntimeException".parse().unwrap(), "JNI call error!");
+                let (default_exception_class, default_message) = (
+                    "java.lang.RuntimeException".parse().unwrap(),
+                    "JNI call error!",
+                );
                 let (exception_class, message) = match exception_details {
                     Some(SafeParams {
                         exception_class,
                         message,
                     }) => {
-                        let exception_class_result = exception_class
-                            .as_ref()
-                            .unwrap_or(&default_exception_class);
-                        let message_result = message
-                            .as_deref()
-                            .unwrap_or(default_message);
+                        let exception_class_result =
+                            exception_class.as_ref().unwrap_or(&default_exception_class);
+                        let message_result = message.as_deref().unwrap_or(default_message);
 
                         (exception_class_result, message_result)
                     }
@@ -217,11 +216,8 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
 
     /// Transform original signature in JNI-ready one, including JClass and JNIEnv parameters into the function signature.
     fn fold_signature(&mut self, node: Signature) -> Signature {
-        let jni_signature = JNISignature::new(
-            node.clone(),
-            &self.struct_context,
-            self.call_type.clone(),
-        );
+        let jni_signature =
+            JNISignature::new(node.clone(), &self.struct_context, self.call_type.clone());
 
         let mut sig = jni_signature.transformed_signature;
 
@@ -237,12 +233,17 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                 .map(|s| s.to_snake_case())
                 .unwrap_or_else(|| "".into());
 
-            ["Java", &snake_case_package, &self.struct_context.struct_name, &sig.ident.to_string()]
-                .iter()
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_owned())
-                .collect::<Vec<_>>()
-                .join("_")
+            [
+                "Java",
+                &snake_case_package,
+                &self.struct_context.struct_name,
+                &sig.ident.to_string(),
+            ]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_owned())
+            .collect::<Vec<_>>()
+            .join("_")
         };
 
         sig.inputs = {
@@ -276,11 +277,16 @@ mod test {
     use super::*;
     use crate::transformation::JavaPath;
 
-    fn setup_package(package: Option<JavaPath>, struct_name: String, method_name: String) -> ImplItemMethod {
+    fn setup_package(
+        package: Option<JavaPath>,
+        struct_name: String,
+        method_name: String,
+    ) -> ImplItemMethod {
         let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
         let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
 
-        let method: ImplItemMethod = parse_quote! { pub extern "jni" fn #method_name_token_stream() {} };
+        let method: ImplItemMethod =
+            parse_quote! { pub extern "jni" fn #method_name_token_stream() {} };
         let struct_context = StructContext {
             struct_type: parse_quote! { #struct_name_token_stream },
             struct_name,
@@ -289,7 +295,7 @@ mod test {
         };
         let mut transformer = ExternJNIMethodTransformer {
             struct_context: &struct_context,
-            call_type: CallType::Safe(None)
+            call_type: CallType::Safe(None),
         };
 
         transformer.fold_impl_item_method(method)
@@ -304,10 +310,20 @@ mod test {
     #[test]
     fn jni_method_follows_naming_scheme() {
         let output_no_package = setup_package(None, "Foo".into(), "foo".into());
-        assert_eq!(output_no_package.sig.ident.to_string(), format!("Java_Foo_foo"));
+        assert_eq!(
+            output_no_package.sig.ident.to_string(),
+            format!("Java_Foo_foo")
+        );
 
-        let output_with_package = setup_package(Some(JavaPath::from_str("com.bar.quux").unwrap()), "Foo".into(), "foo".into());
-        assert_eq!(output_with_package.sig.ident.to_string(), format!("Java_com_bar_quux_Foo_foo"));
+        let output_with_package = setup_package(
+            Some(JavaPath::from_str("com.bar.quux").unwrap()),
+            "Foo".into(),
+            "foo".into(),
+        );
+        assert_eq!(
+            output_with_package.sig.ident.to_string(),
+            format!("Java_com_bar_quux_Foo_foo")
+        );
     }
 
     #[test]
@@ -330,8 +346,8 @@ mod test {
         let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
 
         let method: ImplItemMethod = parse_quote! {
-                pub extern "jni" fn #method_name_token_stream(#params) -> i32 {}
-            };
+            pub extern "jni" fn #method_name_token_stream(#params) -> i32 {}
+        };
 
         let struct_context = StructContext {
             struct_type: parse_quote! { #struct_name_token_stream },
@@ -341,7 +357,7 @@ mod test {
         };
         let mut transformer = ExternJNIMethodTransformer {
             struct_context: &struct_context,
-            call_type: CallType::Safe(None)
+            call_type: CallType::Safe(None),
         };
 
         transformer.fold_impl_item_method(method)
@@ -353,27 +369,39 @@ mod test {
 
         let param_type_1: TokenStream = parse_quote! { i32 };
         let param_type_2: TokenStream = parse_quote! { FooBar };
-        let output = setup_with_params(quote! { _1: #param_type_1, _2: #param_type_2 }, "Foo".to_string());
+        let output = setup_with_params(
+            quote! { _1: #param_type_1, _2: #param_type_2 },
+            "Foo".to_string(),
+        );
 
         let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
         let class_type: Type = parse_quote! { ::robusta_jni::jni::objects::JClass };
         let conv_type_1: Type = parse_quote! { <#param_type_1 as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
         let conv_type_2: Type = parse_quote! { <#param_type_2 as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
 
-
         let args: &[FnArg] = &output.sig.inputs.into_iter().collect::<Vec<_>>();
         match args {
-            [FnArg::Typed(PatType { ty: ty_env, .. }),
-            FnArg::Typed(PatType { ty: ty_class, .. }),
-            FnArg::Typed(PatType { ty: ty_1, .. }),
-            FnArg::Typed(PatType { ty: ty_2, .. })] => {
-                assert_eq!(ty_env.to_token_stream().to_string(), env_type.to_token_stream().to_string());
-                assert_eq!(ty_class.to_token_stream().to_string(), class_type.to_token_stream().to_string());
-                assert_eq!(ty_1.to_token_stream().to_string(), conv_type_1.to_token_stream().to_string());
-                assert_eq!(ty_2.to_token_stream().to_string(), conv_type_2.to_token_stream().to_string());
-            },
+            [FnArg::Typed(PatType { ty: ty_env, .. }), FnArg::Typed(PatType { ty: ty_class, .. }), FnArg::Typed(PatType { ty: ty_1, .. }), FnArg::Typed(PatType { ty: ty_2, .. })] =>
+            {
+                assert_eq!(
+                    ty_env.to_token_stream().to_string(),
+                    env_type.to_token_stream().to_string()
+                );
+                assert_eq!(
+                    ty_class.to_token_stream().to_string(),
+                    class_type.to_token_stream().to_string()
+                );
+                assert_eq!(
+                    ty_1.to_token_stream().to_string(),
+                    conv_type_1.to_token_stream().to_string()
+                );
+                assert_eq!(
+                    ty_2.to_token_stream().to_string(),
+                    conv_type_2.to_token_stream().to_string()
+                );
+            }
 
-            _ => assert!(false)
+            _ => assert!(false),
         }
     }
 
@@ -386,7 +414,10 @@ mod test {
 
         let param_type_1: TokenStream = parse_quote! { i32 };
         let param_type_2: TokenStream = parse_quote! { FooBar };
-        let output = setup_with_params(quote! { self, _1: #param_type_1, _2: #param_type_2 }, struct_name.clone());
+        let output = setup_with_params(
+            quote! { self, _1: #param_type_1, _2: #param_type_2 },
+            struct_name.clone(),
+        );
 
         let env_type: Type = parse_quote! { ::robusta_jni::jni::JNIEnv<'env> };
         let self_conv_type: Type = parse_quote! { <#struct_name_toks as ::robusta_jni::convert::TryFromJavaValue<'env, 'borrow>>::Source };
@@ -395,17 +426,27 @@ mod test {
 
         let args: &[FnArg] = &output.sig.inputs.into_iter().collect::<Vec<_>>();
         match args {
-            [FnArg::Typed(PatType { ty: ty_env, .. }),
-            FnArg::Typed(PatType { ty: ty_self, .. }),
-            FnArg::Typed(PatType { ty: ty_1, .. }),
-            FnArg::Typed(PatType { ty: ty_2, .. })] => {
-                assert_eq!(ty_env.to_token_stream().to_string(), env_type.to_token_stream().to_string());
-                assert_eq!(ty_self.to_token_stream().to_string(), self_conv_type.to_token_stream().to_string());
-                assert_eq!(ty_1.to_token_stream().to_string(), conv_type_1.to_token_stream().to_string());
-                assert_eq!(ty_2.to_token_stream().to_string(), conv_type_2.to_token_stream().to_string());
-            },
+            [FnArg::Typed(PatType { ty: ty_env, .. }), FnArg::Typed(PatType { ty: ty_self, .. }), FnArg::Typed(PatType { ty: ty_1, .. }), FnArg::Typed(PatType { ty: ty_2, .. })] =>
+            {
+                assert_eq!(
+                    ty_env.to_token_stream().to_string(),
+                    env_type.to_token_stream().to_string()
+                );
+                assert_eq!(
+                    ty_self.to_token_stream().to_string(),
+                    self_conv_type.to_token_stream().to_string()
+                );
+                assert_eq!(
+                    ty_1.to_token_stream().to_string(),
+                    conv_type_1.to_token_stream().to_string()
+                );
+                assert_eq!(
+                    ty_2.to_token_stream().to_string(),
+                    conv_type_2.to_token_stream().to_string()
+                );
+            }
 
-            _ => assert!(false)
+            _ => assert!(false),
         }
     }
 }
@@ -417,7 +458,11 @@ struct JNISignatureTransformer {
 }
 
 impl JNISignatureTransformer {
-    fn new(struct_freestanding_transformer: FreestandingTransformer, struct_lifetimes: Vec<LifetimeDef>, call_type: CallType) -> Self {
+    fn new(
+        struct_freestanding_transformer: FreestandingTransformer,
+        struct_lifetimes: Vec<LifetimeDef>,
+        call_type: CallType,
+    ) -> Self {
         JNISignatureTransformer {
             struct_freestanding_transformer,
             struct_lifetimes,
@@ -427,7 +472,12 @@ impl JNISignatureTransformer {
 
     fn transform_generics(&mut self, mut generics: Generics) -> Generics {
         let generics_span = generics.span();
-        generics.params.extend(self.struct_lifetimes.iter().cloned().map(GenericParam::Lifetime));
+        generics.params.extend(
+            self.struct_lifetimes
+                .iter()
+                .cloned()
+                .map(GenericParam::Lifetime),
+        );
 
         let (env_lifetime, borrow_lifetime) = generics.params.iter_mut().fold((None, None), |acc, l| {
             match l {
@@ -450,11 +500,11 @@ impl JNISignatureTransformer {
         });
 
         match (env_lifetime, borrow_lifetime) {
-            (Some(_), Some(_)) => {},
+            (Some(_), Some(_)) => {}
             (Some(e), None) => {
                 let borrow_lifetime_value = Lifetime {
                     apostrophe: generics_span,
-                    ident: Ident::new("borrow", generics_span)
+                    ident: Ident::new("borrow", generics_span),
                 };
 
                 e.bounds.push(borrow_lifetime_value.clone());
@@ -463,9 +513,9 @@ impl JNISignatureTransformer {
                     attrs: vec![],
                     lifetime: borrow_lifetime_value,
                     colon_token: None,
-                    bounds: Default::default()
+                    bounds: Default::default(),
                 }))
-            },
+            }
             (None, Some(l)) => {
                 emit_error!(l, "Can't use JNI-reserved `'borrow` lifetime without accompanying `'env: 'borrow` lifetime";
                     help = "Add `'env: 'borrow` lifetime here")
@@ -473,25 +523,28 @@ impl JNISignatureTransformer {
             (None, None) => {
                 let borrow_lifetime_value = Lifetime {
                     apostrophe: generics_span,
-                    ident: Ident::new("borrow", generics_span)
+                    ident: Ident::new("borrow", generics_span),
                 };
 
                 generics.params.push(GenericParam::Lifetime(LifetimeDef {
                     attrs: vec![],
-                    lifetime: Lifetime { apostrophe: generics_span, ident: Ident::new("env", generics_span) },
+                    lifetime: Lifetime {
+                        apostrophe: generics_span,
+                        ident: Ident::new("env", generics_span),
+                    },
                     colon_token: None,
                     bounds: {
                         let mut p = Punctuated::new();
                         p.push(borrow_lifetime_value.clone());
                         p
-                    }
+                    },
                 }));
 
                 generics.params.push(GenericParam::Lifetime(LifetimeDef {
                     attrs: vec![],
                     lifetime: borrow_lifetime_value,
                     colon_token: None,
-                    bounds: Default::default()
+                    bounds: Default::default(),
                 }))
             }
         }
@@ -532,7 +585,7 @@ impl Fold for JNISignatureTransformer {
             ReturnType::Type(ref arrow, ref rtype) => match (&**rtype, self.call_type.clone()) {
                 (Type::Path(p), CallType::Unchecked { .. }) => ReturnType::Type(
                     *arrow,
-                    parse_quote_spanned! { p.span() => <#p as ::robusta_jni::convert::IntoJavaValue<'env>>::Target }
+                    parse_quote_spanned! { p.span() => <#p as ::robusta_jni::convert::IntoJavaValue<'env>>::Target },
                 ),
 
                 (Type::Path(p), CallType::Safe(_)) => ReturnType::Type(
@@ -542,13 +595,16 @@ impl Fold for JNISignatureTransformer {
 
                 (Type::Reference(r), CallType::Unchecked { .. }) => ReturnType::Type(
                     *arrow,
-                    parse_quote_spanned! { r.span() => <#r as ::robusta_jni::convert::IntoJavaValue<'env>>::Target }),
+                    parse_quote_spanned! { r.span() => <#r as ::robusta_jni::convert::IntoJavaValue<'env>>::Target },
+                ),
 
                 (Type::Reference(r), CallType::Safe(_)) => ReturnType::Type(
                     *arrow,
                     parse_quote_spanned! { r.span() => <#r as ::robusta_jni::convert::TryIntoJavaValue<'env>>::Target },
                 ),
-                (Type::Tuple(TypeTuple { elems, .. }), _) if elems.is_empty() => ReturnType::Default,
+                (Type::Tuple(TypeTuple { elems, .. }), _) if elems.is_empty() => {
+                    ReturnType::Default
+                }
                 _ => {
                     emit_error!(return_type, "Only type or type paths are permitted as type ascriptions in function params");
                     return_type
@@ -588,7 +644,8 @@ impl JNISignature {
         struct_context: &StructContext,
         call_type: CallType,
     ) -> JNISignature {
-        let freestanding_transformer = FreestandingTransformer::new(struct_context.struct_type.clone());
+        let freestanding_transformer =
+            FreestandingTransformer::new(struct_context.struct_type.clone());
         let mut jni_signature_transformer = JNISignatureTransformer::new(
             freestanding_transformer,
             struct_context.struct_lifetimes.clone(),
