@@ -14,5 +14,9 @@ public class RobustaAndroidExample {
         Log.d("ROBUSTA_ANDROID_EXAMPLE", "getAppFilesDir IN");
         return context.getFilesDir().toString();
     }
+    public static int threadTest(String s) {
+        Log.d("ROBUSTA_ANDROID_EXAMPLE", "threadTest IN: " + s);
+        return 10;
+    }
 
 }
