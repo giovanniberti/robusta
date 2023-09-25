@@ -33,6 +33,7 @@ mod jni {
                     .with_min_level(log::Level::Debug)
                     .with_tag("RUST_ROBUSTA_ANDROID_EXAMPLE"),
             );
+
             info!("TEST START");
             let java_class = env
                 .find_class("com/example/robustaandroidexample/RobustaAndroidExample")

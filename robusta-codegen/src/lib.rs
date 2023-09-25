@@ -5,14 +5,17 @@ use syn::{parse_macro_input, DeriveInput};
 
 use validation::JNIBridgeModule;
 
+use crate::derive::convert::{
+    from_java_value_macro_derive, into_java_value_macro_derive, tryfrom_java_value_macro_derive,
+    tryinto_java_value_macro_derive,
+};
 use crate::transformation::ModTransformer;
 use derive::signature::signature_macro_derive;
-use crate::derive::convert::{into_java_value_macro_derive, tryinto_java_value_macro_derive, from_java_value_macro_derive, tryfrom_java_value_macro_derive};
 
+mod derive;
 mod transformation;
 mod utils;
 mod validation;
-mod derive;
 
 #[proc_macro_error]
 #[proc_macro_attribute]

@@ -42,10 +42,10 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use jni::errors::Error;
-use jni::JNIEnv;
 use jni::objects::{JObject, JString, JValue};
 use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
+use jni::JNIEnv;
 use paste::paste;
 
 pub use field::*;
@@ -53,9 +53,9 @@ pub use robusta_codegen::Signature;
 pub use safe::*;
 pub use unchecked::*;
 
+pub mod field;
 pub mod safe;
 pub mod unchecked;
-pub mod field;
 
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JObject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]

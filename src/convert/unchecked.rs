@@ -17,7 +17,7 @@ use jni::JNIEnv;
 
 use crate::convert::{JavaValue, Signature};
 
-pub use robusta_codegen::{IntoJavaValue, FromJavaValue};
+pub use robusta_codegen::{FromJavaValue, IntoJavaValue};
 
 /// Conversion trait from Rust values to Java values, analogous to [Into]. Used when converting types returned from JNI-available functions.
 ///
@@ -146,7 +146,10 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for char {
     type Source = jchar;
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
-        std::char::decode_utf16(std::iter::once(s)).next().unwrap().unwrap()
+        std::char::decode_utf16(std::iter::once(s))
+            .next()
+            .unwrap()
+            .unwrap()
     }
 }
 
@@ -223,7 +226,7 @@ where
 
 impl<'env, T> IntoJavaValue<'env> for jni::errors::Result<T>
 where
-    T: IntoJavaValue<'env>
+    T: IntoJavaValue<'env>,
 {
     type Target = <T as IntoJavaValue<'env>>::Target;
 

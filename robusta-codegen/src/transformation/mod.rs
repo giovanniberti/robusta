@@ -2,32 +2,36 @@ use std::collections::{BTreeSet, HashSet};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use darling::FromMeta;
 use darling::util::Flag;
+use darling::FromMeta;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::{emit_error, emit_warning};
 use quote::ToTokens;
-use syn::{Attribute, FnArg, GenericArgument, GenericParam, ImplItemMethod, Item, ItemImpl, ItemMod, ItemStruct, Lit, parse_quote, Pat, Path, PathArguments, PatIdent, PatType, Type, TypePath, TypeReference, Visibility, PathSegment};
-use syn::{Error, ImplItem, Meta, Token};
 use syn::fold::Fold;
-use syn::parse::{Parse, Parser, ParseStream, ParseBuffer};
+use syn::parse::{Parse, ParseBuffer, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
+use syn::{
+    parse_quote, Attribute, FnArg, GenericArgument, GenericParam, ImplItemMethod, Item, ItemImpl,
+    ItemMod, ItemStruct, Lit, Pat, PatIdent, PatType, Path, PathArguments, PathSegment, Type,
+    TypePath, TypeReference, Visibility,
+};
+use syn::{Error, ImplItem, Meta, Token};
 
 use imported::ImportedMethodTransformer;
 
+use crate::transformation::context::StructContext;
 use crate::transformation::exported::ExportedMethodTransformer;
 use crate::utils::{canonicalize_path, get_abi};
 use crate::validation::JNIBridgeModule;
-use crate::transformation::context::StructContext;
 use std::fmt;
 
 #[macro_use]
 mod utils;
+mod context;
 mod exported;
 mod imported;
-mod context;
 
 #[derive(Copy, Clone)]
 pub(crate) enum ImplItemType {
@@ -68,27 +72,35 @@ impl ModTransformer {
                 return node.to_token_stream();
             }
 
-            let path_lifetimes: BTreeSet<String> = p.path.segments.iter().filter_map(|s: &PathSegment| {
-                if let PathArguments::AngleBracketed(a) = &s.arguments {
-                    Some(a.args.iter().filter_map(|g| {
-                        match g {
+            let path_lifetimes: BTreeSet<String> = p
+                .path
+                .segments
+                .iter()
+                .filter_map(|s: &PathSegment| {
+                    if let PathArguments::AngleBracketed(a) = &s.arguments {
+                        Some(a.args.iter().filter_map(|g| match g {
                             GenericArgument::Lifetime(l) => Some(l.ident.to_string()),
-                            _ => None
-                        }
-                    }))
-                } else {
-                    None
-                }
-            }).flatten().collect();
+                            _ => None,
+                        }))
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .collect();
 
-            let struct_lifetimes: Vec<_> = node.generics.params.iter().filter_map(|p| {
-                match p {
-                    GenericParam::Lifetime(l) if path_lifetimes.contains(&l.lifetime.ident.to_string()) => {
+            let struct_lifetimes: Vec<_> = node
+                .generics
+                .params
+                .iter()
+                .filter_map(|p| match p {
+                    GenericParam::Lifetime(l)
+                        if path_lifetimes.contains(&l.lifetime.ident.to_string()) =>
+                    {
                         Some(l.clone())
                     }
-                    _ => None
-                }
-            })
+                    _ => None,
+                })
                 .collect();
 
             let context = StructContext {
@@ -99,10 +111,10 @@ impl ModTransformer {
             };
 
             let mut exported_fns_transformer = ExportedMethodTransformer {
-                struct_context: &context
+                struct_context: &context,
             };
             let mut imported_fns_transformer = ImportedMethodTransformer {
-                struct_context: &context
+                struct_context: &context,
             };
             let mut impl_cleaner = ImplCleaner;
 
@@ -188,8 +200,7 @@ impl Fold for ModTransformer {
     fn fold_item_mod(&mut self, mut node: ItemMod) -> ItemMod {
         let allow_non_snake_case: Attribute = parse_quote! { #![allow(non_snake_case)] };
 
-        node.attrs
-            .extend_from_slice(&[allow_non_snake_case]);
+        node.attrs.extend_from_slice(&[allow_non_snake_case]);
 
         ItemMod {
             attrs: node.attrs,
@@ -223,28 +234,29 @@ impl Fold for ModTransformer {
                 "FromJavaValue",
                 "TryFromJavaValue",
                 "IntoJavaValue",
-                "TryIntoJavaValue"
+                "TryIntoJavaValue",
             ]);
 
-            let has_package_trait = node.attrs.iter()
-                .any(|a| {
-                    let is_derive = a.path.get_ident().map(ToString::to_string).as_deref() == Some("derive");
-                    let derived_traits = a.parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated)
-                        .iter()
-                        .flat_map(|p: &syn::punctuated::Punctuated<Ident, Token![,]>| p)
-                        .map(|i| i.to_string())
-                        .collect::<HashSet<String>>();
-                    let needs_package_attr = derived_traits.iter().any(|t| traits_with_package_attr.contains(t.as_str()));
+            let has_package_trait = node.attrs.iter().any(|a| {
+                let is_derive =
+                    a.path.get_ident().map(ToString::to_string).as_deref() == Some("derive");
+                let derived_traits = a
+                    .parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated)
+                    .iter()
+                    .flat_map(|p: &syn::punctuated::Punctuated<Ident, Token![,]>| p)
+                    .map(|i| i.to_string())
+                    .collect::<HashSet<String>>();
+                let needs_package_attr = derived_traits
+                    .iter()
+                    .any(|t| traits_with_package_attr.contains(t.as_str()));
 
-                    is_derive && needs_package_attr
-                });
+                is_derive && needs_package_attr
+            });
 
             if !has_package_trait {
                 attributes
                     .into_iter()
-                    .filter(|a| {
-                        a.path.to_token_stream().to_string().as_str() != "package"
-                    })
+                    .filter(|a| a.path.to_token_stream().to_string().as_str() != "package")
                     .collect()
             } else {
                 attributes
@@ -319,10 +331,8 @@ impl JavaPath {
 
 impl Parse for JavaPath {
     fn parse<'a>(input: &'a ParseBuffer<'a>) -> syn::Result<Self> {
-        let tokens = Punctuated::<Ident, Token![.]>::parse_terminated(input)?
-            .to_token_stream();
-        let package = tokens
-            .to_string();
+        let tokens = Punctuated::<Ident, Token![.]>::parse_terminated(input)?.to_token_stream();
+        let package = tokens.to_string();
 
         JavaPath::from_str(&package).map_err(|e| Error::new_spanned(tokens, e))
     }
@@ -347,9 +357,8 @@ impl FromMeta for JavaPath {
                 "invalid path: packages and classes cannot contain dashes",
             ))
         } else {
-            let tokens = TokenStream::from_str(&path).map_err(|_| {
-                Error::custom("cannot create token stream for java path parsing")
-            })?;
+            let tokens = TokenStream::from_str(&path)
+                .map_err(|_| Error::custom("cannot create token stream for java path parsing"))?;
             let _parsed: Punctuated<Ident, Token![.]> =
                 Punctuated::<Ident, Token![.]>::parse_separated_nonempty
                     .parse(tokens.into())
@@ -414,9 +423,7 @@ struct FreestandingTransformer {
 
 impl FreestandingTransformer {
     fn new(struct_type: Path) -> Self {
-        FreestandingTransformer {
-            struct_type,
-        }
+        FreestandingTransformer { struct_type }
     }
 }
 
@@ -553,11 +560,9 @@ impl Parse for CallTypeAttribute {
                         format!("invalid `call_type` attribute options ({})", e),
                     )
                 })
-                .map(|c| {
-                    CallTypeAttribute {
-                        attr: attribute,
-                        call_type: c,
-                    }
+                .map(|c| CallTypeAttribute {
+                    attr: attribute,
+                    call_type: c,
                 })
         }
     }

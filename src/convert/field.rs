@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use std::convert::{TryFrom, TryInto};
 
-use jni::errors::Result as JniResult;
 use jni::errors::Error as JniError;
+use jni::errors::Result as JniResult;
 use jni::objects::{JFieldID, JObject};
 use jni::signature::JavaType;
 use jni::JNIEnv;
@@ -18,7 +18,8 @@ use crate::jni::objects::JValue;
 #[derive(Clone)]
 pub struct Field<'env: 'borrow, 'borrow, T>
 where
-    T: Signature, {
+    T: Signature,
+{
     env: &'borrow JNIEnv<'env>,
     field_id: JFieldID<'env>,
     obj: JObject<'env>,
@@ -51,8 +52,8 @@ where
 impl<'env: 'borrow, 'borrow, T> Field<'env, 'borrow, T>
 where
     T: Signature + TryIntoJavaValue<'env> + TryFromJavaValue<'env, 'borrow>,
-    <T as TryFromJavaValue<'env, 'borrow>>::Source: TryFrom<JValueWrapper<'env>, Error=JniError>,
-    JValue<'env>: From<<T as TryIntoJavaValue<'env>>::Target>
+    <T as TryFromJavaValue<'env, 'borrow>>::Source: TryFrom<JValueWrapper<'env>, Error = JniError>,
+    JValue<'env>: From<<T as TryIntoJavaValue<'env>>::Target>,
 {
     pub fn set(&mut self, value: T) -> JniResult<()> {
         let v = TryIntoJavaValue::try_into(value, self.env)?;
@@ -71,8 +72,7 @@ where
         )?;
 
         let f = JValueWrapper::from(res);
-        TryInto::try_into(f)
-            .and_then(|v| TryFromJavaValue::try_from(v, &self.env))
+        TryInto::try_into(f).and_then(|v| TryFromJavaValue::try_from(v, &self.env))
     }
 
     // Java object is not sufficient to retrieve parent object / field owner
@@ -102,8 +102,8 @@ where
 impl<'env: 'borrow, 'borrow, T> Field<'env, 'borrow, T>
 where
     T: Signature + IntoJavaValue<'env> + FromJavaValue<'env, 'borrow>,
-    <T as FromJavaValue<'env, 'borrow>>::Source: TryFrom<JValueWrapper<'env>, Error=JniError>,
-    JValue<'env>: From<<T as IntoJavaValue<'env>>::Target>
+    <T as FromJavaValue<'env, 'borrow>>::Source: TryFrom<JValueWrapper<'env>, Error = JniError>,
+    JValue<'env>: From<<T as IntoJavaValue<'env>>::Target>,
 {
     pub fn set_unchecked(&mut self, value: T) {
         let v = IntoJavaValue::into(value, self.env);

@@ -4,8 +4,8 @@ use std::str::FromStr;
 use proc_macro2::TokenStream;
 use proc_macro_error::emit_warning;
 use quote::ToTokens;
-use syn::ImplItemMethod;
 use syn::visit::Visit;
+use syn::ImplItemMethod;
 
 use crate::transformation::{AttributeFilter, CallTypeAttribute};
 

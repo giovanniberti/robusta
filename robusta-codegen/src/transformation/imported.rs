@@ -150,6 +150,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                 let input_types_conversions = signature
                     .inputs
                     .iter_mut()
+                    .rev()
                     .filter_map(|i| match i {
                         FnArg::Typed(t) => match &*t.pat {
                             Pat::Ident(PatIdent { ident, .. }) if ident == "self" => None,
