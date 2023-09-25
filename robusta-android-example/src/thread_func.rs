@@ -17,7 +17,7 @@ pub(crate) fn thread_test_fail() -> Result<(), String> {
     let test_string = JValue::from(test_string);
     if let Err(e) = env.call_static_method(
         "com/example/robustaandroidexample/RobustaAndroidExample",
-        "threadTest",
+        "threadTestNoClass",
         "(Ljava/lang/String;)I",
         &[test_string],
     ) {
@@ -30,7 +30,7 @@ pub(crate) fn thread_test_fail() -> Result<(), String> {
     debug!("TEST_THREAD_FAIL: via Robusta");
 
     /* Call methode */
-    if let Err(e) = RobustaAndroidExample::threadTest(&env, "test".to_string()) {
+    if let Err(e) = RobustaAndroidExample::threadTestNoClass(&env, "test".to_string()) {
         let msg = format!("Couldn't call method via Robusta: {}", e);
         error!("{}", msg);
         if env.exception_check().unwrap_or(false) {
@@ -56,7 +56,7 @@ pub(crate) fn thread_test_good() -> Result<(), String> {
     let test_string = JValue::from(test_string);
     if let Err(e) = env.call_static_method(
         class_ref,
-        "threadTest",
+        "threadTestNoClass",
         "(Ljava/lang/String;)I",
         &[test_string],
     ) {
@@ -77,7 +77,8 @@ pub(crate) fn thread_test_good() -> Result<(), String> {
     debug!("TEST_THREAD_GOOD: via Robusta");
 
     /* Call methode */
-    if let Err(e) = RobustaAndroidExample::threadTest(&env, "test".to_string()) {
+    if let Err(e) = RobustaAndroidExample::threadTestWithClass(&env, class_ref, "test".to_string())
+    {
         let msg = format!("Couldn't call method via Robusta: {}", e);
         error!("{}", msg);
         if env.exception_check().unwrap_or(false) {

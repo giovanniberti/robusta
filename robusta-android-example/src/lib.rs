@@ -11,7 +11,7 @@ static APP_CONTEXT: OnceLock<(JavaVM, GlobalRef)> = OnceLock::new();
 mod jni {
     use crate::APP_CONTEXT;
     use android_logger::Config;
-    use jni::objects::{JObject, JValue};
+    use jni::objects::{GlobalRef, JObject, JValue};
     use log::info;
     use robusta_jni::convert::{IntoJavaValue, Signature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::jni::errors::Result as JniResult;
@@ -46,7 +46,7 @@ mod jni {
             info!("App files dir: {}", app_files_dir);
 
             assert_eq!(
-                RobustaAndroidExample::threadTest(env, "test".to_string()).unwrap(),
+                RobustaAndroidExample::threadTestNoClass(env, "test".to_string()).unwrap(),
                 10
             );
 
@@ -54,7 +54,7 @@ mod jni {
             let test_string = JValue::from(test_string);
             let met_call = env.call_static_method(
                 "com/example/robustaandroidexample/RobustaAndroidExample",
-                "threadTest",
+                "threadTestNoClass",
                 "(Ljava/lang/String;)I",
                 &[test_string],
             );
@@ -81,6 +81,12 @@ mod jni {
         ) -> JniResult<String> {
         }
 
-        pub extern "java" fn threadTest(env: &JNIEnv, s: String) -> JniResult<i32> {}
+        pub extern "java" fn threadTestNoClass(env: &JNIEnv, s: String) -> JniResult<i32> {}
+        pub extern "java" fn threadTestWithClass(
+            env: &JNIEnv,
+            class_ref: &GlobalRef,
+            s: String,
+        ) -> JniResult<i32> {
+        }
     }
 }
