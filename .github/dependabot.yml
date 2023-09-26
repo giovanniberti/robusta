@@ -1,0 +1,11 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    pull-request-branch-name:
+      separator: "-"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ''
+    labels: []
