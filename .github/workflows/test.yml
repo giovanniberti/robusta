@@ -5,11 +5,4 @@ env:
 
 jobs:
   tests:
-    name: Run tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - uses: ./.github/workflows/setup_and_test.yml
+    uses: ./.github/workflows/setup_and_test.yml
