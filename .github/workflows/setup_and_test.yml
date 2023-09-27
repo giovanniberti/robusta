@@ -18,6 +18,9 @@ jobs:
         run: |
           echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
 
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
       - name: Build
         run: cargo build --verbose
 

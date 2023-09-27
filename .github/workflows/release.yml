@@ -11,6 +11,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  build-and-test:
+    uses: ./.github/workflows/setup_and_test.yml
   publish:
     name: Publish
     runs-on: ubuntu-latest
@@ -18,8 +20,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-
-      - uses: ./.github/workflows/setup_and_test.yml
 
       - name: Publish release
         run: cargo publish --token ${CRATES_TOKEN}
