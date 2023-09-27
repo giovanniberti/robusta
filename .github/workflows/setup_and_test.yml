@@ -1,0 +1,29 @@
+name: Java setup, build and test
+
+on:
+  workflow_call:
+
+jobs:
+  tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Add $JAVA_HOME to library path
+        run: |
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
