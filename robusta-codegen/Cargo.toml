@@ -15,7 +15,7 @@ proc-macro = true
 [dependencies]
 quote = "^1"
 proc-macro2 = { version = "1.0.21", features = ["span-locations"]}
-syn = { version = "^1", features = ["visit", "fold", "derive"] }
+syn = { version = "^2", features = ["visit", "fold", "derive"] }
 proc-macro-error = { version = "1", default-features = false }
 rand = "^0"
 darling = "^0.14"
