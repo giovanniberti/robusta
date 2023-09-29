@@ -55,6 +55,8 @@ public class User {
 
     public native String stringArrayToString(List<String> x);
 
+    public native String byteArrayToString(byte[] x);
+
     private native static void initNative();
 
     public native static String userCountStatus();

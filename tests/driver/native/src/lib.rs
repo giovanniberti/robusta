@@ -135,6 +135,10 @@ pub mod jni {
             format!("{:?}", v)
         }
 
+        pub extern "jni" fn byteArrayToString(self, v: Box<[u8]>) -> String {
+            format!("{:?}", v)
+        }
+
         pub extern "java" fn getPassword(
             &self,
             env: &JNIEnv,
