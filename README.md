@@ -48,7 +48,7 @@ $ cargo build && javac com/example/robusta/HelloWorld.java && RUST_BACKTRACE=ful
 You can find an example of Robusta used for Android in `./robusta-android-example`.
 To run it, open the project robustaAndroidExample with Android Studio.
 
-Cargo build is automatically run by grable.
+Cargo build is automatically run by gradle.
 
 The rust lib.rs is the image of the Java class RobustaAndroidExample.
 
