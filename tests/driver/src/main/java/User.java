@@ -33,6 +33,8 @@ public class User {
 
     public native List<String> getStringArray(List<String> x);
 
+    public native byte[] getByteArray(byte[] x);
+
     public native String intToString(int x);
 
     public native String boolToString(boolean x);

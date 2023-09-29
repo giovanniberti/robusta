@@ -91,6 +91,10 @@ pub mod jni {
             v
         }
 
+        pub extern "jni" fn getByteArray(self, v: Box<[u8]>) -> Box<[u8]> {
+            v
+        }
+
         pub extern "jni" fn intToString(self, v: i32) -> String {
             format!("{}", v)
         }
