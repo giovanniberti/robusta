@@ -161,8 +161,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         let override_input_type = attrs.iter().find(|attr| {
                             attr.path().segments.iter().find(|seg| seg.ident.to_string().as_str() == "input_type").is_some()
                         }).and_then(|a| {
-                            let token_tree: Group = syn::parse2::<Group>(a.clone().to_token_stream()).unwrap();
-                            let token_tree_lit: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
+                            let token_tree_lit: Lit = syn::parse2::<Lit>(a.clone().meta.require_list().unwrap().clone().tokens).unwrap();
 
                             if let Lit::Str(literal) = token_tree_lit {
                                 Some(literal)
