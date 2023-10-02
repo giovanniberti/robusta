@@ -24,5 +24,8 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+      - name: Build Android example
+        run: cargo build --package robusta-android-example --verbose
+
       - name: Run tests
         run: cargo test --verbose
