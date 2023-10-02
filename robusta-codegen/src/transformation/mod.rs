@@ -13,11 +13,11 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 use syn::{
-    parse_quote, Attribute, FnArg, GenericArgument, GenericParam, ImplItemMethod, Item, ItemImpl,
+    parse_quote, Attribute, FnArg, GenericArgument, GenericParam, ImplItemFn, Item, ItemImpl,
     ItemMod, ItemStruct, Lit, Pat, PatIdent, PatType, Path, PathArguments, PathSegment, Type,
     TypePath, TypeReference, Visibility,
 };
-use syn::{Error, ImplItem, Meta, Token};
+use syn::{Error, ImplItem, Token};
 
 use imported::ImportedMethodTransformer;
 
@@ -183,7 +183,6 @@ impl Fold for ModTransformer {
             Item::ForeignMod(m) => Item::ForeignMod(self.fold_item_foreign_mod(m)),
             Item::Impl(i) => Item::Verbatim(self.transform_item_impl(i)),
             Item::Macro(m) => Item::Macro(self.fold_item_macro(m)),
-            Item::Macro2(m) => Item::Macro2(self.fold_item_macro2(m)),
             Item::Mod(m) => Item::Mod(self.fold_item_mod(m)),
             Item::Static(s) => Item::Static(self.fold_item_static(s)),
             Item::Struct(s) => Item::Struct(self.fold_item_struct(s)),
@@ -205,6 +204,7 @@ impl Fold for ModTransformer {
         ItemMod {
             attrs: node.attrs,
             vis: self.fold_visibility(node.vis),
+            unsafety: node.unsafety,
             mod_token: node.mod_token,
             ident: self.fold_ident(node.ident),
             content: node.content.map(|(brace, items)| {
@@ -239,7 +239,7 @@ impl Fold for ModTransformer {
 
             let has_package_trait = node.attrs.iter().any(|a| {
                 let is_derive =
-                    a.path.get_ident().map(ToString::to_string).as_deref() == Some("derive");
+                    a.path().get_ident().map(ToString::to_string).as_deref() == Some("derive");
                 let derived_traits = a
                     .parse_args_with(Punctuated::<Ident, Token![,]>::parse_terminated)
                     .iter()
@@ -256,7 +256,7 @@ impl Fold for ModTransformer {
             if !has_package_trait {
                 attributes
                     .into_iter()
-                    .filter(|a| a.path.to_token_stream().to_string().as_str() != "package")
+                    .filter(|a| a.path().to_token_stream().to_string().as_str() != "package")
                     .collect()
             } else {
                 attributes
@@ -283,7 +283,7 @@ pub struct ImplExportVisitor<'ast> {
 impl<'ast> Visit<'ast> for ImplExportVisitor<'ast> {
     fn visit_impl_item(&mut self, node: &'ast ImplItem) {
         match node {
-            ImplItem::Method(method) => {
+            ImplItem::Fn(method) => {
                 let abi = get_abi(&method.sig);
 
                 match abi.as_deref() {
@@ -385,7 +385,7 @@ impl<'ast> AttributeFilter<'ast> {
 
 impl<'ast> Visit<'ast> for AttributeFilter<'ast> {
     fn visit_attribute(&mut self, attribute: &'ast Attribute) {
-        if self.whitelist.contains(&attribute.path) {
+        if self.whitelist.contains(&attribute.path()) {
             self.filtered_attributes.push(attribute);
         }
     }
@@ -394,7 +394,7 @@ impl<'ast> Visit<'ast> for AttributeFilter<'ast> {
 struct ImplCleaner;
 
 impl Fold for ImplCleaner {
-    fn fold_impl_item_method(&mut self, mut node: ImplItemMethod) -> ImplItemMethod {
+    fn fold_impl_item_fn(&mut self, mut node: ImplItemFn) -> ImplItemFn {
         let abi = node
             .sig
             .abi
@@ -407,7 +407,7 @@ impl Fold for ImplCleaner {
                 node.attrs = node
                     .attrs
                     .into_iter()
-                    .filter(|a| a.path.get_ident().map_or(false, |i| i != "call_type"))
+                    .filter(|a| a.path().get_ident().map_or(false, |i| i != "call_type"))
                     .collect();
 
                 node
@@ -531,19 +531,17 @@ impl Parse for CallTypeAttribute {
             .cloned()
             .ok_or_else(|| Error::new(input.span(), "Invalid parsing of `call_type` attribute "))?;
 
-        if attribute
-            .path
-            .get_ident()
-            .ok_or_else(|| Error::new(attribute.path.span(), "expected identifier for attribute"))?
-            != "call_type"
+        if attribute.path().get_ident().ok_or_else(|| {
+            Error::new(attribute.path().span(), "expected identifier for attribute")
+        })? != "call_type"
         {
             return Err(Error::new(
-                attribute.path.span(),
+                attribute.path().span(),
                 "expected identifier `call_type` for attribute",
             ));
         }
 
-        let attr_meta: Meta = attribute.parse_meta()?;
+        let attr_meta = attribute.meta.clone();
 
         // Special-case `call_type(safe)` without further parentheses
         // TODO: Find out if it's possible to use darling to allow `call_type(safe)` *and* `call_type(safe(message = "foo"))` etc.

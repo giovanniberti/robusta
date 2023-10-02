@@ -5,11 +5,11 @@ use proc_macro2::TokenStream;
 use proc_macro_error::emit_warning;
 use quote::ToTokens;
 use syn::visit::Visit;
-use syn::ImplItemMethod;
+use syn::ImplItemFn;
 
 use crate::transformation::{AttributeFilter, CallTypeAttribute};
 
-pub(crate) fn get_call_type(node: &ImplItemMethod) -> Option<CallTypeAttribute> {
+pub(crate) fn get_call_type(node: &ImplItemFn) -> Option<CallTypeAttribute> {
     let whitelist = {
         let mut f = HashSet::new();
         f.insert(syn::parse2(TokenStream::from_str("call_type").unwrap()).unwrap());
@@ -17,7 +17,7 @@ pub(crate) fn get_call_type(node: &ImplItemMethod) -> Option<CallTypeAttribute> 
     };
 
     let mut attributes_collector = AttributeFilter::with_whitelist(whitelist);
-    attributes_collector.visit_impl_item_method(&node);
+    attributes_collector.visit_impl_item_fn(&node);
 
     let call_type_attribute = attributes_collector.filtered_attributes.first().and_then(|call_type_attr| {
         syn::parse2(call_type_attr.to_token_stream()).map_err(|e| {

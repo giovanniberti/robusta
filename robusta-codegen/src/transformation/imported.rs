@@ -5,7 +5,7 @@ use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
 use syn::spanned::Spanned;
 use syn::{parse_quote, GenericArgument, PathArguments, Type, TypePath};
-use syn::{FnArg, ImplItemMethod, Lit, Pat, PatIdent, ReturnType, Signature};
+use syn::{FnArg, ImplItemFn, Lit, Pat, PatIdent, ReturnType, Signature};
 
 use crate::transformation::context::StructContext;
 use crate::transformation::utils::get_call_type;
@@ -18,19 +18,19 @@ pub struct ImportedMethodTransformer<'ctx> {
 }
 
 impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
-    fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
+    fn fold_impl_item_fn(&mut self, node: ImplItemFn) -> ImplItemFn {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (_, Some("java")) => {
                 let constructor_attribute = node.attrs.iter().find(|a| {
-                    a.path.get_ident().map(ToString::to_string).as_deref() == Some("constructor")
+                    a.path().get_ident().map(ToString::to_string).as_deref() == Some("constructor")
                 });
                 let is_constructor = {
                     match constructor_attribute {
                         Some(a) => {
-                            if !a.tokens.is_empty() {
+                            if !a.to_token_stream().is_empty() {
                                 emit_warning!(
-                                    a.tokens,
+                                    a.to_token_stream(),
                                     "#[constructor] attribute does not take parameters"
                                 )
                             }
@@ -67,12 +67,12 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                         .into_iter()
                         .filter(|a| {
                             !discarded_known_attributes
-                                .contains(&a.path.segments.to_token_stream().to_string().as_str())
+                                .contains(&a.path().segments.to_token_stream().to_string().as_str())
                         })
                         .collect()
                 };
 
-                let dummy = ImplItemMethod {
+                let dummy = ImplItemFn {
                     sig: Signature {
                         abi: None,
                         ..original_signature.clone()
@@ -159,9 +159,9 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     })
                     .map(|(t, span, attrs)| {
                         let override_input_type = attrs.iter().find(|attr| {
-                            attr.path.segments.iter().find(|seg| seg.ident.to_string().as_str() == "input_type").is_some()
+                            attr.path().segments.iter().find(|seg| seg.ident.to_string().as_str() == "input_type").is_some()
                         }).and_then(|a| {
-                            let token_tree: Group = syn::parse2::<Group>(a.clone().tokens).unwrap();
+                            let token_tree: Group = syn::parse2::<Group>(a.clone().to_token_stream()).unwrap();
                             let token_tree_lit: Lit = syn::parse2::<Lit>(token_tree.stream()).unwrap();
 
                             if let Lit::Str(literal) = token_tree_lit {
@@ -330,7 +330,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                                 .clone()
                                 .into_iter()
                                 .filter(|a| {
-                                    !a.path
+                                    !a.path()
                                         .segments
                                         .iter()
                                         .find(|s| {
@@ -346,7 +346,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     FnArg::Receiver(_) => {}
                 });
 
-                ImplItemMethod {
+                ImplItemFn {
                     sig: Signature {
                         abi: None,
                         ..original_signature

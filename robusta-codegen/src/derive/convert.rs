@@ -4,11 +4,11 @@ use crate::derive::utils::generic_params_to_args;
 use crate::transformation::JavaPath;
 use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::{abort, emit_error, emit_warning};
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
 use syn::{
     AngleBracketedGenericArguments, Data, DataStruct, DeriveInput, Field, GenericArgument,
-    GenericParam, Generics, LifetimeDef, PathArguments, Type, TypePath,
+    GenericParam, Generics, LifetimeParam, PathArguments, Type, TypePath,
 };
 
 struct TraitAutoDeriveData {
@@ -280,7 +280,7 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
     match input.data {
         Data::Struct(DataStruct { fields, .. }) => {
             let package_attr = input.attrs.iter().find(|a| {
-                a.path.get_ident().map(ToString::to_string).as_deref() == Some("package")
+                a.path().get_ident().map(ToString::to_string).as_deref() == Some("package")
             });
             if package_attr.is_none() {
                 abort!(input_span, "missing `#[package]` attribute")
@@ -303,7 +303,7 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                     "".to_string()
                 });
 
-            let lifetimes: HashMap<String, &LifetimeDef> = input
+            let lifetimes: HashMap<String, &LifetimeParam> = input
                 .generics
                 .params
                 .iter()
@@ -335,7 +335,7 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                 .iter()
                 .filter_map(|f| {
                     let attr = f.attrs.iter().find(|a| {
-                        a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("instance")
+                        a.path().get_ident().map(|i| i.to_string()).as_deref() == Some("instance")
                     });
                     attr.map(|a| (f, a))
                 })
@@ -345,7 +345,7 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                 .iter()
                 .filter(|f| {
                     let attr = f.attrs.iter().find(|a| {
-                        a.path.get_ident().map(|i| i.to_string()).as_deref() == Some("field")
+                        a.path().get_ident().map(|i| i.to_string()).as_deref() == Some("field")
                     });
                     attr.is_some()
                 })
@@ -363,9 +363,9 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
             match instance_field_data {
                 None => abort!(input_span, "missing `#[instance] field attribute"),
                 Some((instance, attr)) => {
-                    if !attr.tokens.is_empty() {
+                    if !attr.into_token_stream().is_empty() {
                         emit_warning!(
-                            attr.tokens,
+                            attr.into_token_stream(),
                             "`#[instance]` attribute doesn't have any arguments"
                         )
                     }
