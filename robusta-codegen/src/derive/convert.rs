@@ -363,9 +363,13 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
             match instance_field_data {
                 None => abort!(input_span, "missing `#[instance] field attribute"),
                 Some((instance, attr)) => {
-                    if !attr.into_token_stream().is_empty() {
+                    if attr
+                        .meta
+                        .require_list()
+                        .is_ok_and(|meta_list| !meta_list.tokens.is_empty())
+                    {
                         emit_warning!(
-                            attr.into_token_stream(),
+                            attr.to_token_stream(),
                             "`#[instance]` attribute doesn't have any arguments"
                         )
                     }
