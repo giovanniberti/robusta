@@ -22,13 +22,15 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (_, Some("java")) => {
-                let constructor_attribute = node.attrs.iter().find(|a| {
-                    a.path().get_ident().map(ToString::to_string).as_deref() == Some("constructor")
-                });
+                let constructor_attribute =
+                    node.attrs.iter().find(|a| a.path().is_ident("constructor"));
                 let is_constructor = {
                     match constructor_attribute {
                         Some(a) => {
-                            if !a.to_token_stream().is_empty() {
+                            if a.meta
+                                .require_list()
+                                .is_ok_and(|meta_list| !meta_list.tokens.is_empty())
+                            {
                                 emit_warning!(
                                     a.to_token_stream(),
                                     "#[constructor] attribute does not take parameters"
