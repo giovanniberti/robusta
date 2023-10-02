@@ -1,5 +1,5 @@
 use inflector::cases::camelcase::to_camel_case;
-use proc_macro2::{Group, TokenStream, TokenTree};
+use proc_macro2::{TokenStream, TokenTree};
 use proc_macro_error::{abort, emit_error, emit_warning};
 use quote::{quote_spanned, ToTokens};
 use syn::fold::Fold;
