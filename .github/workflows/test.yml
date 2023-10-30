@@ -1,3 +1,4 @@
+name: Launch tests
 on: [push, pull_request]
 
 env:

@@ -1,3 +1,4 @@
+name: Release on crates.io
 on:
   push:
     # Pattern matched against refs/tags
