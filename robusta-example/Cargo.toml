@@ -1,6 +1,6 @@
 [package]
 name = "robusta-example"
-version = "0.2.0"
+version = "0.2.2"
 authors = ["Giovanni Berti <dev.giovanniberti@gmail.com>"]
 edition = "2018"
 
