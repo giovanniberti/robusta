@@ -23,13 +23,13 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Publish robusta_jni release
+      - name: Publish robusta-codegen release
+        working-directory: ./robusta-codegen
         run: cargo publish --token ${CRATES_TOKEN}
         env:
           CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
 
-      - name: Publish robusta-codegen release
-        working-directory: ./robusta-codegen
+      - name: Publish robusta_jni release
         run: cargo publish --token ${CRATES_TOKEN}
         env:
           CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
