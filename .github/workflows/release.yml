@@ -30,3 +30,4 @@ jobs:
           dry-run: true
           args: --no-verify
           check-repo: false
+          ignore-unpublished-changes: true
