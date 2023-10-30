@@ -31,6 +31,14 @@ but you can switch to `#[call_type(unchecked)]` at any time, most likely with fe
 
 You can also force a Java type on input arguments via `#[input_type]` attribute, which can be useful for Android JNI development for example.
 
+### Android specificities
+
+On Android App, to call a Java class from rust the JVM use the callstack to find desired class.
+But when in a rust thread, you don't have a call stack anymore.\
+So to be able to call a Java class you have to pass the class reference rather than the string class path.
+
+You can find an example of this usage in `robusta-android-example/src/thread_func.rs`
+
 ## Code example
 
 You can find an example under `./robusta-example`. To run it you should have `java` and `javac` on your PATH and then execute:
