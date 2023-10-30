@@ -23,11 +23,13 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Publish release
-        uses: katyo/publish-crates@v2
-        with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          dry-run: true
-          args: --no-verify
-          check-repo: false
-          ignore-unpublished-changes: true
+      - name: Publish robusta_jni release
+        run: cargo publish --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+
+      - name: Publish robusta-codegen release
+        working-directory: ./robusta-codegen
+        run: cargo publish --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
