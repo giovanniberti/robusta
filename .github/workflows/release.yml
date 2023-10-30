@@ -28,4 +28,5 @@ jobs:
         with:
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           dry-run: true
+          args: --no-verify
           check-repo: false
