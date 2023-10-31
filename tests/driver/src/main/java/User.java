@@ -33,6 +33,8 @@ public class User {
 
     public native List<String> getStringArray(List<String> x);
 
+    public native byte[] getByteArray(byte[] x);
+
     public native String intToString(int x);
 
     public native String boolToString(boolean x);
@@ -52,6 +54,8 @@ public class User {
     public native String intArrayToString(List<Integer> x);
 
     public native String stringArrayToString(List<String> x);
+
+    public native String byteArrayToString(byte[] x);
 
     private native static void initNative();
 

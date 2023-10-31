@@ -1,5 +1,5 @@
 # robusta &mdash; easy interop between Rust and Java
-[![Build Status](https://travis-ci.com/giovanniberti/robusta.svg?branch=master)](https://travis-ci.com/giovanniberti/robusta) [![Latest Version](https://img.shields.io/crates/v/robusta_jni.svg)](https://crates.io/crates/robusta_jni) [![Docs](https://docs.rs/robusta_jni/badge.svg?version=0.2.0)](https://docs.rs/robusta_jni)
+[![Build Status](https://github.com/giovanniberti/robusta/actions/workflows/test.yml/badge.svg)](https://github.com/giovanniberti/robusta/actions/workflows/test.yml) [![Latest Version](https://img.shields.io/crates/v/robusta_jni.svg)](https://crates.io/crates/robusta_jni) [![Docs](https://docs.rs/robusta_jni/badge.svg?version=0.2.0)](https://docs.rs/robusta_jni)
 
 [Master branch docs](https://giovanniberti.github.io/doc/robusta_jni/)
 
@@ -30,6 +30,14 @@ On these methods you can attach a `call_type` attribute that manages how convers
 but you can switch to `#[call_type(unchecked)]` at any time, most likely with few or no code changes.
 
 You can also force a Java type on input arguments via `#[input_type]` attribute, which can be useful for Android JNI development for example.
+
+### Android specificities
+
+On Android App, to call a Java class from rust the JVM use the callstack to find desired class.
+But when in a rust thread, you don't have a call stack anymore.\
+So to be able to call a Java class you have to pass the class reference rather than the string class path.
+
+You can find an example of this usage in `robusta-android-example/src/thread_func.rs`
 
 ## Code example
 
@@ -122,6 +130,7 @@ You can make a Rust native method raise a Java exception simply by returning a `
 | i16                                                                                | short                             |
 | String                                                                             | String                            |
 | Vec\<T\>†                                                                          | ArrayList\<T\>                    |
+| Box<[u8]>                                                                          | byte[]                            |
 | [jni::JObject<'env>](https://docs.rs/jni/0.17.0/jni/objects/struct.JObject.html) ‡ | *(any Java object as input type)* |
 | [jni::jobject](https://docs.rs/jni/0.17.0/jni/sys/type.jobject.html)               | *(any Java object as output)*     |
 

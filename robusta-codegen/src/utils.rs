@@ -95,6 +95,50 @@ pub fn get_env_arg(signature: Signature) -> (Signature, Option<FnArg>) {
     (transformed_signature, env_arg)
 }
 
+pub fn get_class_arg_if_any(signature: Signature) -> (Signature, Option<FnArg>) {
+    let has_explicit_class_ref_arg = if let Some(FnArg::Typed(PatType { ty, .. })) = signature.inputs.iter().next() {
+        if let Type::Reference(TypeReference { elem, .. }) = &**ty {
+            if let Type::Path(t) = &**elem {
+                let full_path: Path = parse_quote! { ::robusta_jni::jni::objects::GlobalRef };
+                let imported_path: Path = parse_quote! { GlobalRef };
+                let canonicalized_type_path = canonicalize_path(&t.path);
+
+                canonicalized_type_path == imported_path || canonicalized_type_path == full_path
+            } else {
+                false
+            }
+        } else if let Type::Path(t) = &**ty {
+            /* If the user has input `class_ref: GlobalRef` instead of `class_ref: &GlobalRef`, we let them know. */
+            let full_path: Path = parse_quote! { ::robusta_jni::jni::objects::GlobalRef };
+            let imported_path: Path = parse_quote! { GlobalRef };
+            let canonicalized_type_path = canonicalize_path(&t.path);
+
+            if canonicalized_type_path == imported_path || canonicalized_type_path == full_path {
+                emit_error!(t, "explicit environment parameter must be of type `&GlobalRef`");
+            }
+
+            false
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    if has_explicit_class_ref_arg {
+        let mut inner_signature = signature;
+
+        let mut iter = inner_signature.inputs.into_iter();
+        let class_arg = iter.next();
+
+        inner_signature.inputs = iter.collect();
+        (inner_signature, class_arg)
+
+    } else {
+        (signature, None)
+    }
+}
+
 pub fn get_abi(sig: &Signature) -> Option<String> {
     sig.abi
         .as_ref()

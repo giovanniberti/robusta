@@ -18,7 +18,7 @@
 
 use jni::errors::{Error, Result};
 use jni::objects::{JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbooleanArray, jchar, jobject};
+use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject};
 use jni::JNIEnv;
 
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
@@ -244,6 +244,28 @@ where
         list.iter()?
             .map(|el| T::try_from(U::unbox(el, env), env))
             .collect()
+    }
+}
+
+impl Signature for Box<[u8]> {
+    const SIG_TYPE: &'static str = "[B";
+}
+
+impl<'env> TryIntoJavaValue<'env> for Box<[u8]> {
+    type Target = jbyteArray;
+
+    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        env.byte_array_from_slice(self.as_ref())
+    }
+}
+
+impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[u8]> {
+    type Source = jbyteArray;
+
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[u8]>> {
+        let buf = env.convert_byte_array(s)?;
+        let boxed_slice = buf.into_boxed_slice();
+        Ok(boxed_slice)
     }
 }
 

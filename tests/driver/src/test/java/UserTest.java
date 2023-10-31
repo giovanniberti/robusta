@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 public class UserTest {
     private User u;
@@ -136,12 +137,23 @@ public class UserTest {
     }
 
     @Test
+    public void byteArrayTest() {
+        assertArrayValueRoundTrip(u::getByteArray, u::byteArrayToString, new byte[0], "[]");
+        assertArrayValueRoundTrip(u::getByteArray, u::byteArrayToString, new byte[] {1, 2, 3}, "[1, 2, 3]");
+    }
+
+    @Test
     public void staticMethod() {
         assertEquals(String.valueOf(User.getTotalUsersCount()), User.userCountStatus());
     }
 
     private <T> void assertValueRoundTrip(Function<T, T> func, Function<T, String> toString, T value, String text) {
         assertEquals(value, func.apply(value));
+        assertEquals(text, toString.apply(value));
+    }
+
+    private <T> void assertArrayValueRoundTrip(Function<byte[], byte[]> func, Function<byte[], String> toString, byte[] value, String text) {
+        assertArrayEquals(value, func.apply(value));
         assertEquals(text, toString.apply(value));
     }
 }
