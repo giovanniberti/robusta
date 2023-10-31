@@ -9,4 +9,4 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 robusta_jni = { path = "../../..", version = "0.2" }
-env_logger = "0.10.0"
+env_logger = "^0"
