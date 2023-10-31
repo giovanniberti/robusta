@@ -28,11 +28,7 @@ mod jni {
 
     impl<'env: 'borrow, 'borrow> RobustaAndroidExample<'env, 'borrow> {
         pub extern "jni" fn runRustExample(self, env: &JNIEnv, context: JObject<'env>) {
-            android_logger::init_once(
-                Config::default()
-                    .with_min_level(log::Level::Debug)
-                    .with_tag("RUST_ROBUSTA_ANDROID_EXAMPLE"),
-            );
+            android_logger::init_once(Config::default().with_tag("RUST_ROBUSTA_ANDROID_EXAMPLE"));
 
             info!("TEST START");
             let java_class = env
