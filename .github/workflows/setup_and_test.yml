@@ -35,8 +35,8 @@ jobs:
         run:   |
          Add-Content $env:GITHUB_PATH "$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server"
 
-#      - name: Debug session
-#        uses: mxschmitt/action-tmate@v3
+      - name: Debug session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Build
         run: cargo build --verbose
