@@ -31,11 +31,11 @@ jobs:
          fi
         shell: bash
 
-      - name: Debug session
-        uses: mxschmitt/action-tmate@v3
-
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Debug session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Build
         run: cargo build --verbose
