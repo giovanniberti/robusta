@@ -1,3 +1,4 @@
+use std::fs;
 use jni::objects::JString;
 use native::jni::User;
 use robusta_jni::convert::FromJavaValue;
@@ -16,9 +17,14 @@ fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
 
 #[test]
 fn java_integration_tests() {
-    let mut child = Command::new("./gradlew")
-        .args(&["test", "-i"])
-        .current_dir("./tests/driver")
+    let mut child = if cfg!(target_os = "windows") {
+        Command::new("gradlew.bat")
+    } else {
+        Command::new("./gradlew")
+    }.args(&["test", "-i"])
+        .current_dir(
+            std::path::Path::new(".").join("tests").join("driver").to_str().expect("Failed to get driver path")
+        )
         .spawn()
         .expect("Failed to execute command");
 
@@ -29,9 +35,14 @@ fn java_integration_tests() {
 
 #[test]
 fn vm_creation_and_object_usage() {
-    let mut child = Command::new("./gradlew")
-        .args(&["test", "-i"])
-        .current_dir("./tests/driver")
+    let mut child = if cfg!(target_os = "windows") {
+        Command::new("gradlew.bat")
+    } else {
+        Command::new("./gradlew")
+    }.args(&["test", "-i"])
+        .current_dir(
+            std::path::Path::new(".").join("tests").join("driver").to_str().expect("Failed to get driver path")
+        )
         .spawn()
         .expect("Failed to execute command");
 
@@ -39,7 +50,9 @@ fn vm_creation_and_object_usage() {
     assert!(exit_status.success());
 
     let current_dir = std::env::current_dir().expect("Couldn't get current dir");
-    let classpath = current_dir.join("./tests/driver/build/classes/java/main");
+    let classpath = current_dir.join(
+        std::path::Path::new(".").join("tests").join("driver").join("build").join("classes").join("java").join("main").to_str().expect("Failed to build classpath")
+    );
 
     let vm_args = InitArgsBuilder::new()
         .option(&*format!(
