@@ -1,3 +1,5 @@
+use std::fs;
+use std::path::Path;
 use jni::objects::JString;
 use native::jni::User;
 use robusta_jni::convert::FromJavaValue;
@@ -16,13 +18,14 @@ fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
 
 #[test]
 fn java_integration_tests() {
-    let mut child = if cfg!(target_os = "windows") {
-        Command::new("gradlew.bat")
-    } else {
-        Command::new("./gradlew")
-    }.args(&["test", "-i"])
+    let mut child = Command::new(
+        fs::canonicalize(
+            Path::new(".").join("tests").join("driver").join(
+                if cfg!(target_os = "windows") { "gradlew.bat" } else { "gradlew" })
+        ).expect("Gradle not found"))
+        .args(&["test", "-i"])
         .current_dir(
-            std::path::Path::new(".").join("tests").join("driver").to_str().expect("Failed to get driver path")
+            Path::new(".").join("tests").join("driver").to_str().expect("Failed to get driver path")
         )
         .spawn()
         .expect("Failed to execute command");
@@ -34,13 +37,14 @@ fn java_integration_tests() {
 
 #[test]
 fn vm_creation_and_object_usage() {
-    let mut child = if cfg!(target_os = "windows") {
-        Command::new("gradlew.bat")
-    } else {
-        Command::new("./gradlew")
-    }.args(&["test", "-i"])
+    let mut child = Command::new(
+        fs::canonicalize(
+            Path::new(".").join("tests").join("driver").join(
+                if cfg!(target_os = "windows") { "gradlew.bat" } else { "gradlew" })
+        ).expect("Gradle not found"))
+        .args(&["test", "-i"])
         .current_dir(
-            std::path::Path::new(".").join("tests").join("driver").to_str().expect("Failed to get driver path")
+            Path::new(".").join("tests").join("driver").to_str().expect("Failed to get driver path")
         )
         .spawn()
         .expect("Failed to execute command");
