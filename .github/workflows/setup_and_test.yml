@@ -21,18 +21,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Add $JAVA_HOME to library path
+        if: runner.os == 'Linux'
         run:   |
-         if [ "$RUNNER_OS" == "Linux" ]; then
-              echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
-         elif [ "$RUNNER_OS" == "macOS" ]; then
-              echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
-         elif [ "$RUNNER_OS" == "Windows" ]; then
-              echo "PATH=$PATH:$JAVA_HOME\bin:$JAVA_HOME\bin\server" >> $env:GITHUB_ENV
-         else
-              echo "$RUNNER_OS not supported"
-              exit 1
-         fi
-        shell: bash
+         echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+         
+      - name: Add $JAVA_HOME to library path
+        if: runner.os == 'macOS'
+        run:   |
+         echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+
+      - name: Add $JAVA_HOME to library path
+        if: runner.os == 'Windows'
+        run:   |
+         Add-Content $env:GITHUB_PATH "%JAVA_HOME%\bin:%JAVA_HOME%\bin\server"
 
       - name: Debug session
         uses: mxschmitt/action-tmate@v3
