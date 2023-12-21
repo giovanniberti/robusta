@@ -20,9 +20,9 @@ jobs:
       - name: Add $JAVA_HOME to library path
         run:   |
          if [ "$RUNNER_OS" == "Linux" ]; then
-              echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+              echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
          elif [ "$RUNNER_OS" == "macOS" ]; then
-              echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$JAVA_HOME/lib" >> "$GITHUB_ENV"
+              echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
          elif [ "$RUNNER_OS" == "Windows" ]; then
               echo "PATH=$PATH;$JAVA_HOME\lib;$JAVA_HOME\lib\server" >> "$GITHUB_ENV"
          else
