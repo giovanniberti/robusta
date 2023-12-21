@@ -31,6 +31,9 @@ jobs:
          fi
         shell: bash
 
+      - name: Debug session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Checkout sources
         uses: actions/checkout@v4
 
