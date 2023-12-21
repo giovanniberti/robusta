@@ -33,7 +33,7 @@ jobs:
       - name: Add $JAVA_HOME to library path
         if: runner.os == 'Windows'
         run:   |
-         Add-Content $env:GITHUB_PATH "$env:JAVA_HOME\bin:$env:JAVA_HOME\bin\server"
+         Add-Content $env:GITHUB_PATH "$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server"
 
       - name: Debug session
         uses: mxschmitt/action-tmate@v3
