@@ -1,4 +1,3 @@
-use std::fs;
 use jni::objects::JString;
 use native::jni::User;
 use robusta_jni::convert::FromJavaValue;
@@ -50,10 +49,16 @@ fn vm_creation_and_object_usage() {
     assert!(exit_status.success());
 
     let current_dir = std::env::current_dir().expect("Couldn't get current dir");
-    let classpath = current_dir.join(
-        std::path::Path::new(".").join("tests").join("driver").join("build").join("classes").join("java").join("main").to_str().expect("Failed to build classpath")
-    );
+    let classpath = current_dir.join("tests").join("driver").join("build").join("classes").join("java").join("main");
 
+    // Cargo sets DYLD_FALLBACK_LIBRARY_PATH on os x, but java uses DYLD_LIBRARY_PATH to set java.library.path
+    std::env::set_var(
+        "DYLD_LIBRARY_PATH",
+        format!(
+            "{}:{}",
+            std::env::var("DYLD_LIBRARY_PATH").unwrap_or("".to_string()),
+            std::env::var("DYLD_FALLBACK_LIBRARY_PATH").unwrap_or("".to_string()),
+        ));
     let vm_args = InitArgsBuilder::new()
         .option(&*format!(
             "-Djava.class.path={}",
