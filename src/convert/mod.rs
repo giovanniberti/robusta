@@ -42,7 +42,7 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use jni::errors::Error;
-use jni::objects::{JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
+use jni::objects::{JObject, JString, JValue, JClass, JByteBuffer, JThrowable, JList, JMap};
 use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 use jni::JNIEnv;
@@ -170,37 +170,12 @@ impl<'env> JavaValue<'env> for jobject {
     }
 }
 
-macro_rules! jobject_types {
-    ($type:ty: $sig:expr) => {
-        impl<'env> Signature for $type {
-            const SIG_TYPE: &'static str = $sig;
-        }
-
-        impl<'env> JavaValue<'env> for $type {
-            fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-                Into::into(self)
-            }
-
-            fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-                From::from(s)
-            }
-        }
-    };
-
-    ($type:ty: $sig:expr, $($rest:ty: $rest_sig:expr),+) => {
-        jobject_types!($type: $sig);
-
-        jobject_types!($($rest: $rest_sig),+);
-    }
+impl<'env> Signature for JList<'env, 'env> {
+    const SIG_TYPE: &'static str = "Ljava/util/List;";
 }
 
-jobject_types! {
-    JString<'env>: "Ljava/lang/String;",
-    JClass<'env>: "Ljava/lang/Class;",
-    JByteBuffer<'env>: "Ljava/nio/ByteBuffer;",
-    //// Introduced in new version of jni-rs, pls keep and uncomment after migration
-    // JObjectArray<'env>: "[Ljava/lang/Object;",
-    JThrowable<'env>: "Ljava/lang/Throwable;"
+impl<'env> Signature for JMap<'env, 'env> {
+    const SIG_TYPE: &'static str = "Ljava/util/Map;";
 }
 
 impl<T: Signature> Signature for jni::errors::Result<T> {
@@ -331,13 +306,46 @@ impl<'a> TryFrom<JValueWrapper<'a>> for JObject<'a> {
     }
 }
 
-impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Object(o) => Ok(From::from(o)),
-            _ => Err(Error::WrongJValueType("string", value.0.type_name()).into()),
+macro_rules! jobject_types {
+    ($type:ty: $sig:literal ($name:literal)) => {
+        impl<'env> Signature for $type {
+            const SIG_TYPE: &'static str = $sig;
         }
+
+        impl<'env> JavaValue<'env> for $type {
+            fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+                Into::into(self)
+            }
+
+            fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+                From::from(s)
+            }
+        }
+
+        impl<'env> TryFrom<JValueWrapper<'env>> for $type {
+            type Error = jni::errors::Error;
+
+            fn try_from(value: JValueWrapper<'env>) -> Result<Self, Self::Error> {
+                match value.0 {
+                    JValue::Object(o) => Ok(From::from(o)),
+                    _ => Err(Error::WrongJValueType($name, value.0.type_name()).into()),
+                }
+            }
+        }
+    };
+
+    ($type:ty: $sig:literal ($name:literal), $($rest:ty: $rest_sig:literal ($rest_name:literal)),+) => {
+        jobject_types!($type: $sig ($name));
+
+        jobject_types!($($rest: $rest_sig ($rest_name)),+);
     }
+}
+
+jobject_types! {
+    JString<'env>: "Ljava/lang/String;" ("string"),
+    JClass<'env>: "Ljava/lang/Class;" ("class"),
+    JByteBuffer<'env>: "Ljava/nio/ByteBuffer;" ("bytebuffer"),
+    //// Introduced in new version of jni-rs, pls keep and uncomment after migration
+    // JObjectArray<'env>: "[Ljava/lang/Object;" ("object_array"),
+    JThrowable<'env>: "Ljava/lang/Throwable;" ("throwable")
 }
