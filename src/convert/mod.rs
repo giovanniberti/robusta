@@ -42,7 +42,7 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use jni::errors::Error;
-use jni::objects::{JObject, JString, JValue};
+use jni::objects::{JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
 use jni::signature::JavaType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 use jni::JNIEnv;
@@ -99,6 +99,21 @@ macro_rules! jvalue_types {
                     .unwrap()))
             }
         }
+
+        //// Introduced in new version of jni-rs, pls keep and uncomment after migration
+        // impl<'env> Signature for paste!([<J $boxed Array>])<'env> {
+        //     const SIG_TYPE: &'static str = concat!("[", stringify!($sig));
+        // }
+
+        // impl<'env> JavaValue<'env> for paste!([<J $boxed Array>])<'env> {
+        //     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+        //         Into::into(self)
+        //     }
+
+        //     fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+        //         From::from(s)
+        //     }
+        // }
     };
 
     ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident], $($rest:ty: $rest_boxed:ident ($rest_sig:ident) [$unbox_method_rest:ident]),+) => {
@@ -155,18 +170,37 @@ impl<'env> JavaValue<'env> for jobject {
     }
 }
 
-impl<'env> Signature for JString<'env> {
-    const SIG_TYPE: &'static str = "Ljava/lang/String;";
+macro_rules! jobject_types {
+    ($type:ty: $sig:expr) => {
+        impl<'env> Signature for $type {
+            const SIG_TYPE: &'static str = $sig;
+        }
+
+        impl<'env> JavaValue<'env> for $type {
+            fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+                Into::into(self)
+            }
+
+            fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+                From::from(s)
+            }
+        }
+    };
+
+    ($type:ty: $sig:expr, $($rest:ty: $rest_sig:expr),+) => {
+        jobject_types!($type: $sig);
+
+        jobject_types!($($rest: $rest_sig),+);
+    }
 }
 
-impl<'env> JavaValue<'env> for JString<'env> {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        Into::into(self)
-    }
-
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-        From::from(s)
-    }
+jobject_types! {
+    JString<'env>: "Ljava/lang/String;",
+    JClass<'env>: "Ljava/lang/Class;",
+    JByteBuffer<'env>: "Ljava/nio/ByteBuffer;",
+    //// Introduced in new version of jni-rs, pls keep and uncomment after migration
+    // JObjectArray<'env>: "[Ljava/lang/Object;",
+    JThrowable<'env>: "Ljava/lang/Throwable;"
 }
 
 impl<T: Signature> Signature for jni::errors::Result<T> {
