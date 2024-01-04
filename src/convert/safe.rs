@@ -275,3 +275,35 @@ where
         self.and_then(|s| TryIntoJavaValue::try_into(s, env))
     }
 }
+
+impl<'env: 'borrow, 'borrow, T> TryFromJavaValue<'env, 'borrow> for Option<T>
+where
+    T: TryFromJavaValue<'env, 'borrow>,
+    <T as TryFromJavaValue<'env, 'borrow>>::Source: Into<JObject<'env>> + Clone,
+{
+    type Source = <T as TryFromJavaValue<'env, 'borrow>>::Source;
+
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
+        if env.is_same_object(s.clone().into(), JObject::null())? {
+            Ok(None)
+        } else { Ok(Some(T::try_from(s, env)?)) }
+    }
+}
+
+impl<'env, T> TryIntoJavaValue<'env> for Option<T>
+where
+    T: TryIntoJavaValue<'env>,
+    // It's possible to replace this with
+    // <T as TryIntoJavaValue<'env>>::Target: Default,
+    // after migration, so it'll work with primitive types too
+    // (not sure if it break things for types with Target != JObject
+    <T as TryIntoJavaValue<'env>>::Target: From<JObject<'env>>,
+{
+    type Target = <T as TryIntoJavaValue<'env>>::Target;
+    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        match self {
+            None => { Ok(From::from(JObject::null())) }
+            Some(value) => { T::try_into(value, env) }
+        }
+    }
+}

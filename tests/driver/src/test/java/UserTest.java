@@ -150,6 +150,13 @@ public class UserTest {
     }
 
     @Test
+    public void optionTest() {
+        assertValueRoundTrip(u::getOptionString, String::valueOf, null, "null");
+        assertValueRoundTrip(u::getOptionString, String::valueOf, "", "");
+        assertValueRoundTrip(u::getOptionString, String::valueOf, "hello!", "hello!");
+    }
+
+    @Test
     public void staticMethod() {
         assertEquals(String.valueOf(User.getTotalUsersCount()), User.userCountStatus());
     }

@@ -37,6 +37,8 @@ public class User {
 
     public native boolean[] getBoolArray(boolean[] x);
 
+    public native String getOptionString(String x);
+
     public native String intToString(int x);
 
     public native String boolToString(boolean x);

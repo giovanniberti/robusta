@@ -182,6 +182,10 @@ impl<T: Signature> Signature for jni::errors::Result<T> {
     const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
 }
 
+impl<T: Signature> Signature for Option<T> {
+    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
+}
+
 pub struct JValueWrapper<'a>(pub JValue<'a>);
 
 impl<'a> From<JValue<'a>> for JValueWrapper<'a> {

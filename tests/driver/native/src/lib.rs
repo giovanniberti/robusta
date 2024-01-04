@@ -99,6 +99,10 @@ pub mod jni {
             v
         }
 
+        pub extern "jni" fn getOptionString(self, v: Option<String>) -> Option<String> {
+            v
+        }
+
         pub extern "jni" fn intToString(self, v: i32) -> String {
             format!("{}", v)
         }
