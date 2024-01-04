@@ -131,6 +131,7 @@ You can make a Rust native method raise a Java exception simply by returning a `
 | String                                                                             | String                            |
 | Vec\<T\>†                                                                          | ArrayList\<T\>                    |
 | Box<[u8]>                                                                          | byte[]                            |
+| Box<[bool]>                                                                        | boolean[]                         |
 | [jni::JObject<'env>](https://docs.rs/jni/0.17.0/jni/objects/struct.JObject.html) ‡ | *(any Java object as input type)* |
 | [jni::jobject](https://docs.rs/jni/0.17.0/jni/sys/type.jobject.html)               | *(any Java object as output)*     |
 
