@@ -261,3 +261,35 @@ where
         self.map(|s| IntoJavaValue::into(s, env)).unwrap()
     }
 }
+
+impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for Option<T>
+    where
+        T: FromJavaValue<'env, 'borrow>,
+        <T as FromJavaValue<'env, 'borrow>>::Source: Into<JObject<'env>> + Clone,
+{
+    type Source = <T as FromJavaValue<'env, 'borrow>>::Source;
+
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
+        if env.is_same_object(s.clone().into(), JObject::null()).unwrap() {
+            None
+        } else { Some(T::from(s, env)) }
+    }
+}
+
+impl<'env, T> IntoJavaValue<'env> for Option<T>
+    where
+        T: IntoJavaValue<'env>,
+    // It's possible to replace this with
+    // <T as TryIntoJavaValue<'env>>::Target: Default,
+    // after migration, so it'll work with primitive types too
+    // (not sure if it break things for types with Target != JObject
+        <T as IntoJavaValue<'env>>::Target: From<JObject<'env>>,
+{
+    type Target = <T as IntoJavaValue<'env>>::Target;
+    fn into(self, env: &JNIEnv<'env>) -> Self::Target {
+        match self {
+            None => { From::from(JObject::null()) }
+            Some(value) => { T::into(value, env) }
+        }
+    }
+}
