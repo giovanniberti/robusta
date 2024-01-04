@@ -53,6 +53,9 @@ fn vm_creation_and_object_usage() {
 
     User::initNative();
 
+    assert_eq!(User::getNullableString(&env, None).expect("can't get nullable string"), None);
+    assert_eq!(User::getNullableString(&env, Some("hello!".into())).expect("can't get nullable string"), Some("hello!".into()));
+
     let count = User::getTotalUsersCount(&env)
         .or_else(|e| {
             let _ = print_exception(&env);

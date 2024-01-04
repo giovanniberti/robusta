@@ -76,6 +76,10 @@ public class User {
         this.password = password;
     }
 
+    public static String getNullableString(String v) {
+        return v;
+    }
+
     public static int getTotalUsersCount() {
         return TOTAL_USERS_COUNT;
     }

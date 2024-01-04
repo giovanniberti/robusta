@@ -151,6 +151,12 @@ pub mod jni {
             format!("{:?}", v)
         }
 
+        pub extern "java" fn getNullableString(
+            env: &JNIEnv,
+            v: Option<String>,
+        ) -> ::robusta_jni::jni::errors::Result<Option<String>> {
+        }
+
         pub extern "java" fn getPassword(
             &self,
             env: &JNIEnv,
