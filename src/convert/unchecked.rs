@@ -13,7 +13,7 @@
 
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject, jstring};
-use jni::sys::JNI_FALSE;
+use jni::sys::{JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 
 use crate::convert::{JavaValue, Signature};
@@ -112,9 +112,9 @@ impl<'env> IntoJavaValue<'env> for bool {
 
     fn into(self, _env: &JNIEnv<'env>) -> Self::Target {
         if self {
-            1
+            JNI_TRUE
         } else {
-            0
+            JNI_FALSE
         }
     }
 }
@@ -127,7 +127,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for bool {
     type Source = jboolean;
 
     fn from(s: Self::Source, _env: &JNIEnv<'env>) -> Self {
-        s == 1
+        s == JNI_TRUE
     }
 }
 
