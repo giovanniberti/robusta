@@ -12,7 +12,8 @@
 //!
 
 use jni::objects::{JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbooleanArray, jchar, jobject, jstring};
+use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject, jstring};
+use jni::sys::JNI_FALSE;
 use jni::JNIEnv;
 
 use crate::convert::{JavaValue, Signature};
@@ -170,7 +171,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[bool]> {
 
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
         let len = env.get_array_length(s).unwrap();
-        let mut buf = Vec::with_capacity(len as usize).into_boxed_slice();
+        let mut buf = vec![JNI_FALSE; len as usize].into_boxed_slice();
         env.get_boolean_array_region(s, 0, &mut *buf).unwrap();
 
         buf.iter().map(|&b| FromJavaValue::from(b, &env)).collect()
@@ -221,6 +222,24 @@ where
             .unwrap()
             .map(|el| T::from(U::unbox(el, env), env))
             .collect()
+    }
+}
+
+impl<'env> IntoJavaValue<'env> for Box<[u8]> {
+    type Target = jbyteArray;
+
+    fn into(self, env: &JNIEnv<'env>) -> Self::Target {
+        env.byte_array_from_slice(self.as_ref()).unwrap()
+    }
+}
+
+impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[u8]> {
+    type Source = jbyteArray;
+
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
+        let buf = env.convert_byte_array(s).unwrap();
+        let boxed_slice = buf.into_boxed_slice();
+        boxed_slice
     }
 }
 
