@@ -55,6 +55,8 @@ fn vm_creation_and_object_usage() {
 
     assert_eq!(User::getNullableString(&env, None).expect("can't get nullable string"), None);
     assert_eq!(User::getNullableString(&env, Some("hello!".into())).expect("can't get nullable string"), Some("hello!".into()));
+    assert_eq!(User::getNullableStringUnchecked(&env, None), None);
+    assert_eq!(User::getNullableStringUnchecked(&env, Some("hello!".into())), Some("hello!".into()));
 
     let count = User::getTotalUsersCount(&env)
         .or_else(|e| {
@@ -64,6 +66,7 @@ fn vm_creation_and_object_usage() {
         .expect("can't get user count");
 
     assert_eq!(count, 0);
+    assert_eq!(User::getTotalUsersCountUnchecked(&env), 0);
 
     let u = User::new(&env, "user".into(), "password".into()).expect("can't create user instance");
 
@@ -74,6 +77,7 @@ fn vm_creation_and_object_usage() {
         })
         .expect("can't get user count");
     assert_eq!(count, 1);
+    assert_eq!(User::getTotalUsersCountUnchecked(&env), 1);
 
     assert_eq!(
         u.getPassword(&env).expect("can't get user password"),
@@ -81,8 +85,18 @@ fn vm_creation_and_object_usage() {
     );
 
     assert_eq!(
+        u.getPasswordUnchecked(&env),
+        "password"
+    );
+
+    assert_eq!(
         u.multipleParameters(&env, 10, "test".to_string())
             .expect("Can't test multipleParameters"),
         "test"
-    )
+    );
+
+    assert_eq!(
+        u.multipleParametersUnchecked(&env, 10, "test".to_string()),
+        "test"
+    );
 }

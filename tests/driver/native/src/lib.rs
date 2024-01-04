@@ -287,6 +287,13 @@ pub mod jni {
         ) -> ::robusta_jni::jni::errors::Result<Option<String>> {
         }
 
+        #[call_type(unchecked)]
+        pub extern "java" fn getNullableStringUnchecked(
+            env: &JNIEnv,
+            v: Option<String>,
+        ) -> Option<String> {
+        }
+
 
         pub extern "java" fn getPassword(
             &self,
@@ -294,9 +301,22 @@ pub mod jni {
         ) -> ::robusta_jni::jni::errors::Result<String> {
         }
 
+        #[call_type(unchecked)]
+        pub extern "java" fn getPasswordUnchecked(
+            &self,
+            env: &JNIEnv,
+        ) -> String {
+        }
+
         pub extern "java" fn getTotalUsersCount(
             env: &JNIEnv,
         ) -> ::robusta_jni::jni::errors::Result<i32> {
+        }
+
+        #[call_type(unchecked)]
+        pub extern "java" fn getTotalUsersCountUnchecked(
+            env: &JNIEnv,
+        ) -> i32 {
         }
 
         pub extern "java" fn multipleParameters(
@@ -305,6 +325,15 @@ pub mod jni {
             v: i32,
             s: String,
         ) -> ::robusta_jni::jni::errors::Result<String> {
+        }
+
+        #[call_type(unchecked)]
+        pub extern "java" fn multipleParametersUnchecked(
+            &self,
+            env: &JNIEnv,
+            v: i32,
+            s: String,
+        ) -> String {
         }
 
         #[constructor]

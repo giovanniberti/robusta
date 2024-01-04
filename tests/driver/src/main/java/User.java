@@ -132,7 +132,15 @@ public class User {
         return v;
     }
 
+    public static String getNullableStringUnchecked(String v) {
+        return v;
+    }
+
     public static int getTotalUsersCount() {
+        return TOTAL_USERS_COUNT;
+    }
+
+    public static int getTotalUsersCountUnchecked() {
         return TOTAL_USERS_COUNT;
     }
 
@@ -140,7 +148,15 @@ public class User {
         return password;
     }
 
+    public String getPasswordUnchecked() {
+        return password;
+    }
+
     public String multipleParameters(int i, String s) {
+        return s;
+    }
+
+    public String multipleParametersUnchecked(int i, String s) {
         return s;
     }
 }
