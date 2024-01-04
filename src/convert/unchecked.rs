@@ -154,6 +154,10 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for char {
     }
 }
 
+impl Signature for Box<[bool]> {
+    const SIG_TYPE: &'static str = "[Z";
+}
+
 impl<'env> IntoJavaValue<'env> for Box<[bool]> {
     type Target = jbooleanArray;
 
@@ -223,6 +227,10 @@ where
             .map(|el| T::from(U::unbox(el, env), env))
             .collect()
     }
+}
+
+impl Signature for Box<[u8]> {
+    const SIG_TYPE: &'static str = "[B";
 }
 
 impl<'env> IntoJavaValue<'env> for Box<[u8]> {

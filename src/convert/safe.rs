@@ -121,7 +121,6 @@ where
 
 impl<'env> TryIntoJavaValue<'env> for String {
     type Target = JString<'env>;
-    const SIG_TYPE: &'static str = "Ljava/lang/String;";
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         env.new_string(self)
@@ -171,10 +170,6 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for char {
             Some(Err(_)) | None => Err(Error::WrongJValueType("char", "jchar")),
         }
     }
-}
-
-impl Signature for Box<[bool]> {
-    const SIG_TYPE: &'static str = "[Z";
 }
 
 impl<'env> TryIntoJavaValue<'env> for Box<[bool]> {
@@ -246,10 +241,6 @@ where
             .map(|el| T::try_from(U::unbox(el, env), env))
             .collect()
     }
-}
-
-impl Signature for Box<[u8]> {
-    const SIG_TYPE: &'static str = "[B";
 }
 
 impl<'env> TryIntoJavaValue<'env> for Box<[u8]> {
