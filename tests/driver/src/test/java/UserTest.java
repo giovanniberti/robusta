@@ -1,6 +1,7 @@
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 
@@ -143,6 +144,12 @@ public class UserTest {
     }
 
     @Test
+    public void boolArrayTest() {
+        assertArrayValueRoundTrip(u::getBoolArray, u::boolArrayToString, new boolean[0], "[]");
+        assertArrayValueRoundTrip(u::getBoolArray, u::boolArrayToString, new boolean[] {true, false}, "[true, false]");
+    }
+
+    @Test
     public void staticMethod() {
         assertEquals(String.valueOf(User.getTotalUsersCount()), User.userCountStatus());
     }
@@ -152,7 +159,12 @@ public class UserTest {
         assertEquals(text, toString.apply(value));
     }
 
-    private <T> void assertArrayValueRoundTrip(Function<byte[], byte[]> func, Function<byte[], String> toString, byte[] value, String text) {
+    private void assertArrayValueRoundTrip(Function<byte[], byte[]> func, Function<byte[], String> toString, byte[] value, String text) {
+        assertArrayEquals(value, func.apply(value));
+        assertEquals(text, toString.apply(value));
+    }
+
+    private void assertArrayValueRoundTrip(Function<boolean[], boolean[]> func, Function<boolean[], String> toString, boolean[] value, String text) {
         assertArrayEquals(value, func.apply(value));
         assertEquals(text, toString.apply(value));
     }

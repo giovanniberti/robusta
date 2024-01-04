@@ -19,6 +19,7 @@
 use jni::errors::{Error, Result};
 use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject};
+use jni::sys::JNI_FALSE;
 use jni::JNIEnv;
 
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
@@ -193,7 +194,7 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[bool]> {
 
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
         let len = env.get_array_length(s)?;
-        let mut buf = Vec::with_capacity(len as usize).into_boxed_slice();
+        let mut buf = vec![JNI_FALSE; len as usize].into_boxed_slice();
         env.get_boolean_array_region(s, 0, &mut *buf)?;
 
         buf.iter()
@@ -262,7 +263,7 @@ impl<'env> TryIntoJavaValue<'env> for Box<[u8]> {
 impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[u8]> {
     type Source = jbyteArray;
 
-    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[u8]>> {
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
         let buf = env.convert_byte_array(s)?;
         let boxed_slice = buf.into_boxed_slice();
         Ok(boxed_slice)

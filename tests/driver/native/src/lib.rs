@@ -95,6 +95,10 @@ pub mod jni {
             v
         }
 
+        pub extern "jni" fn getBoolArray(self, v: Box<[bool]>) -> Box<[bool]> {
+            v
+        }
+
         pub extern "jni" fn intToString(self, v: i32) -> String {
             format!("{}", v)
         }
@@ -136,6 +140,10 @@ pub mod jni {
         }
 
         pub extern "jni" fn byteArrayToString(self, v: Box<[u8]>) -> String {
+            format!("{:?}", v)
+        }
+
+        pub extern "jni" fn boolArrayToString(self, v: Box<[bool]>) -> String {
             format!("{:?}", v)
         }
 

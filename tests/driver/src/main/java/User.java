@@ -35,6 +35,8 @@ public class User {
 
     public native byte[] getByteArray(byte[] x);
 
+    public native boolean[] getBoolArray(boolean[] x);
+
     public native String intToString(int x);
 
     public native String boolToString(boolean x);
@@ -56,6 +58,8 @@ public class User {
     public native String stringArrayToString(List<String> x);
 
     public native String byteArrayToString(byte[] x);
+
+    public native String boolArrayToString(boolean[] x);
 
     private native static void initNative();
 
