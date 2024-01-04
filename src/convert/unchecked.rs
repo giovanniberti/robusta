@@ -12,7 +12,7 @@
 //!
 
 use jni::objects::{JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject, jstring};
+use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject};
 use jni::sys::{JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 
@@ -92,10 +92,10 @@ impl Signature for String {
 }
 
 impl<'env> IntoJavaValue<'env> for String {
-    type Target = jstring;
+    type Target = JString<'env>;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
-        env.new_string(self).unwrap().into_inner()
+        env.new_string(self).unwrap()
     }
 }
 
