@@ -51,7 +51,17 @@ pub mod jni {
             v
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn getIntUnchecked(v: i32) -> i32 {
+            v
+        }
+
         pub extern "jni" fn getBool(self, v: bool) -> bool {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getBoolUnchecked(v: bool) -> bool {
             v
         }
 
@@ -59,7 +69,17 @@ pub mod jni {
             v
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn getCharUnchecked(v: char) -> char {
+            v
+        }
+
         pub extern "jni" fn getByte(self, v: i8) -> i8 {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getByteUnchecked(v: i8) -> i8 {
             v
         }
 
@@ -67,7 +87,17 @@ pub mod jni {
             v
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn getFloatUnchecked(v: f32) -> f32 {
+            v
+        }
+
         pub extern "jni" fn getDouble(self, v: f64) -> f64 {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getDoubleUnchecked(v: f64) -> f64 {
             v
         }
 
@@ -75,7 +105,17 @@ pub mod jni {
             v
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn getLongUnchecked(v: i64) -> i64 {
+            v
+        }
+
         pub extern "jni" fn getShort(self, v: i16) -> i16 {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getShortUnchecked(v: i16) -> i16 {
             v
         }
 
@@ -83,7 +123,17 @@ pub mod jni {
             v
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn getStringUnchecked(v: String) -> String {
+            v
+        }
+
         pub extern "jni" fn getIntArray(self, v: Vec<i32>) -> Vec<i32> {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getIntArrayUnchecked(v: Vec<i32>) -> Vec<i32> {
             v
         }
 
@@ -91,7 +141,17 @@ pub mod jni {
             v
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn getStringArrayUnchecked(v: Vec<String>) -> Vec<String> {
+            v
+        }
+
         pub extern "jni" fn getByteArray(self, v: Box<[u8]>) -> Box<[u8]> {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getByteArrayUnchecked(v: Box<[u8]>) -> Box<[u8]> {
             v
         }
 
@@ -99,7 +159,17 @@ pub mod jni {
             v
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn getBoolArrayUnchecked(v: Box<[bool]>) -> Box<[bool]> {
+            v
+        }
+
         pub extern "jni" fn getOptionString(self, v: Option<String>) -> Option<String> {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getOptionStringUnchecked(v: Option<String>) -> Option<String> {
             v
         }
 
@@ -107,7 +177,17 @@ pub mod jni {
             format!("{}", v)
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn intToStringUnchecked(v: i32) -> String {
+            format!("{}", v)
+        }
+
         pub extern "jni" fn boolToString(self, v: bool) -> String {
+            format!("{}", v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn boolToStringUnchecked(v: bool) -> String {
             format!("{}", v)
         }
 
@@ -115,7 +195,17 @@ pub mod jni {
             format!("{}", v)
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn charToStringUnchecked(v: char) -> String {
+            format!("{}", v)
+        }
+
         pub extern "jni" fn byteToString(self, v: i8) -> String {
+            format!("{}", v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn byteToStringUnchecked(v: i8) -> String {
             format!("{}", v)
         }
 
@@ -123,7 +213,17 @@ pub mod jni {
             format!("{}", v)
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn floatToStringUnchecked(v: f32) -> String {
+            format!("{}", v)
+        }
+
         pub extern "jni" fn doubleToString(self, v: f64) -> String {
+            format!("{}", v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn doubleToStringUnchecked(v: f64) -> String {
             format!("{}", v)
         }
 
@@ -131,7 +231,17 @@ pub mod jni {
             format!("{}", v)
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn longToStringUnchecked(v: i64) -> String {
+            format!("{}", v)
+        }
+
         pub extern "jni" fn shortToString(self, v: i16) -> String {
+            format!("{}", v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn shortToStringUnchecked(v: i16) -> String {
             format!("{}", v)
         }
 
@@ -139,7 +249,17 @@ pub mod jni {
             format!("{:?}", v)
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn intArrayToStringUnchecked(v: Vec<i32>) -> String {
+            format!("{:?}", v)
+        }
+
         pub extern "jni" fn stringArrayToString(self, v: Vec<String>) -> String {
+            format!("{:?}", v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn stringArrayToStringUnchecked(v: Vec<String>) -> String {
             format!("{:?}", v)
         }
 
@@ -147,7 +267,17 @@ pub mod jni {
             format!("{:?}", v)
         }
 
+        #[call_type(unchecked)]
+        pub extern "jni" fn byteArrayToStringUnchecked(v: Box<[u8]>) -> String {
+            format!("{:?}", v)
+        }
+
         pub extern "jni" fn boolArrayToString(self, v: Box<[bool]>) -> String {
+            format!("{:?}", v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn boolArrayToStringUnchecked(v: Box<[bool]>) -> String {
             format!("{:?}", v)
         }
 
@@ -156,6 +286,7 @@ pub mod jni {
             v: Option<String>,
         ) -> ::robusta_jni::jni::errors::Result<Option<String>> {
         }
+
 
         pub extern "java" fn getPassword(
             &self,
