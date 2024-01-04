@@ -263,9 +263,9 @@ where
 }
 
 impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for Option<T>
-    where
-        T: FromJavaValue<'env, 'borrow>,
-        <T as FromJavaValue<'env, 'borrow>>::Source: Into<JObject<'env>> + Clone,
+where
+    T: FromJavaValue<'env, 'borrow>,
+    <T as FromJavaValue<'env, 'borrow>>::Source: Into<JObject<'env>> + Clone,
 {
     type Source = <T as FromJavaValue<'env, 'borrow>>::Source;
 
@@ -277,13 +277,13 @@ impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for Option<T>
 }
 
 impl<'env, T> IntoJavaValue<'env> for Option<T>
-    where
-        T: IntoJavaValue<'env>,
+where
+    T: IntoJavaValue<'env>,
     // It's possible to replace this with
-    // <T as TryIntoJavaValue<'env>>::Target: Default,
+    // <T as IntoJavaValue<'env>>::Target: Default,
     // after migration, so it'll work with primitive types too
     // (not sure if it break things for types with Target != JObject
-        <T as IntoJavaValue<'env>>::Target: From<JObject<'env>>,
+    <T as IntoJavaValue<'env>>::Target: From<JObject<'env>>,
 {
     type Target = <T as IntoJavaValue<'env>>::Target;
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
