@@ -18,7 +18,7 @@
 
 use jni::errors::{Error, Result};
 use jni::objects::{JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject};
+use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar};
 use jni::sys::JNI_FALSE;
 use jni::JNIEnv;
 
@@ -202,7 +202,7 @@ impl<'env, T> TryIntoJavaValue<'env> for Vec<T>
 where
     T: TryIntoJavaValue<'env>,
 {
-    type Target = jobject;
+    type Target = JObject<'env>;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         let obj = env.new_object(
@@ -223,7 +223,7 @@ where
             .map(|el| Ok(list.add(el?)))
             .collect();
 
-        Ok(list.into_inner())
+        Ok(list.into())
     }
 }
 

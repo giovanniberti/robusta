@@ -12,7 +12,7 @@
 //!
 
 use jni::objects::{JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject};
+use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar};
 use jni::sys::{JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 
@@ -190,7 +190,7 @@ impl<'env, T> IntoJavaValue<'env> for Vec<T>
 where
     T: IntoJavaValue<'env>,
 {
-    type Target = jobject;
+    type Target = JObject<'env>;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
         let obj = env
@@ -208,7 +208,7 @@ where
                 list.add(el).unwrap();
             });
 
-        list.into_inner()
+        list.into()
     }
 }
 
