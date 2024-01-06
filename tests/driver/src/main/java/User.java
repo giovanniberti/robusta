@@ -63,6 +63,14 @@ public class User {
 
     public static native boolean[] getBoolArrayUnchecked(boolean[] x);
 
+    public native String[] getJStringArr(String[] x);
+    
+    public static native String[] getJStringArrUnchecked(String[] x);
+
+    public native String[] getStringArr(String[] x);
+    
+    public static native String[] getStringArrUnchecked(String[] x);
+
     public native String getOptionString(String x);
 
     public static native String getOptionStringUnchecked(String x);
@@ -106,6 +114,10 @@ public class User {
     public native String stringArrayToString(List<String> x);
 
     public static native String stringArrayToStringUnchecked(List<String> x);
+
+    public native String stringArrToString(String[] x);
+
+    public static native String stringArrToStringUnchecked(String[] x);
 
     public native String byteArrayToString(byte[] x);
 

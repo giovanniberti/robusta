@@ -164,6 +164,24 @@ pub mod jni {
             v
         }
 
+        pub extern "jni" fn getJStringArr(self, v: Box<[robusta_jni::jni::objects::JString<'env>]>) -> Box<[robusta_jni::jni::objects::JString<'env>]> {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getJStringArrUnchecked(v: Box<[robusta_jni::jni::objects::JString<'env>]>) -> Box<[robusta_jni::jni::objects::JString<'env>]> {
+            v
+        }
+
+        pub extern "jni" fn getStringArr(self, v: Box<[String]>) -> Box<[String]> {
+            v
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getStringArrUnchecked(v: Box<[String]>) -> Box<[String]> {
+            v
+        }
+
         pub extern "jni" fn getOptionString(self, v: Option<String>) -> Option<String> {
             v
         }
@@ -260,6 +278,15 @@ pub mod jni {
 
         #[call_type(unchecked)]
         pub extern "jni" fn stringArrayToStringUnchecked(v: Vec<String>) -> String {
+            format!("{:?}", v)
+        }
+
+        pub extern "jni" fn stringArrToString(self, v: Box<[String]>) -> String {
+            format!("{:?}", v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn stringArrToStringUnchecked(v: Box<[String]>) -> String {
             format!("{:?}", v)
         }
 

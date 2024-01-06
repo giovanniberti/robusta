@@ -185,6 +185,14 @@ public class UserTest {
                 User::stringArrayToStringUnchecked, List.of(), "[]");
         assertValueRoundTrip(u::getStringArray, u::stringArrayToString, User::getStringArrayUnchecked,
                 User::stringArrayToStringUnchecked, List.of("a", "b", "c"), "[\"a\", \"b\", \"c\"]");
+        assertArrayValueRoundTrip(u::getStringArr, u::stringArrToString, User::getStringArrUnchecked,
+                User::stringArrToStringUnchecked, new String[]{}, "[]");
+        assertArrayValueRoundTrip(u::getStringArr, u::stringArrToString, User::getStringArrUnchecked,
+                User::stringArrToStringUnchecked, new String[]{"a", "b", "c"}, "[\"a\", \"b\", \"c\"]");
+        assertArrayValueRoundTrip(u::getJStringArr, u::stringArrToString, User::getJStringArrUnchecked,
+                User::stringArrToStringUnchecked, new String[]{}, "[]");
+        assertArrayValueRoundTrip(u::getJStringArr, u::stringArrToString, User::getJStringArrUnchecked,
+                User::stringArrToStringUnchecked, new String[]{"a", "b", "c"}, "[\"a\", \"b\", \"c\"]");
     }
 
     @Test
@@ -236,6 +244,14 @@ public class UserTest {
 
     private void assertArrayValueRoundTrip(Function<boolean[], boolean[]> func1, Function<boolean[], String> toString1,
             Function<boolean[], boolean[]> func2, Function<boolean[], String> toString2, boolean[] value, String text) {
+        assertArrayEquals(value, func1.apply(value));
+        assertEquals(text, toString1.apply(value));
+        assertArrayEquals(value, func2.apply(value));
+        assertEquals(text, toString2.apply(value));
+    }
+    
+    private void assertArrayValueRoundTrip(Function<String[], String[]> func1, Function<String[], String> toString1,
+            Function<String[], String[]> func2, Function<String[], String> toString2, String[] value, String text) {
         assertArrayEquals(value, func1.apply(value));
         assertEquals(text, toString1.apply(value));
         assertArrayEquals(value, func2.apply(value));
