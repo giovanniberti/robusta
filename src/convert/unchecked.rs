@@ -183,7 +183,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[bool]> {
 }
 
 impl<T> Signature for Vec<T> {
-    const SIG_TYPE: &'static str = "Ljava/util/ArrayList;";
+    const SIG_TYPE: &'static str = "Ljava/util/List;";
 }
 
 impl<'env, T> IntoJavaValue<'env> for Vec<T>
