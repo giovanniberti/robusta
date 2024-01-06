@@ -17,7 +17,7 @@
 //!
 
 use jni::errors::{Error, Result};
-use jni::objects::{JList, JObject, JString, JValue};
+use jni::objects::{JList, JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
 use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar};
 use jni::sys::JNI_FALSE;
 use jni::JNIEnv;
@@ -279,6 +279,7 @@ where
 impl<'env: 'borrow, 'borrow, T> TryFromJavaValue<'env, 'borrow> for Option<T>
 where
     T: TryFromJavaValue<'env, 'borrow>,
+    // TODO: Remove Clone after migration
     <T as TryFromJavaValue<'env, 'borrow>>::Source: Into<JObject<'env>> + Clone,
 {
     type Source = <T as TryFromJavaValue<'env, 'borrow>>::Source;
@@ -306,4 +307,71 @@ where
             Some(value) => { T::try_into(value, env) }
         }
     }
+}
+
+impl<'env: 'borrow, 'borrow, T> TryFromJavaValue<'env, 'borrow> for Box<[T]>
+where
+    Box<[T]>: Signature,
+    T: TryFromJavaValue<'env, 'borrow, Source = JObject<'env>>,
+{
+    // TODO: Replace with JObjectArray after migration to 0.21
+    type Source = JObject<'env>;
+
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
+        let len = env.get_array_length(s.into_inner())?;
+        let mut buf = Vec::with_capacity(len as usize);
+        for idx in 0..len {
+            buf.push(env.get_object_array_element(s.into_inner(), idx)?);
+        }
+
+        buf.into_boxed_slice().iter()
+            .map(|&b| T::try_from(Into::into(b), &env))
+            .collect()
+    }
+}
+
+macro_rules! box_impl_safe {
+    ($type:ty, $l_type:ty) => {
+        impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[$l_type]>
+        {
+            // TODO: Replace with JObjectArray after migration to 0.21
+            type Source = JObject<'env>;
+
+            fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
+                let len = env.get_array_length(s.into_inner())?;
+                let mut buf = Vec::with_capacity(len as usize);
+                for idx in 0..len {
+                    buf.push(env.get_object_array_element(s.into_inner(), idx)?);
+                }
+
+                buf.into_boxed_slice().iter()
+                .map(|&b| <$type as TryFromJavaValue>::try_from(Into::into(b), &env))
+                .collect()
+            }
+        }
+    };
+
+    ($type:ty, $l_type:ty, $($rest:ty, $l_rest_boxed:ty),+) => {
+        box_impl_safe!($type, $l_type);
+
+        box_impl_safe!($($rest, $l_rest_boxed),+);
+    }
+}
+
+box_impl_safe! {
+    JString, JString<'env>,
+    String, String,
+    JClass, JClass<'env>,
+    JByteBuffer, JByteBuffer<'env>,
+    // TODO: Enable after migration
+    // JObjectArray, JObjectArray<'env>,
+    // JBooleanArray, JBooleanArray<'env>
+    // JByteArray, JByteArray<'env>
+    // JCharacterArray, JCharacterArray<'env>
+    // JDoubleArray, JDoubleArray<'env>
+    // JFloatArray, JFloatArray<'env>
+    // JIntegerArray, JIntegerArray<'env>
+    // JLongArray, JLongArray<'env>
+    // JShortArray, JShortArray<'env>
+    JThrowable, JThrowable<'env>
 }

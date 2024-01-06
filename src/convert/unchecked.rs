@@ -11,7 +11,7 @@
 //! **These functions *will* panic should any conversion fail.**
 //!
 
-use jni::objects::{JList, JObject, JString, JValue};
+use jni::objects::{JList, JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
 use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar};
 use jni::sys::{JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
@@ -155,7 +155,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for char {
 }
 
 impl Signature for Box<[bool]> {
-    const SIG_TYPE: &'static str = "[Z";
+    const SIG_TYPE: &'static str = constcat::concat!("[", <bool as Signature>::SIG_TYPE);
 }
 
 impl<'env> IntoJavaValue<'env> for Box<[bool]> {
@@ -230,7 +230,7 @@ where
 }
 
 impl Signature for Box<[u8]> {
-    const SIG_TYPE: &'static str = "[B";
+    const SIG_TYPE: &'static str = constcat::concat!("[", <u8 as Signature>::SIG_TYPE);
 }
 
 impl<'env> IntoJavaValue<'env> for Box<[u8]> {
@@ -292,4 +292,80 @@ where
             Some(value) => { T::into(value, env) }
         }
     }
+}
+
+// TODO: Is there any way to impl it for Box<[T]> where T: Signature?
+impl<'env> Signature for Box<[JObject<'env>]> {
+    const SIG_TYPE: &'static str = constcat::concat!("[", <JObject as Signature>::SIG_TYPE);
+}
+
+impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for Box<[T]>
+    where
+        Box<[T]>: Signature,
+        T: FromJavaValue<'env, 'borrow, Source = JObject<'env>>,
+{
+    // TODO: Replace with JObjectArray after migration to 0.21
+    type Source = JObject<'env>;
+
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
+        let len = env.get_array_length(s.into_inner()).unwrap();
+        let mut buf = Vec::with_capacity(len as usize);
+        for idx in 0..len {
+            buf.push(env.get_object_array_element(s.into_inner(), idx).unwrap());
+        }
+
+        buf.into_boxed_slice().iter()
+            .map(|&b| T::from(Into::into(b), &env))
+            .collect()
+    }
+}
+
+macro_rules! box_impl_unchecked {
+    ($type:ty, $l_type:ty) => {
+        impl<'env> Signature for Box<[$l_type]> {
+            const SIG_TYPE: &'static str = constcat::concat!("[", <$type as Signature>::SIG_TYPE);
+        }
+
+        impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[$l_type]>
+        {
+            // TODO: Replace with JObjectArray after migration to 0.21
+            type Source = JObject<'env>;
+
+            fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
+                let len = env.get_array_length(s.into_inner()).unwrap();
+                let mut buf = Vec::with_capacity(len as usize);
+                for idx in 0..len {
+                    buf.push(env.get_object_array_element(s.into_inner(), idx).unwrap());
+                }
+
+                buf.into_boxed_slice().iter()
+                .map(|&b| <$type as FromJavaValue>::from(Into::into(b), &env))
+                .collect()
+            }
+        }
+    };
+
+    ($type:ty, $l_type:ty, $($rest:ty, $l_rest_boxed:ty),+) => {
+        box_impl_unchecked!($type, $l_type);
+
+        box_impl_unchecked!($($rest, $l_rest_boxed),+);
+    }
+}
+
+box_impl_unchecked! {
+    JString, JString<'env>,
+    String, String,
+    JClass, JClass<'env>,
+    JByteBuffer, JByteBuffer<'env>,
+    // TODO: Enable after migration
+    // JObjectArray, JObjectArray<'env>,
+    // JBooleanArray, JBooleanArray<'env>
+    // JByteArray, JByteArray<'env>
+    // JCharacterArray, JCharacterArray<'env>
+    // JDoubleArray, JDoubleArray<'env>
+    // JFloatArray, JFloatArray<'env>
+    // JIntegerArray, JIntegerArray<'env>
+    // JLongArray, JLongArray<'env>
+    // JShortArray, JShortArray<'env>
+    JThrowable, JThrowable<'env>
 }
