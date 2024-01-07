@@ -1,10 +1,22 @@
 build:
 	cargo build
 
-lib_path = "${LD_LIBRARY_PATH}:${JAVA_HOME}/lib:${JAVA_HOME}/lib/server"
+# https://stackoverflow.com/a/12099167/13500870
+lib_path = 
+ifeq ($(OS),Windows_NT)
+	lib_path = PATH=${PATH};${JAVA_HOME}\bin;${JAVA_HOME}\bin\server
+else
+	UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        lib_path = LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${JAVA_HOME}/lib:${JAVA_HOME}/lib/server
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        lib_path = DYLD_FALLBACK_LIBRARY_PATH=${DYLD_FALLBACK_LIBRARY_PATH}:${JAVA_HOME}/lib:${JAVA_HOME}/lib/server
+	endif
+endif
 
 test:
-	LD_LIBRARY_PATH=$(lib_path) cargo test  -- --test-threads=1
+	$(lib_path) cargo test  -- --test-threads=1
 
 .PHONY: build test all
 
