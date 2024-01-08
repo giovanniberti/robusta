@@ -177,6 +177,9 @@ public class UserTest {
                 User::intArrayToStringUnchecked, List.of(), "[]");
         assertValueRoundTrip(u::getIntArray, u::intArrayToString, User::getIntArrayUnchecked,
                 User::intArrayToStringUnchecked, List.of(1, 2), "[1, 2]");
+        assertValueRoundTrip(u::getIntArray, u::intArrayToString, User::getIntArrayUnchecked,
+                User::intArrayToStringUnchecked, List.of(Integer.MIN_VALUE,  -1, Integer.MAX_VALUE), 
+                "[-2147483648, -1, 2147483647]");
     }
 
     @Test
@@ -201,6 +204,8 @@ public class UserTest {
                 User::byteArrayToStringUnchecked, new byte[0], "[]");
         assertArrayValueRoundTrip(u::getByteArray, u::byteArrayToString, User::getByteArrayUnchecked,
                 User::byteArrayToStringUnchecked, new byte[] { 1, 2, 3 }, "[1, 2, 3]");
+        assertArrayValueRoundTrip(u::getByteArray, u::byteArrayToString, User::getByteArrayUnchecked,
+                User::byteArrayToStringUnchecked, new byte[] { Byte.MIN_VALUE, -1, Byte.MAX_VALUE }, "[-128, -1, 127]");
     }
 
     @Test
