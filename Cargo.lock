@@ -373,7 +373,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rand",
- "syn 1.0.109",
+ "syn 2.0.38",
 ]
 
 [[package]]
