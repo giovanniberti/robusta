@@ -43,7 +43,7 @@ use std::str::FromStr;
 
 use jni::errors::Error;
 use jni::objects::{JObject, JString, JValue};
-use jni::signature::JavaType;
+use jni::signature::ReturnType;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 use jni::JNIEnv;
 use paste::paste;
@@ -89,12 +89,12 @@ macro_rules! jvalue_types {
             fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
                 env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
                     (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
-                    JavaType::from_str(concat!("Ljava/lang/", stringify!($boxed), ";")).unwrap(),
+                    ReturnType::from_str(concat!("Ljava/lang/", stringify!($boxed), ";")).unwrap(),
                     &[Into::into(self)]).unwrap().l().unwrap()
             }
 
             fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self {
-                paste!(Into::into(env.call_method_unchecked(s, (concat!("java/lang/", stringify!($boxed)), stringify!($unbox_method), concat!("()", stringify!($sig))), JavaType::from_str(stringify!($sig)).unwrap(), &[])
+                paste!(Into::into(env.call_method_unchecked(s, (concat!("java/lang/", stringify!($boxed)), stringify!($unbox_method), concat!("()", stringify!($sig))), ReturnType::from_str(stringify!($sig)).unwrap(), &[])
                     .unwrap().[<$sig:lower>]()
                     .unwrap()))
             }
