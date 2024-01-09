@@ -90,7 +90,7 @@ macro_rules! jvalue_types {
                 env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
                     (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
                     ReturnType::from_str(concat!("Ljava/lang/", stringify!($boxed), ";")).unwrap(),
-                    &[Into::into(self)]).unwrap().l().unwrap()
+                    &[JValue::from(self).to_jni()]).unwrap().l().unwrap()
             }
 
             fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self {
@@ -147,7 +147,7 @@ impl<'env> JavaValue<'env> for JObject<'env> {
 
 impl<'env> JavaValue<'env> for jobject {
     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        From::from(self)
+        unsafe { JObject::from_raw(self) }
     }
 
     fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
