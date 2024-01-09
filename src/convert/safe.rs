@@ -227,7 +227,7 @@ where
             .map(|el| Ok(list.add(el?)))
             .collect();
 
-        Ok(list.into_inner())
+        Ok(list.into_raw())
     }
 }
 

@@ -151,7 +151,7 @@ impl<'env> JavaValue<'env> for jobject {
     }
 
     fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-        s.into_inner()
+        s.into_raw()
     }
 }
 
