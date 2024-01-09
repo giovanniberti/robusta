@@ -21,7 +21,7 @@ where
     T: Signature,
 {
     env: &'borrow JNIEnv<'env>,
-    field_id: JFieldID<'env>,
+    field_id: JFieldID,
     obj: JObject<'env>,
     marker: PhantomData<T>,
 }
