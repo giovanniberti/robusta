@@ -99,4 +99,26 @@ fn vm_creation_and_object_usage() {
         u.multipleParametersUnchecked(&env, 10, "test".to_string()),
         "test"
     );
+
+    let res = u.signaturesCheck(&env,
+                                42, false, '2', 42, 42.0, 42.0, 42, 42, "42".to_string(),
+                                vec![42, 42, 42], vec!["42".to_string(), "42".to_string()],
+                                vec![42, 42].into_boxed_slice(), vec![false, true].into_boxed_slice(),
+                                vec![env.new_string("42").unwrap(), env.new_string("42").unwrap()].into_boxed_slice(),
+                                vec!["42".to_string(), "42".to_string()].into_boxed_slice(),
+                                None, vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
+                                vec![vec!["42".to_string()].into_boxed_slice(), vec!["42".to_string(), "42".to_string()].into_boxed_slice()],
+    ).or_else(|e| {
+        let _ = print_exception(&env);
+        Err(e)
+    }).expect("can't check signatures");
+    assert_eq!(res, vec![
+        "42", "false", "2", "42", "42.0", "42.0", "42", "42", "42",
+        "[42, 42, 42]", "[42, 42]",
+        "[42, 42]", "[false, true]",
+        "[42, 42]",
+        "[42, 42]",
+        "null", "[[42], [42, 42]]",
+        "[[42], [42, 42]]"
+    ]);
 }

@@ -146,12 +146,12 @@ pub mod jni {
             v
         }
 
-        pub extern "jni" fn getByteArray(self, v: Box<[u8]>) -> Box<[u8]> {
+        pub extern "jni" fn getByteArray(self, v: Box<[i8]>) -> Box<[i8]> {
             v
         }
 
         #[call_type(unchecked)]
-        pub extern "jni" fn getByteArrayUnchecked(v: Box<[u8]>) -> Box<[u8]> {
+        pub extern "jni" fn getByteArrayUnchecked(v: Box<[i8]>) -> Box<[i8]> {
             v
         }
 
@@ -290,12 +290,12 @@ pub mod jni {
             format!("{:?}", v)
         }
 
-        pub extern "jni" fn byteArrayToString(self, v: Box<[u8]>) -> String {
+        pub extern "jni" fn byteArrayToString(self, v: Box<[i8]>) -> String {
             format!("{:?}", v)
         }
 
         #[call_type(unchecked)]
-        pub extern "jni" fn byteArrayToStringUnchecked(v: Box<[u8]>) -> String {
+        pub extern "jni" fn byteArrayToStringUnchecked(v: Box<[i8]>) -> String {
             format!("{:?}", v)
         }
 
@@ -361,6 +361,34 @@ pub mod jni {
             v: i32,
             s: String,
         ) -> String {
+        }
+
+        pub extern "java" fn signaturesCheck(
+            &self,
+            env: &'borrow JNIEnv<'env>,
+            int: i32,
+            boolean: bool,
+            character: char,
+            byte: i8,
+            float: f32,
+            double: f64,
+            long: i64,
+            short: i16,
+            string: String,
+            int_array: Vec<i32>,
+            string_array: Vec<String>,
+            byte_array: Box<[i8]>,
+            bool_array: Box<[bool]>,
+            jstring_arr: Box<[robusta_jni::jni::objects::JString<'env>]>,
+            string_arr: Box<[String]>,
+            nullable_string: Option<String>,
+            // It won't work while Source for Box<[i8]> is jbyteArray, not JByteArray
+            // byte_array_nullable_2d: Vec<Option<Box<[i8]>>>,
+            byte_array_2d: Vec<Box<[i8]>>,
+            // Same here, while Source is jobjectArray
+            // string_array_nullable_2d: Vec<Option<Box<[String]>>>,
+            string_array_2d: Vec<Box<[String]>>,
+        ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
         }
 
         #[constructor]

@@ -253,7 +253,7 @@
 //! | i16                                                                                | short                             |
 //! | String                                                                             | String                            |
 //! | Vec\<T\>†                                                                          | ArrayList\<T\>                    |
-//! | Box<[u8]>                                                                          | byte[]                            |
+//! | Box<[i8]>                                                                          | byte[]                            |
 //! | Box<[bool]>                                                                        | boolean[]                         |
 //! | [jni::JObject<'env>](jni::objects::JObject)                                      ‡ | *(any Java object as input type)* |
 //! | [jni::jobject](jni::sys::jobject)                                                    | *(any Java object as output)*     |

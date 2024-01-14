@@ -11,12 +11,13 @@
 //! **These functions *will* panic should any conversion fail.**
 //!
 
+use std::ptr::slice_from_raw_parts;
 use jni::objects::{JList, JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
-use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobjectArray, jsize};
+use jni::sys::{jboolean, jbooleanArray, jbyte, jbyteArray, jchar, jobjectArray, jsize};
 use jni::sys::{JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 
-use crate::convert::{JavaValue, Signature};
+use crate::convert::{ArrSignature, JavaValue, Signature};
 
 pub use robusta_codegen::{FromJavaValue, IntoJavaValue};
 
@@ -154,8 +155,8 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for char {
     }
 }
 
-impl Signature for Box<[bool]> {
-    const SIG_TYPE: &'static str = constcat::concat!("[", <bool as Signature>::SIG_TYPE);
+impl ArrSignature for bool {
+    const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <bool as Signature>::SIG_TYPE);
 }
 
 impl<'env> IntoJavaValue<'env> for Box<[bool]> {
@@ -229,25 +230,27 @@ where
     }
 }
 
-impl Signature for Box<[u8]> {
-    const SIG_TYPE: &'static str = constcat::concat!("[", <u8 as Signature>::SIG_TYPE);
+impl ArrSignature for i8 {
+    const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <jbyte as Signature>::SIG_TYPE);
 }
 
-impl<'env> IntoJavaValue<'env> for Box<[u8]> {
+impl<'env> IntoJavaValue<'env> for Box<[i8]> {
     type Target = jbyteArray;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
-        env.byte_array_from_slice(self.as_ref()).unwrap()
+        let conv = unsafe { &*slice_from_raw_parts(self.as_ref().as_ptr() as *const u8, self.as_ref().len()) };
+        env.byte_array_from_slice(conv).unwrap()
     }
 }
 
-impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[u8]> {
+impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[i8]> {
     type Source = jbyteArray;
 
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
         let buf = env.convert_byte_array(s).unwrap();
         let boxed_slice = buf.into_boxed_slice();
-        boxed_slice
+        let conv = unsafe { &*slice_from_raw_parts(boxed_slice.as_ref().as_ptr() as *const i8, boxed_slice.as_ref().len()) };
+        conv.into()
     }
 }
 
@@ -295,8 +298,8 @@ where
 }
 
 // TODO: Is there any way to impl it for Box<[T]> where T: Signature?
-impl<'env> Signature for Box<[JObject<'env>]> {
-    const SIG_TYPE: &'static str = constcat::concat!("[", <JObject as Signature>::SIG_TYPE);
+impl<'env> ArrSignature for JObject<'env> {
+    const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <JObject as Signature>::SIG_TYPE);
 }
 
 impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for Box<[T]>
@@ -342,8 +345,8 @@ impl<'env, T> IntoJavaValue<'env> for Box<[T]>
 
 macro_rules! box_impl_unchecked {
     ($type:ty, $l_type:ty) => {
-        impl<'env> Signature for Box<[$l_type]> {
-            const SIG_TYPE: &'static str = constcat::concat!("[", <$type as Signature>::SIG_TYPE);
+        impl<'env> ArrSignature for $l_type {
+            const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <$type as Signature>::SIG_TYPE);
         }
 
         impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[$l_type]>

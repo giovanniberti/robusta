@@ -16,6 +16,7 @@
 //! Both of these parameters are optional. By default, the exception class is `java.lang.RuntimeException`.
 //!
 
+use std::ptr::slice_from_raw_parts;
 use jni::errors::{Error, Result};
 use jni::objects::{JList, JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
 use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobjectArray, jsize};
@@ -243,21 +244,23 @@ where
     }
 }
 
-impl<'env> TryIntoJavaValue<'env> for Box<[u8]> {
+impl<'env> TryIntoJavaValue<'env> for Box<[i8]> {
     type Target = jbyteArray;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        env.byte_array_from_slice(self.as_ref())
+        let conv = unsafe { &*slice_from_raw_parts(self.as_ref().as_ptr() as *const u8, self.as_ref().len()) };
+        env.byte_array_from_slice(conv)
     }
 }
 
-impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[u8]> {
+impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[i8]> {
     type Source = jbyteArray;
 
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
         let buf = env.convert_byte_array(s)?;
         let boxed_slice = buf.into_boxed_slice();
-        Ok(boxed_slice)
+        let conv = unsafe { &*slice_from_raw_parts(boxed_slice.as_ref().as_ptr() as *const i8, boxed_slice.as_ref().len()) };
+        Ok(conv.into())
     }
 }
 
@@ -321,6 +324,8 @@ where
         let len = env.get_array_length(s)?;
         let mut buf = Vec::with_capacity(len as usize);
         for idx in 0..len {
+            // TODO: use AutoLocal - and convert immediately there - for types that
+            // don't hold local ref, so env.delete_local_ref is safe
             buf.push(env.get_object_array_element(s, idx)?);
         }
 
@@ -344,6 +349,8 @@ where
             vec.len() as jsize, <T as Signature>::SIG_TYPE, JObject::null()
         )?;
         for (idx, elem) in vec.into_iter().enumerate() {
+            // TODO: use AutoLocal - and convert immediately there - for types that
+            // don't hold local ref, so env.delete_local_ref is safe
             env.set_object_array_element(raw, idx as jsize, T::try_into(elem, env)?)?;
         }
         Ok(raw)

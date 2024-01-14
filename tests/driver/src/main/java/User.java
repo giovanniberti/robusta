@@ -1,4 +1,9 @@
+import jakarta.annotation.Nullable;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class User {
     static {
@@ -64,16 +69,16 @@ public class User {
     public static native boolean[] getBoolArrayUnchecked(boolean[] x);
 
     public native String[] getJStringArr(String[] x);
-    
+
     public static native String[] getJStringArrUnchecked(String[] x);
 
     public native String[] getStringArr(String[] x);
-    
+
     public static native String[] getStringArrUnchecked(String[] x);
 
-    public native String getOptionString(String x);
+    public native @Nullable String getOptionString(@Nullable String x);
 
-    public static native String getOptionStringUnchecked(String x);
+    public static native @Nullable String getOptionStringUnchecked(@Nullable String x);
 
     public native String intToString(int x);
 
@@ -170,5 +175,47 @@ public class User {
 
     public String multipleParametersUnchecked(int i, String s) {
         return s;
+    }
+
+    // ArrayList won't work, signatures have to match
+    public List<String> signaturesCheck(
+            int i32,
+            boolean bool,
+            char character,
+            byte i8,
+            float f32,
+            double f64,
+            long i64,
+            short i16,
+            String string,
+            List<Integer> vec_i32,
+            List<String> vec_string,
+            byte[] box_i8,
+            boolean[] box_bool,
+            String[] box_jstring,
+            String[] box_string,
+            @Nullable String option_string,
+            List<byte[]> vec_box_i8,
+            List<String[]> vec_box_string) {
+        return new ArrayList<>(List.of(
+                String.valueOf(i32),
+                String.valueOf(bool),
+                String.valueOf(character),
+                String.valueOf(i8),
+                String.valueOf(f32),
+                String.valueOf(f64),
+                String.valueOf(i64),
+                String.valueOf(i16),
+                string,
+                vec_i32.toString(),
+                vec_string.toString(),
+                Arrays.toString(box_i8),
+                Arrays.toString(box_bool),
+                Arrays.toString(box_jstring),
+                Arrays.toString(box_string),
+                String.valueOf(option_string),
+                vec_box_i8.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
+                vec_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString()
+        ));
     }
 }

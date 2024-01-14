@@ -186,6 +186,23 @@ impl<T: Signature> Signature for Option<T> {
     const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
 }
 
+// TODO: This still is not gonna work well for multi-dimensional arrays, like Box<[Box<[T]>]>
+pub trait ArrSignature {
+    const ARR_SIG_TYPE: &'static str;
+}
+
+impl<T: ArrSignature> ArrSignature for Option<T> {
+    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+impl<T: ArrSignature> ArrSignature for jni::errors::Result<T> {
+    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+impl<T: ArrSignature> Signature for Box<[T]> {
+    const SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
 pub struct JValueWrapper<'a>(pub JValue<'a>);
 
 impl<'a> From<JValue<'a>> for JValueWrapper<'a> {
