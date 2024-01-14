@@ -1,4 +1,29 @@
 use robusta_jni::bridge;
+use robusta_jni::convert::{ArrSignature, Signature, TryIntoJavaValue};
+use robusta_jni::jni::JNIEnv;
+
+pub struct StringArr(Box<[String]>);
+impl From<Box<[String]>> for StringArr {
+    fn from(v: Box<[String]>) -> Self {
+        Self(v)
+    }
+}
+
+impl Signature for StringArr {
+    const SIG_TYPE: &'static str = <Box<[String]> as Signature>::SIG_TYPE;
+}
+
+impl ArrSignature for StringArr {
+    const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <Box<[String]> as Signature>::SIG_TYPE);
+}
+
+impl<'env> TryIntoJavaValue<'env> for StringArr {
+    type Target = <Box<[String]> as TryIntoJavaValue<'env>>::Target;
+
+    fn try_into(self, env: &JNIEnv<'env>) -> robusta_jni::jni::errors::Result<Self::Target> {
+        self.0.try_into(env)
+    }
+}
 
 #[bridge]
 pub mod jni {
@@ -10,6 +35,7 @@ pub mod jni {
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::JNIEnv;
+    use crate::StringArr;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package()]
@@ -386,6 +412,8 @@ pub mod jni {
             byte_array_2d: Vec<Box<[i8]>>,
             string_array_nullable_2d: Vec<Option<Box<[String]>>>,
             string_array_2d: Vec<Box<[String]>>,
+            string_arr_nullable_2d: Box<[Option<StringArr>]>,
+            string_arr_2d: Box<[StringArr]>,
         ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
         }
 

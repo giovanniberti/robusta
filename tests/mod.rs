@@ -110,6 +110,8 @@ fn vm_creation_and_object_usage() {
                                 vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
                                 vec![Some(vec!["42".to_string()].into_boxed_slice()), None],
                                 vec![vec!["42".to_string()].into_boxed_slice(), vec!["42".to_string(), "42".to_string()].into_boxed_slice()],
+                                vec![Some(Into::into(vec!["42".to_string()].into_boxed_slice())), None].into_boxed_slice(),
+                                vec![Into::into(vec!["42".to_string()].into_boxed_slice())].into_boxed_slice()
     ).or_else(|e| {
         let _ = print_exception(&env);
         Err(e)
@@ -123,6 +125,8 @@ fn vm_creation_and_object_usage() {
         "null", "[[42], null]",
         "[[42], [42, 42]]",
         "[[42], null]",
-        "[[42], [42, 42]]"
+        "[[42], [42, 42]]",
+        "[[42], null]",
+        "[[42]]"
     ]);
 }

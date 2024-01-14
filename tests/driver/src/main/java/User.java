@@ -198,7 +198,9 @@ public class User {
             List<byte[]> vec_option_box_i8,
             List<byte[]> vec_box_i8,
             List<String[]> vec_option_box_string,
-            List<String[]> vec_box_string) {
+            List<String[]> vec_box_string,
+            String[][] box_option_box_string,
+            String[][] box_box_string) {
         return new ArrayList<>(List.of(
                 String.valueOf(i32),
                 String.valueOf(bool),
@@ -219,7 +221,9 @@ public class User {
                 vec_option_box_i8.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
                 vec_box_i8.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
                 vec_option_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
-                vec_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString()
+                vec_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
+                Arrays.stream(box_option_box_string).map(Arrays::toString).collect(Collectors.toList()).toString(),
+                Arrays.stream(box_box_string).map(Arrays::toString).collect(Collectors.toList()).toString()
         ));
     }
 }
