@@ -16,6 +16,14 @@ public class User {
     private String username;
     private String password;
 
+    @Override
+    public String toString() {
+        return "User{" +
+                "username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                '}';
+    }
+
     public native int getInt(int x);
 
     public static native int getIntUnchecked(int x);
@@ -225,5 +233,17 @@ public class User {
                 Arrays.stream(box_option_box_string).map(Arrays::toString).collect(Collectors.toList()).toString(),
                 Arrays.stream(box_box_string).map(Arrays::toString).collect(Collectors.toList()).toString()
         ));
+    }
+
+    public static List<String> selfSignatureCheck(
+            User user,
+            List<User> vec_user,
+            User[] box_user
+    ) {
+        return List.of(
+                user.toString(),
+                vec_user.toString(),
+                Arrays.toString(box_user)
+        );
     }
 }

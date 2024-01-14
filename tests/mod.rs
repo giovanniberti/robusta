@@ -129,4 +129,15 @@ fn vm_creation_and_object_usage() {
         "[[42], null]",
         "[[42]]"
     ]);
+
+    let create_user = |login: &str, password: &str| -> User {
+        User::new(&env, login.into(), password.into()).expect("can't create user instance")
+    };
+    let res = User::selfSignatureCheck(&env,
+        create_user("user", "42"),
+        vec![], vec![].into_boxed_slice(),
+        // vec![create_user("user", "pass")],
+        // vec![create_user("login", "42")].into_boxed_slice(),
+    ).expect("can't check self signature");
+    assert_eq!(res, vec!["Doesn't matter"])
 }

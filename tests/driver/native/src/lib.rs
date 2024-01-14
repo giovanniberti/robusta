@@ -30,7 +30,7 @@ pub mod jni {
     use std::convert::TryInto;
 
     use robusta_jni::convert::{
-        IntoJavaValue, JValueWrapper, Signature, TryFromJavaValue, TryIntoJavaValue,
+        IntoJavaValue, JValueWrapper, Signature, ArrSignature, TryFromJavaValue, TryIntoJavaValue,
     };
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::objects::AutoLocal;
@@ -43,6 +43,10 @@ pub mod jni {
         #[instance]
         raw: AutoLocal<'env, 'borrow>,
         password: String,
+    }
+
+    impl<'env, 'borrow> ArrSignature for User<'env, 'borrow> {
+        const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <User as Signature>::SIG_TYPE);
     }
 
     impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {
@@ -414,6 +418,14 @@ pub mod jni {
             string_array_2d: Vec<Box<[String]>>,
             string_arr_nullable_2d: Box<[Option<StringArr>]>,
             string_arr_2d: Box<[StringArr]>,
+        ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
+        }
+
+        pub extern "java" fn selfSignatureCheck(
+            env: &'borrow JNIEnv<'env>,
+            user: User,
+            user_array: Vec<User>,
+            user_arr: Box<[User]>,
         ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
         }
 
