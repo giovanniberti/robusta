@@ -382,11 +382,9 @@ pub mod jni {
             jstring_arr: Box<[robusta_jni::jni::objects::JString<'env>]>,
             string_arr: Box<[String]>,
             nullable_string: Option<String>,
-            // It won't work while Source for Box<[i8]> is jbyteArray, not JByteArray
-            // byte_array_nullable_2d: Vec<Option<Box<[i8]>>>,
+            byte_array_nullable_2d: Vec<Option<Box<[i8]>>>,
             byte_array_2d: Vec<Box<[i8]>>,
-            // Same here, while Source is jobjectArray
-            // string_array_nullable_2d: Vec<Option<Box<[String]>>>,
+            string_array_nullable_2d: Vec<Option<Box<[String]>>>,
             string_array_2d: Vec<Box<[String]>>,
         ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
         }

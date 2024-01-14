@@ -13,7 +13,7 @@
 
 use std::ptr::slice_from_raw_parts;
 use jni::objects::{JList, JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
-use jni::sys::{jboolean, jbooleanArray, jbyte, jbyteArray, jchar, jobjectArray, jsize};
+use jni::sys::{jboolean, jbyte, jchar, jsize};
 use jni::sys::{JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 
@@ -160,24 +160,24 @@ impl ArrSignature for bool {
 }
 
 impl<'env> IntoJavaValue<'env> for Box<[bool]> {
-    type Target = jbooleanArray;
+    type Target = JObject<'env>;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
         let len = self.len();
         let buf: Vec<_> = self.iter().map(|&b| Into::into(b)).collect();
         let raw = env.new_boolean_array(len as i32).unwrap();
         env.set_boolean_array_region(raw, 0, &buf).unwrap();
-        raw
+        raw.into()
     }
 }
 
 impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[bool]> {
-    type Source = jbooleanArray;
+    type Source = JObject<'env>;
 
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
-        let len = env.get_array_length(s).unwrap();
+        let len = env.get_array_length(s.into_inner()).unwrap();
         let mut buf = vec![JNI_FALSE; len as usize].into_boxed_slice();
-        env.get_boolean_array_region(s, 0, &mut *buf).unwrap();
+        env.get_boolean_array_region(s.into_inner(), 0, &mut *buf).unwrap();
 
         buf.iter().map(|&b| FromJavaValue::from(b, &env)).collect()
     }
@@ -235,19 +235,19 @@ impl ArrSignature for i8 {
 }
 
 impl<'env> IntoJavaValue<'env> for Box<[i8]> {
-    type Target = jbyteArray;
+    type Target = JObject<'env>;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
         let conv = unsafe { &*slice_from_raw_parts(self.as_ref().as_ptr() as *const u8, self.as_ref().len()) };
-        env.byte_array_from_slice(conv).unwrap()
+        env.byte_array_from_slice(conv).unwrap().into()
     }
 }
 
 impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[i8]> {
-    type Source = jbyteArray;
+    type Source = JObject<'env>;
 
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
-        let buf = env.convert_byte_array(s).unwrap();
+        let buf = env.convert_byte_array(s.into_inner()).unwrap();
         let boxed_slice = buf.into_boxed_slice();
         let conv = unsafe { &*slice_from_raw_parts(boxed_slice.as_ref().as_ptr() as *const i8, boxed_slice.as_ref().len()) };
         conv.into()
@@ -308,13 +308,13 @@ impl<'env: 'borrow, 'borrow, T> FromJavaValue<'env, 'borrow> for Box<[T]>
         T: FromJavaValue<'env, 'borrow, Source = JObject<'env>>,
 {
     // TODO: Replace with JObjectArray after migration to 0.21
-    type Source = jobjectArray;
+    type Source = JObject<'env>;
 
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
-        let len = env.get_array_length(s).unwrap();
+        let len = env.get_array_length(s.into_inner()).unwrap();
         let mut buf = Vec::with_capacity(len as usize);
         for idx in 0..len {
-            buf.push(env.get_object_array_element(s, idx).unwrap());
+            buf.push(env.get_object_array_element(s.into_inner(), idx).unwrap());
         }
 
         buf.into_boxed_slice().iter()
@@ -329,7 +329,7 @@ impl<'env, T> IntoJavaValue<'env> for Box<[T]>
         T: IntoJavaValue<'env, Target = JObject<'env>>,
 {
     // TODO: Replace with JObjectArray after migration to 0.21
-    type Target = jobjectArray;
+    type Target = JObject<'env>;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
         let vec = self.into_vec();
@@ -339,7 +339,7 @@ impl<'env, T> IntoJavaValue<'env> for Box<[T]>
         for (idx, elem) in vec.into_iter().enumerate() {
             env.set_object_array_element(raw, idx as jsize, T::into(elem, env)).unwrap();
         }
-        raw
+        raw.into()
     }
 }
 
@@ -352,13 +352,13 @@ macro_rules! box_impl_unchecked {
         impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[$l_type]>
         {
             // TODO: Replace with JObjectArray after migration to 0.21
-            type Source = jobjectArray;
+            type Source = JObject<'env>;
 
             fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
-                let len = env.get_array_length(s).unwrap();
+                let len = env.get_array_length(s.into_inner()).unwrap();
                 let mut buf = Vec::with_capacity(len as usize);
                 for idx in 0..len {
-                    buf.push(env.get_object_array_element(s, idx).unwrap());
+                    buf.push(env.get_object_array_element(s.into_inner(), idx).unwrap());
                 }
 
                 buf.into_boxed_slice().iter()
@@ -370,7 +370,7 @@ macro_rules! box_impl_unchecked {
         impl<'env> IntoJavaValue<'env> for Box<[$l_type]>
         {
             // TODO: Replace with JObjectArray after migration to 0.21
-            type Target = jobjectArray;
+            type Target = JObject<'env>;
 
             fn into(self, env: &JNIEnv<'env>) -> Self::Target {
                 let vec = self.into_vec();
@@ -380,7 +380,7 @@ macro_rules! box_impl_unchecked {
                 for (idx, elem) in vec.into_iter().enumerate() {
                     env.set_object_array_element(raw, idx as jsize, <$type as IntoJavaValue>::into(elem, env)).unwrap();
                 }
-                raw
+                raw.into()
             }
         }
     };

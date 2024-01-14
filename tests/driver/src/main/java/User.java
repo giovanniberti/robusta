@@ -195,7 +195,9 @@ public class User {
             String[] box_jstring,
             String[] box_string,
             @Nullable String option_string,
+            List<byte[]> vec_option_box_i8,
             List<byte[]> vec_box_i8,
+            List<String[]> vec_option_box_string,
             List<String[]> vec_box_string) {
         return new ArrayList<>(List.of(
                 String.valueOf(i32),
@@ -214,7 +216,9 @@ public class User {
                 Arrays.toString(box_jstring),
                 Arrays.toString(box_string),
                 String.valueOf(option_string),
+                vec_option_box_i8.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
                 vec_box_i8.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
+                vec_option_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
                 vec_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString()
         ));
     }
