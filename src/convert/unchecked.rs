@@ -94,7 +94,7 @@ impl<'env> IntoJavaValue<'env> for String {
     type Target = jstring;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
-        env.new_string(self).unwrap().into_inner()
+        env.new_string(self).unwrap().into_raw()
     }
 }
 
@@ -203,7 +203,7 @@ where
                 list.add(el).unwrap();
             });
 
-        list.into_inner()
+        list.into_raw()
     }
 }
 
