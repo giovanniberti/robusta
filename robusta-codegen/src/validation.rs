@@ -24,7 +24,7 @@ impl AttribItemChecker {
 impl<'ast> Visit<'ast> for AttribItemChecker {
     fn visit_item(&mut self, node: &'ast Item) {
         let has_package_attribute =
-            |a: &Attribute| a.path.segments.first().unwrap().ident == "package";
+            |a: &Attribute| a.path().segments.first().unwrap().ident == "package";
         match node {
             Item::Struct(_) => {}
             Item::Const(i) if i.attrs.iter().any(has_package_attribute) => {
@@ -52,10 +52,6 @@ impl<'ast> Visit<'ast> for AttribItemChecker {
                 self.valid = false;
             }
             Item::Macro(i) if i.attrs.iter().any(has_package_attribute) => {
-                emit_error!(i.span(), "`package` attribute used on non-struct type");
-                self.valid = false;
-            }
-            Item::Macro2(i) if i.attrs.iter().any(has_package_attribute) => {
                 emit_error!(i.span(), "`package` attribute used on non-struct type");
                 self.valid = false;
             }
@@ -136,7 +132,7 @@ impl<'ast> Visit<'ast> for StructDeclVisitor<'ast> {
         let has_package_attrib = node
             .attrs
             .iter()
-            .any(|a| a.path.segments.first().unwrap().ident == "package");
+            .any(|a| a.path().segments.first().unwrap().ident == "package");
         let has_impl = self
             .module_impls
             .iter()
@@ -274,7 +270,7 @@ impl Parse for JNIBridgeModule {
                 let package_path = s
                     .attrs
                     .iter()
-                    .filter(|a| a.path.segments.last().unwrap().ident == "package")
+                    .filter(|a| a.path().segments.last().unwrap().ident == "package")
                     .map(|a| a.parse_args::<JavaPath>().unwrap())
                     .next()
                     .unwrap();

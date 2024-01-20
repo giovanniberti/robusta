@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 jobs:
-  tests:
+  desktop-tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -43,3 +43,13 @@ jobs:
 
       - name: Run tests
         run: cargo test --verbose -- --test-threads=1
+
+  android-build-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Build Android example
+        run: cargo build --package robusta-android-example --verbose

@@ -22,7 +22,7 @@ fn signature_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStream> {
     match input.data {
         Data::Struct(DataStruct { .. }) => {
             let package_attr = input.attrs.iter().find(|a| {
-                a.path.get_ident().map(ToString::to_string).as_deref() == Some("package")
+                a.path().get_ident().map(ToString::to_string).as_deref() == Some("package")
             });
 
             match package_attr {
