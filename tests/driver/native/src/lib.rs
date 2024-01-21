@@ -421,13 +421,81 @@ pub mod jni {
         ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
         }
 
-        pub extern "java" fn selfSignatureCheck(
+        // pub extern "java" fn selfSignatureCheck(
+        //     &self,
+        //     env: &'borrow JNIEnv<'env>,
+        //     user: User,
+        //     user_array: Vec<User>,
+        //     user_arr: Box<[User]>,
+        // ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
+        // }
+
+        pub fn selfSignatureCheck(
             &self,
             env: &'borrow JNIEnv<'env>,
             user: User,
             user_array: Vec<User>,
             user_arr: Box<[User]>,
         ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
+            let env: &'_ ::robusta_jni::jni::JNIEnv<'_> = env;
+            // let v: robusta_jni::jni::objects::JValue<'_> = ::std::convert::Into::into(
+            //     <User as ::robusta_jni::convert::TryIntoJavaValue>::try_into(
+            //         user,
+            //         &env,
+            //     )?,
+            // );
+            let v: robusta_jni::jni::objects::JValue<'_> = ::std::convert::Into::into(
+                user.raw.forget()
+            );
+            let res = env
+                .call_method(
+                    ::robusta_jni::convert::JavaValue::autobox(
+                        ::robusta_jni::convert::TryIntoJavaValue::try_into(self, &env)?,
+                        &env,
+                    ),
+                    "selfSignatureCheck",
+                    [
+                        "(",
+                        <User as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE,
+                        <Vec<
+                            User,
+                        > as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE,
+                        <Box<
+                            [User],
+                        > as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE,
+                        ")",
+                        <Vec<
+                            String,
+                        > as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE,
+                    ]
+                        .join(""),
+                    &[
+                        v,
+                        ::std::convert::Into::into(
+                            <Vec<
+                                User,
+                            > as ::robusta_jni::convert::TryIntoJavaValue>::try_into(
+                                user_array,
+                                &env,
+                            )?,
+                        ),
+                        ::std::convert::Into::into(
+                            <Box<
+                                [User],
+                            > as ::robusta_jni::convert::TryIntoJavaValue>::try_into(
+                                user_arr,
+                                &env,
+                            )?,
+                        ),
+                    ],
+                );
+            res.and_then(|v| ::std::convert::TryInto::try_into(
+                    ::robusta_jni::convert::JValueWrapper::from(v),
+                ))
+                .and_then(|v| ::robusta_jni::convert::TryFromJavaValue::try_from(
+                    v,
+                    &env,
+                ))
         }
 
         #[constructor]
