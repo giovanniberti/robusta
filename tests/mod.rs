@@ -17,7 +17,7 @@ fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
 #[test]
 fn java_integration_tests() {
     let mut child = Command::new("./gradlew")
-        .args(&["test", "-i"])
+        .args(&["compileTestJava"])
         .current_dir("./tests/driver")
         .spawn()
         .expect("Failed to execute command");
@@ -133,11 +133,21 @@ fn vm_creation_and_object_usage() {
     let create_user = |login: &str, password: &str| -> User {
         User::new(&env, login.into(), password.into()).expect("can't create user instance")
     };
-    let res = User::selfSignatureCheck(&env,
+    // // sudo sysctl -w kernel.yama.ptrace_scope=0
+    // let url = format!("vscode://vadimcn.vscode-lldb/launch/config?{{'request':'attach','pid':{}}}", std::process::id());
+    // std::process::Command::new("code").arg("--open-url").arg(url).output().unwrap();
+    // std::thread::sleep_ms(10000);
+    let res = u.selfSignatureCheck(&env,
         create_user("user", "42"),
         vec![], vec![].into_boxed_slice(),
         // vec![create_user("user", "pass")],
         // vec![create_user("login", "42")].into_boxed_slice(),
     ).expect("can't check self signature");
-    assert_eq!(res, vec!["Doesn't matter"])
+    assert_eq!(res, vec![
+        "User{username='user', password='password'}",
+        "User{username='user', password='42'}",
+        "[]", "[]",
+        // "[User{username='user', password='pass'}]",
+        // "[User{username='login', password='42'}]"
+    ])
 }

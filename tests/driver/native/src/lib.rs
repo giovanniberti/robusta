@@ -422,6 +422,7 @@ pub mod jni {
         }
 
         pub extern "java" fn selfSignatureCheck(
+            &self,
             env: &'borrow JNIEnv<'env>,
             user: User,
             user_array: Vec<User>,

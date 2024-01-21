@@ -235,13 +235,14 @@ public class User {
         ));
     }
 
-    public static List<String> selfSignatureCheck(
+    public List<String> selfSignatureCheck(
             User user,
             List<User> vec_user,
             User[] box_user
     ) {
         return List.of(
-                user.toString(),
+                this.toString(),
+                String.valueOf(user),
                 vec_user.toString(),
                 Arrays.toString(box_user)
         );

@@ -48,7 +48,7 @@ fn into_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
-                ::robusta_jni::convert::IntoJavaValue::into(self, env)
+                <&#impl_target as ::robusta_jni::convert::IntoJavaValue>::into(&self, env)
             }
         }
 
@@ -66,7 +66,7 @@ fn into_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> Self::Target {
-                ::robusta_jni::convert::IntoJavaValue::into(self, env)
+                <&#impl_target as ::robusta_jni::convert::IntoJavaValue>::into(self, env)
             }
         }
     })
@@ -98,7 +98,7 @@ fn tryinto_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
-                ::robusta_jni::convert::TryIntoJavaValue::try_into(self, env)
+                <&#impl_target as ::robusta_jni::convert::TryIntoJavaValue>::try_into(&self, env)
             }
         }
 
@@ -116,7 +116,7 @@ fn tryinto_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
             type Target = ::robusta_jni::jni::objects::JObject<'env>;
 
             fn try_into(self, env: &::robusta_jni::jni::JNIEnv<'env>) -> ::robusta_jni::jni::errors::Result<Self::Target> {
-                ::robusta_jni::convert::TryIntoJavaValue::try_into(self, env)
+                <&#impl_target as ::robusta_jni::convert::TryIntoJavaValue>::try_into(self, env)
             }
         }
     })
