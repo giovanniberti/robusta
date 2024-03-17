@@ -139,15 +139,13 @@ fn vm_creation_and_object_usage() {
     // std::thread::sleep_ms(10000);
     let res = u.selfSignatureCheck(&env,
         create_user("user", "42"),
-        vec![], vec![].into_boxed_slice(),
-        // vec![create_user("user", "pass")],
-        // vec![create_user("login", "42")].into_boxed_slice(),
+        vec![create_user("user", "pass")],
+        vec![create_user("login", "42")].into_boxed_slice(),
     ).expect("can't check self signature");
     assert_eq!(res, vec![
         "User{username='user', password='password'}",
         "User{username='user', password='42'}",
-        "[]", "[]",
-        // "[User{username='user', password='pass'}]",
-        // "[User{username='login', password='42'}]"
+        "[User{username='user', password='pass'}]",
+        "[User{username='login', password='42'}]"
     ])
 }
