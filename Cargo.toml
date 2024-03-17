@@ -14,14 +14,14 @@ documentation = "https://docs.rs/robusta/"
 
 [dependencies]
 robusta-codegen = { version = "0.2", path = "./robusta-codegen" }
-jni = "0.19.0"
+jni = "^0.20"
 paste = "^1"
 static_assertions = "^1"
 constcat = "0.4.0"
 
 [dev-dependencies]
 native = { path = "./tests/driver/native" }
-jni = { version = "0.19.0", features = ["invocation"] }
+jni = { version = "^0.20", features = ["invocation"] }
 
 [workspace]
 members = ["robusta-codegen", "robusta-example", "tests/driver/native", "robusta-android-example"]

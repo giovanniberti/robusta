@@ -24,3 +24,7 @@ test {
         events "passed", "skipped", "failed", "standardOut", "standardError"
     }
 }
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}

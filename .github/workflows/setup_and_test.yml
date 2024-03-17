@@ -4,8 +4,11 @@ on:
   workflow_call:
 
 jobs:
-  tests:
-    runs-on: ubuntu-latest
+  desktop-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
 
     steps:
       - name: Setup Java
@@ -13,16 +16,40 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Add $JAVA_HOME to library path
-        run: |
-          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
-
+          
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Add $JAVA_HOME to library path
+        if: runner.os == 'Linux'
+        run:   |
+         echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+
+      - name: Add $JAVA_HOME to library path
+        if: runner.os == 'macOS'
+        run:   |
+         echo "DYLD_FALLBACK_LIBRARY_PATH=$DYLD_FALLBACK_LIBRARY_PATH:$JAVA_HOME/lib:$JAVA_HOME/lib/server" >> "$GITHUB_ENV"
+
+      - name: Add $JAVA_HOME to library path
+        if: runner.os == 'Windows'
+        run:   |
+         Add-Content $env:GITHUB_PATH "$env:JAVA_HOME\bin;$env:JAVA_HOME\bin\server"
+
+#      - name: Debug session
+#        uses: mxschmitt/action-tmate@v3
 
       - name: Build
         run: cargo build --verbose
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose -- --test-threads=1
+
+  android-build-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Build Android example
+        run: cargo build --package robusta-android-example --verbose

@@ -180,7 +180,7 @@ impl<'env> TryIntoJavaValue<'env> for Box<[bool]> {
         let buf: Vec<_> = self.iter().map(|&b| Into::into(b)).collect();
         let raw = env.new_boolean_array(len as i32)?;
         env.set_boolean_array_region(raw, 0, &buf)?;
-        Ok(raw.into())
+        Ok(unsafe { Self::Target::from_raw(raw) })
     }
 }
 
@@ -188,9 +188,9 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[bool]> {
     type Source = JObject<'env>;
 
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
-        let len = env.get_array_length(s.into_inner())?;
+        let len = env.get_array_length(s.into_raw())?;
         let mut buf = vec![JNI_FALSE; len as usize].into_boxed_slice();
-        env.get_boolean_array_region(s.into_inner(), 0, &mut *buf)?;
+        env.get_boolean_array_region(s.into_raw(), 0, &mut *buf)?;
 
         buf.iter()
             .map(|&b| TryFromJavaValue::try_from(b, &env))
@@ -248,7 +248,7 @@ impl<'env> TryIntoJavaValue<'env> for Box<[i8]> {
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         let conv = unsafe { &*slice_from_raw_parts(self.as_ref().as_ptr() as *const u8, self.as_ref().len()) };
-        env.byte_array_from_slice(conv).map(|val| val.into())
+        env.byte_array_from_slice(conv).map(|val| unsafe { Self::Target::from_raw(val) } )
     }
 }
 
@@ -256,7 +256,7 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[i8]> {
     type Source = JObject<'env>;
 
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
-        let buf = env.convert_byte_array(s.into_inner())?;
+        let buf = env.convert_byte_array(s.into_raw())?;
         let boxed_slice = buf.into_boxed_slice();
         let conv = unsafe { &*slice_from_raw_parts(boxed_slice.as_ref().as_ptr() as *const i8, boxed_slice.as_ref().len()) };
         Ok(conv.into())
@@ -320,12 +320,12 @@ where
     type Source = JObject<'env>;
 
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
-        let len = env.get_array_length(s.into_inner())?;
+        let len = env.get_array_length(s.into_raw())?;
         let mut buf = Vec::with_capacity(len as usize);
         for idx in 0..len {
             // TODO: use AutoLocal - and convert immediately there - for types that
             // don't hold local ref, so env.delete_local_ref is safe
-            buf.push(env.get_object_array_element(s.into_inner(), idx)?);
+            buf.push(env.get_object_array_element(s.into_raw(), idx)?);
         }
 
         buf.into_boxed_slice().iter()
@@ -352,7 +352,7 @@ where
             // don't hold local ref, so env.delete_local_ref is safe
             env.set_object_array_element(raw, idx as jsize, T::try_into(elem, env)?)?;
         }
-        Ok(raw.into())
+        Ok(unsafe { Self::Target::from_raw(raw) })
     }
 }
 
@@ -364,10 +364,10 @@ macro_rules! box_impl_safe {
             type Source = JObject<'env>;
 
             fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
-                let len = env.get_array_length(s.into_inner())?;
+                let len = env.get_array_length(s.into_raw())?;
                 let mut buf = Vec::with_capacity(len as usize);
                 for idx in 0..len {
-                    buf.push(env.get_object_array_element(s.into_inner(), idx)?);
+                    buf.push(env.get_object_array_element(s.into_raw(), idx)?);
                 }
 
                 buf.into_boxed_slice().iter()
@@ -389,7 +389,7 @@ macro_rules! box_impl_safe {
                 for (idx, elem) in vec.into_iter().enumerate() {
                     env.set_object_array_element(raw, idx as jsize, <$type as TryIntoJavaValue>::try_into(elem, env)?)?;
                 }
-                Ok(raw.into())
+                Ok(unsafe { Self::Target::from_raw(raw) })
             }
         }
     };

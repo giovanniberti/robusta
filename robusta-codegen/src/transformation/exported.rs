@@ -9,10 +9,10 @@ use syn::spanned::Spanned;
 use syn::token::Extern;
 use syn::Lifetime;
 use syn::Token;
-use syn::{parse_quote, GenericParam, Generics, LifetimeDef, TypeTuple};
+use syn::{parse_quote, GenericParam, Generics, LifetimeParam, TypeTuple};
 use syn::{
-    Abi, Block, Expr, FnArg, ImplItemMethod, LitStr, Pat, PatIdent, PatType, ReturnType, Signature,
-    Type, VisPublic, Visibility,
+    Abi, Block, Expr, FnArg, ImplItemFn, LitStr, Pat, PatIdent, PatType, ReturnType, Signature,
+    Type, Visibility,
 };
 
 use crate::transformation::context::StructContext;
@@ -26,7 +26,7 @@ pub struct ExportedMethodTransformer<'ctx> {
 }
 
 impl<'ctx> Fold for ExportedMethodTransformer<'ctx> {
-    fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
+    fn fold_impl_item_fn(&mut self, node: ImplItemFn) -> ImplItemFn {
         let abi = get_abi(&node.sig);
         match (&node.vis, &abi.as_deref()) {
             (Visibility::Public(_), Some("jni")) => {
@@ -36,7 +36,7 @@ impl<'ctx> Fold for ExportedMethodTransformer<'ctx> {
 
                 let mut jni_method_transformer =
                     ExternJNIMethodTransformer::new(self.struct_context, call_type_attribute);
-                jni_method_transformer.fold_impl_item_method(node)
+                jni_method_transformer.fold_impl_item_fn(node)
             }
             _ => node,
         }
@@ -58,7 +58,7 @@ impl<'ctx> ExternJNIMethodTransformer<'ctx> {
 }
 
 impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
-    fn fold_impl_item_method(&mut self, node: ImplItemMethod) -> ImplItemMethod {
+    fn fold_impl_item_fn(&mut self, node: ImplItemFn) -> ImplItemFn {
         let jni_signature = JNISignature::new(
             node.sig.clone(),
             &self.struct_context,
@@ -197,17 +197,15 @@ impl<'ctx> Fold for ExternJNIMethodTransformer<'ctx> {
                 .into_iter()
                 .filter(|a| {
                     !discarded_known_attributes
-                        .contains(&a.path.segments.to_token_stream().to_string().as_str())
+                        .contains(&a.path().segments.to_token_stream().to_string().as_str())
                 })
                 .collect()
         };
 
         let node_span = node.span();
-        ImplItemMethod {
+        ImplItemFn {
             attrs: impl_item_attributes,
-            vis: Visibility::Public(VisPublic {
-                pub_token: Token![pub](node_span),
-            }),
+            vis: Visibility::Public(Token![pub](node_span)),
             defaultness: node.defaultness,
             sig: self.fold_signature(node.sig),
             block: new_block,
@@ -281,11 +279,11 @@ mod test {
         package: Option<JavaPath>,
         struct_name: String,
         method_name: String,
-    ) -> ImplItemMethod {
+    ) -> ImplItemFn {
         let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
         let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
 
-        let method: ImplItemMethod =
+        let method: ImplItemFn =
             parse_quote! { pub extern "jni" fn #method_name_token_stream() {} };
         let struct_context = StructContext {
             struct_type: parse_quote! { #struct_name_token_stream },
@@ -339,13 +337,13 @@ mod test {
         assert_eq!(output.sig.abi.unwrap().name.unwrap().value(), "system")
     }
 
-    fn setup_with_params(params: TokenStream, struct_name: String) -> ImplItemMethod {
+    fn setup_with_params(params: TokenStream, struct_name: String) -> ImplItemFn {
         let package = None;
         let method_name = "foo".to_string();
         let struct_name_token_stream = TokenStream::from_str(&struct_name).unwrap();
         let method_name_token_stream = TokenStream::from_str(&method_name).unwrap();
 
-        let method: ImplItemMethod = parse_quote! {
+        let method: ImplItemFn = parse_quote! {
             pub extern "jni" fn #method_name_token_stream(#params) -> i32 {}
         };
 
@@ -453,14 +451,14 @@ mod test {
 
 struct JNISignatureTransformer {
     struct_freestanding_transformer: FreestandingTransformer,
-    struct_lifetimes: Vec<LifetimeDef>,
+    struct_lifetimes: Vec<LifetimeParam>,
     call_type: CallType,
 }
 
 impl JNISignatureTransformer {
     fn new(
         struct_freestanding_transformer: FreestandingTransformer,
-        struct_lifetimes: Vec<LifetimeDef>,
+        struct_lifetimes: Vec<LifetimeParam>,
         call_type: CallType,
     ) -> Self {
         JNISignatureTransformer {
@@ -509,7 +507,7 @@ impl JNISignatureTransformer {
 
                 e.bounds.push(borrow_lifetime_value.clone());
 
-                generics.params.push(GenericParam::Lifetime(LifetimeDef {
+                generics.params.push(GenericParam::Lifetime(LifetimeParam {
                     attrs: vec![],
                     lifetime: borrow_lifetime_value,
                     colon_token: None,
@@ -526,7 +524,7 @@ impl JNISignatureTransformer {
                     ident: Ident::new("borrow", generics_span),
                 };
 
-                generics.params.push(GenericParam::Lifetime(LifetimeDef {
+                generics.params.push(GenericParam::Lifetime(LifetimeParam {
                     attrs: vec![],
                     lifetime: Lifetime {
                         apostrophe: generics_span,
@@ -540,7 +538,7 @@ impl JNISignatureTransformer {
                     },
                 }));
 
-                generics.params.push(GenericParam::Lifetime(LifetimeDef {
+                generics.params.push(GenericParam::Lifetime(LifetimeParam {
                     attrs: vec![],
                     lifetime: borrow_lifetime_value,
                     colon_token: None,
