@@ -15,15 +15,15 @@ mod jni {
     use log::info;
     use robusta_jni::convert::{IntoJavaValue, Signature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::jni::errors::Result as JniResult;
-    use robusta_jni::jni::objects::AutoLocal;
     use robusta_jni::jni::JNIEnv;
     use std::thread;
+    use robusta_jni::convert::Local;
 
     #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package(com.example.robustaandroidexample)]
     pub struct RobustaAndroidExample<'env: 'borrow, 'borrow> {
         #[instance]
-        raw: AutoLocal<'env, 'borrow>,
+        raw: Local<'env, 'borrow>,
     }
 
     impl<'env: 'borrow, 'borrow> RobustaAndroidExample<'env, 'borrow> {

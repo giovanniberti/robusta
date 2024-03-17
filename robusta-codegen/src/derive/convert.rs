@@ -190,7 +190,7 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
                 #(#class_fields_env_init)*
 
                 Self {
-                    #instance_ident: ::robusta_jni::jni::objects::AutoLocal::new(env, source),
+                    #instance_ident: ::robusta_jni::convert::Local::new(env, source),
                     #(#data_fields_struct_init),*
                     #(#class_fields_struct_init),*
                 }
@@ -264,7 +264,7 @@ fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
                 #(#class_fields_env_init)*
 
                 Ok(Self {
-                    #instance_ident: ::robusta_jni::jni::objects::AutoLocal::new(env, source),
+                    #instance_ident: ::robusta_jni::convert::Local::new(env, source),
                     #(#data_fields_struct_init),*
                     #(#class_fields_struct_init),*
                 })
@@ -388,7 +388,7 @@ fn get_trait_impl_components(trait_name: &str, input: DeriveInput) -> TraitAutoD
                     };
 
                     let instance_field_type_assertion = quote_spanned! { ty.span() =>
-                        ::robusta_jni::assert_type_eq_all!(#ty, ::robusta_jni::jni::objects::AutoLocal<'static, 'static>);
+                        ::robusta_jni::assert_type_eq_all!(#ty, ::robusta_jni::convert::Local<'static, 'static>);
                     };
 
                     let generics = input.generics;
