@@ -1,20 +1,13 @@
-use robusta_jni::bridge;
 use robusta_jni::convert::{ArrSignature, Signature, TryIntoJavaValue};
 use robusta_jni::jni::JNIEnv;
 
+#[derive(Signature, ArrSignature)]
+#[array(String)]
 pub struct StringArr(Box<[String]>);
 impl From<Box<[String]>> for StringArr {
     fn from(v: Box<[String]>) -> Self {
         Self(v)
     }
-}
-
-impl Signature for StringArr {
-    const SIG_TYPE: &'static str = <Box<[String]> as Signature>::SIG_TYPE;
-}
-
-impl ArrSignature for StringArr {
-    const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <StringArr as Signature>::SIG_TYPE);
 }
 
 impl<'env> TryIntoJavaValue<'env> for StringArr {
@@ -25,7 +18,7 @@ impl<'env> TryIntoJavaValue<'env> for StringArr {
     }
 }
 
-#[bridge]
+#[robusta_jni::bridge]
 pub mod jni {
     use std::convert::TryInto;
 

@@ -30,7 +30,7 @@ pub fn bridge(_args: TokenStream, raw_input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(Signature, attributes(package))]
+#[proc_macro_derive(Signature, attributes(package, array))]
 pub fn signature_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 

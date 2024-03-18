@@ -224,7 +224,7 @@ impl Fold for ModTransformer {
              * and rust-lang/issues/#65823).
              * However, we want `#[package()]` to also be used in combination with auto-derive, and conversion traits (i.e. `Signature`, `(Try)IntoJavaValue`, `(Try)FromJavaValue`) *need* a `#[package]` attribute on the struct they are applied on.
              * If we remove the package attribute blindly the traits cannot see it, and if we keep it the auto-derived traits cannot remove it (auto-derive macros cannot modify the existing token stream as proc macros).
-             * Here we check wether the struct has a `#[derive(TRAIT)]` (crudely with a string comparison and hoping the user never writes `#[derive(::robusta_jni::convert::TRAIT)]`)
+             * Here we check whether the struct has a `#[derive(TRAIT)]` (crudely with a string comparison and hoping the user never writes `#[derive(::robusta_jni::convert::TRAIT)]`)
              * if it is present we don't remove `#[package]`, otherwise we remove it.
              * This works because all conversion traits auto-derive macros also declare `#[package]` as a helper attribute
              */
