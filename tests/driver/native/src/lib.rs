@@ -14,7 +14,7 @@ impl Signature for StringArr {
 }
 
 impl ArrSignature for StringArr {
-    const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <Box<[String]> as Signature>::SIG_TYPE);
+    const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <StringArr as Signature>::SIG_TYPE);
 }
 
 impl<'env> TryIntoJavaValue<'env> for StringArr {
@@ -37,7 +37,7 @@ pub mod jni {
     use robusta_jni::jni::JNIEnv;
     use crate::StringArr;
 
-    #[derive(Signature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
+    #[derive(Signature, ArrSignature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
     #[package()]
     pub struct User<'env: 'borrow, 'borrow> {
         #[instance]
@@ -45,9 +45,9 @@ pub mod jni {
         password: String,
     }
 
-    impl<'env, 'borrow> ArrSignature for User<'env, 'borrow> {
-        const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <User as Signature>::SIG_TYPE);
-    }
+    // impl<'env, 'borrow> ArrSignature for User<'env, 'borrow> {
+    //     const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <User as Signature>::SIG_TYPE);
+    // }
 
     impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {
         pub extern "jni" fn initNative() {

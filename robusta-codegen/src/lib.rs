@@ -11,6 +11,7 @@ use crate::derive::convert::{
 };
 use crate::transformation::ModTransformer;
 use derive::signature::signature_macro_derive;
+use derive::arr_signature::arr_signature_macro_derive;
 
 mod derive;
 mod transformation;
@@ -34,6 +35,14 @@ pub fn signature_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 
     signature_macro_derive(input).into()
+}
+
+#[proc_macro_error]
+#[proc_macro_derive(ArrSignature, attributes(package))]
+pub fn arr_signature_derive(raw_input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(raw_input as DeriveInput);
+
+    arr_signature_macro_derive(input).into()
 }
 
 #[proc_macro_error]
