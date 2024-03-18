@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::Path;
-use jni::objects::JString;
+use jni::objects::{JObject, JString};
 use native::jni::User;
 use robusta_jni::convert::FromJavaValue;
 use robusta_jni::jni::{InitArgsBuilder, JNIEnv, JavaVM};
@@ -129,8 +129,9 @@ fn vm_creation_and_object_usage() {
     let res = u.signaturesCheck(&env,
                                 42, false, '2', 42, 42.0, 42.0, 42, 42, "42".to_string(),
                                 vec![42, 42, 42], vec!["42".to_string(), "42".to_string()],
+                                vec![Some("42".to_string()), None],
                                 vec![42, 42].into_boxed_slice(), vec![false, true].into_boxed_slice(),
-                                vec![env.new_string("42").unwrap(), env.new_string("42").unwrap()].into_boxed_slice(),
+                                vec![env.new_string("42").unwrap(), <JString<'_> as From<JObject>>::from(JObject::null())].into_boxed_slice(),
                                 vec!["42".to_string(), "42".to_string()].into_boxed_slice(),
                                 None, vec![Some(vec![42].into_boxed_slice()), None],
                                 vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
@@ -145,8 +146,9 @@ fn vm_creation_and_object_usage() {
     assert_eq!(res, vec![
         "42", "false", "2", "42", "42.0", "42.0", "42", "42", "42",
         "[42, 42, 42]", "[42, 42]",
+        "[42, null]",
         "[42, 42]", "[false, true]",
-        "[42, 42]",
+        "[42, null]",
         "[42, 42]",
         "null", "[[42], null]",
         "[[42], [42, 42]]",
@@ -161,8 +163,9 @@ fn vm_creation_and_object_usage() {
             &env,
             42, false, '2', 42, 42.0, 42.0, 42, 42, "42".to_string(),
             vec![42, 42, 42], vec!["42".to_string(), "42".to_string()],
+            vec![Some("42".to_string()), None],
             vec![42, 42].into_boxed_slice(), vec![false, true].into_boxed_slice(),
-            vec![env.new_string("42").unwrap(), env.new_string("42").unwrap()].into_boxed_slice(),
+            vec![env.new_string("42").unwrap(), <JString<'_> as From<JObject>>::from(JObject::null())].into_boxed_slice(),
             vec!["42".to_string(), "42".to_string()].into_boxed_slice(),
             None, vec![Some(vec![42].into_boxed_slice()), None],
             vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
@@ -173,8 +176,9 @@ fn vm_creation_and_object_usage() {
         ), vec![
             "42", "false", "2", "42", "42.0", "42.0", "42", "42", "42",
             "[42, 42, 42]", "[42, 42]",
+            "[42, null]",
             "[42, 42]", "[false, true]",
-            "[42, 42]",
+            "[42, null]",
             "[42, 42]",
             "null", "[[42], null]",
             "[[42], [42, 42]]",
@@ -191,29 +195,50 @@ fn vm_creation_and_object_usage() {
     // let url = format!("vscode://vadimcn.vscode-lldb/launch/config?{{'request':'attach','pid':{}}}", std::process::id());
     // std::process::Command::new("code").arg("--open-url").arg(url).output().unwrap();
     // std::thread::sleep_ms(10000);
-    let res = u.selfSignatureCheck(&env,
-                                   create_user("user", "42"),
-                                   vec![create_user("user", "pass")],
-                                   vec![create_user("login", "42")].into_boxed_slice(),
+    let res = u.selfSignatureCheck(
+        &env,
+        create_user("user", "42"),
+        Some(create_user("user", "null")), None,
+        vec![create_user("user", "pass")],
+        vec![Some(create_user("user", "null")), None],
+        Some(vec![create_user("user", "arr_null")]), None,
+        vec![create_user("login", "42")].into_boxed_slice(),
+        vec![Some(create_user("user", "null")), None].into_boxed_slice(),
+        Some(vec![create_user("login", "arr_null")].into_boxed_slice()), None,
     ).expect("can't check self signature");
     assert_eq!(res, vec![
         "User{username='user', password='password'}",
         "User{username='user', password='42'}",
+        "User{username='user', password='null'}", "null",
         "[User{username='user', password='pass'}]",
+        "[User{username='user', password='null'}, null]",
+        "[User{username='user', password='arr_null'}]", "null",
         "[User{username='login', password='42'}]",
+        "[User{username='user', password='null'}, null]",
+        "[User{username='login', password='arr_null'}]", "null",
     ]);
 
     assert_eq!(
         u.selfSignatureCheckUnchecked(
             &env,
             create_user("user", "42"),
+            Some(create_user("user", "null")), None,
             vec![create_user("user", "pass")],
+            vec![Some(create_user("user", "null")), None],
+            Some(vec![create_user("user", "arr_null")]), None,
             vec![create_user("login", "42")].into_boxed_slice(),
+            vec![Some(create_user("user", "null")), None].into_boxed_slice(),
+            Some(vec![create_user("login", "arr_null")].into_boxed_slice()), None,
         ), vec![
             "User{username='user', password='password'}",
             "User{username='user', password='42'}",
+            "User{username='user', password='null'}", "null",
             "[User{username='user', password='pass'}]",
+            "[User{username='user', password='null'}, null]",
+            "[User{username='user', password='arr_null'}]", "null",
             "[User{username='login', password='42'}]",
+            "[User{username='user', password='null'}, null]",
+            "[User{username='login', password='arr_null'}]", "null",
         ]
     );
 

@@ -430,10 +430,14 @@ pub mod jni {
             string: String,
             int_array: Vec<i32>,
             string_array: Vec<String>,
+            nullable_string_array: Vec<Option<String>>,
             byte_array: Box<[i8]>,
             bool_array: Box<[bool]>,
             jstring_arr: Box<[robusta_jni::jni::objects::JString<'env>]>,
             string_arr: Box<[String]>,
+            // `Box<[Option<String>]>` is impossible
+            // Because `TryIntoJavaValue<'env> for Box<[T]>` has
+            // to have `Target = JObject<'env>` restriction
             nullable_string: Option<String>,
             byte_array_nullable_2d: Vec<Option<Box<[i8]>>>,
             byte_array_2d: Vec<Box<[i8]>>,
@@ -457,6 +461,7 @@ pub mod jni {
             string: String,
             int_array: Vec<i32>,
             string_array: Vec<String>,
+            nullable_string_array: Vec<Option<String>>,
             byte_array: Box<[i8]>,
             bool_array: Box<[bool]>,
             jstring_arr: Box<[robusta_jni::jni::objects::JString<'env>]>,
@@ -474,8 +479,16 @@ pub mod jni {
             &self,
             env: &'borrow JNIEnv<'env>,
             user: Self,
+            nullable_user1: Option<Self>,
+            nullable_user2: Option<Self>,
             user_array: Vec<Self>,
+            nullable_user_array: Vec<Option<Self>>,
+            user_array_nullable1: Option<Vec<Self>>,
+            user_array_nullable2: Option<Vec<Self>>,
             user_arr: Box<[Self]>,
+            nullable_user_arr: Box<[Option<Self>]>,
+            user_arr_nullable1: Option<Box<[Self]>>,
+            user_arr_nullable2: Option<Box<[Self]>>,
         ) -> JniResult<Vec<String>> {}
 
         #[call_type(unchecked)]
@@ -483,8 +496,16 @@ pub mod jni {
             &self,
             env: &'borrow JNIEnv<'env>,
             user: Self,
+            nullable_user1: Option<Self>,
+            nullable_user2: Option<Self>,
             user_array: Vec<Self>,
+            nullable_user_array: Vec<Option<Self>>,
+            user_array_nullable1: Option<Vec<Self>>,
+            user_array_nullable2: Option<Vec<Self>>,
             user_arr: Box<[Self]>,
+            nullable_user_arr: Box<[Option<Self>]>,
+            user_arr_nullable1: Option<Box<[Self]>>,
+            user_arr_nullable2: Option<Box<[Self]>>,
         ) -> Vec<String> {}
 
         #[constructor]

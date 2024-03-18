@@ -190,16 +190,14 @@ public class User {
     }
 
     public static String[][] getStringArrNullable2D(
-        @Nullable String[] a,
-        @Nullable String[] b
-    ) {
-        return new String[][] {b, a};
+            @Nullable String[] a,
+            @Nullable String[] b) {
+        return new String[][] { b, a };
     }
 
     public String[][] getStringArrNullable2DUnchecked(
-        @Nullable String[] a,
-        @Nullable String[] b
-    ) {
+            @Nullable String[] a,
+            @Nullable String[] b) {
         return User.getStringArrNullable2D(a, b);
     }
 
@@ -216,10 +214,12 @@ public class User {
             String string,
             List<Integer> vec_i32,
             List<String> vec_string,
+            List<String> vec_option_string,
             byte[] box_i8,
             boolean[] box_bool,
             String[] box_jstring,
             String[] box_string,
+            // String[] box_option_string - not possible yet,
             @Nullable String option_string,
             List<byte[]> vec_option_box_i8,
             List<byte[]> vec_box_i8,
@@ -227,8 +227,8 @@ public class User {
             List<String[]> vec_box_string,
             String[][] box_option_box_string,
             String[][] box_box_string) {
-                return User.signaturesCheckUnchecked(i32, bool, character, i8, f32, f64, i64, i16, string,
-                vec_i32, vec_string, box_i8, box_bool, box_jstring, box_string, option_string,
+        return User.signaturesCheckUnchecked(i32, bool, character, i8, f32, f64, i64, i16, string,
+                vec_i32, vec_string, vec_option_string, box_i8, box_bool, box_jstring, box_string, option_string,
                 vec_option_box_i8, vec_box_i8, vec_option_box_string, vec_box_string,
                 box_option_box_string, box_box_string);
     }
@@ -245,10 +245,12 @@ public class User {
             String string,
             List<Integer> vec_i32,
             List<String> vec_string,
+            List<String> vec_option_string,
             byte[] box_i8,
             boolean[] box_bool,
             String[] box_jstring,
             String[] box_string,
+            // String[] box_option_string - not possible yet,
             @Nullable String option_string,
             List<byte[]> vec_option_box_i8,
             List<byte[]> vec_box_i8,
@@ -268,6 +270,7 @@ public class User {
                 string,
                 vec_i32.toString(),
                 vec_string.toString(),
+                vec_option_string.toString(),
                 Arrays.toString(box_i8),
                 Arrays.toString(box_bool),
                 Arrays.toString(box_jstring),
@@ -283,19 +286,45 @@ public class User {
 
     public List<String> selfSignatureCheck(
             User user,
+            @Nullable User option_user1,
+            @Nullable User option_user2,
             List<User> vec_user,
-            User[] box_user) {
+            List<User> vec_option_user,
+            @Nullable List<User> option_vec_user1,
+            @Nullable List<User> option_vec_user2,
+            User[] box_user,
+            User[] box_option_user,
+            @Nullable User[] option_box_user1,
+            @Nullable User[] option_box_user2) {
         return List.of(
                 this.toString(),
                 String.valueOf(user),
+                String.valueOf(option_user1),
+                String.valueOf(option_user2),
                 vec_user.toString(),
-                Arrays.toString(box_user));
+                vec_option_user.toString(),
+                String.valueOf(option_vec_user1),
+                String.valueOf(option_vec_user2),
+                Arrays.toString(box_user),
+                Arrays.toString(box_option_user),
+                Arrays.toString(option_box_user1),
+                Arrays.toString(option_box_user2));
     }
 
     public List<String> selfSignatureCheckUnchecked(
             User user,
+            @Nullable User option_user1,
+            @Nullable User option_user2,
             List<User> vec_user,
-            User[] box_user) {
-        return selfSignatureCheck(user, vec_user, box_user);
+            List<User> vec_option_user,
+            @Nullable List<User> option_vec_user1,
+            @Nullable List<User> option_vec_user2,
+            User[] box_user,
+            User[] box_option_user,
+            @Nullable User[] option_box_user1,
+            @Nullable User[] option_box_user2) {
+        return selfSignatureCheck(user, option_user1, option_user2,
+                vec_user, vec_option_user, option_vec_user1, option_vec_user2,
+                box_user, box_option_user, option_box_user1, option_box_user2);
     }
 }
