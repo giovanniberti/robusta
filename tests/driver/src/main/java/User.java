@@ -209,6 +209,35 @@ public class User {
             List<String[]> vec_box_string,
             String[][] box_option_box_string,
             String[][] box_box_string) {
+                return User.signaturesCheckUnchecked(i32, bool, character, i8, f32, f64, i64, i16, string,
+                vec_i32, vec_string, box_i8, box_bool, box_jstring, box_string, option_string,
+                vec_option_box_i8, vec_box_i8, vec_option_box_string, vec_box_string,
+                box_option_box_string, box_box_string);
+    }
+
+    public static List<String> signaturesCheckUnchecked(
+            int i32,
+            boolean bool,
+            char character,
+            byte i8,
+            float f32,
+            double f64,
+            long i64,
+            short i16,
+            String string,
+            List<Integer> vec_i32,
+            List<String> vec_string,
+            byte[] box_i8,
+            boolean[] box_bool,
+            String[] box_jstring,
+            String[] box_string,
+            @Nullable String option_string,
+            List<byte[]> vec_option_box_i8,
+            List<byte[]> vec_box_i8,
+            List<String[]> vec_option_box_string,
+            List<String[]> vec_box_string,
+            String[][] box_option_box_string,
+            String[][] box_box_string) {
         return new ArrayList<>(List.of(
                 String.valueOf(i32),
                 String.valueOf(bool),
@@ -231,20 +260,24 @@ public class User {
                 vec_option_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
                 vec_box_string.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
                 Arrays.stream(box_option_box_string).map(Arrays::toString).collect(Collectors.toList()).toString(),
-                Arrays.stream(box_box_string).map(Arrays::toString).collect(Collectors.toList()).toString()
-        ));
+                Arrays.stream(box_box_string).map(Arrays::toString).collect(Collectors.toList()).toString()));
     }
 
     public List<String> selfSignatureCheck(
             User user,
             List<User> vec_user,
-            User[] box_user
-    ) {
+            User[] box_user) {
         return List.of(
                 this.toString(),
                 String.valueOf(user),
                 vec_user.toString(),
-                Arrays.toString(box_user)
-        );
+                Arrays.toString(box_user));
+    }
+
+    public List<String> selfSignatureCheckUnchecked(
+            User user,
+            List<User> vec_user,
+            User[] box_user) {
+        return selfSignatureCheck(user, vec_user, box_user);
     }
 }

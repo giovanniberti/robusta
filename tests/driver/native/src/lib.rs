@@ -1,4 +1,4 @@
-use robusta_jni::convert::{ArrSignature, Signature, TryIntoJavaValue};
+use robusta_jni::convert::{ArrSignature, IntoJavaValue, Signature, TryIntoJavaValue};
 use robusta_jni::jni::JNIEnv;
 
 #[derive(Signature, ArrSignature)]
@@ -14,7 +14,15 @@ impl<'env> TryIntoJavaValue<'env> for StringArr {
     type Target = <Box<[String]> as TryIntoJavaValue<'env>>::Target;
 
     fn try_into(self, env: &JNIEnv<'env>) -> robusta_jni::jni::errors::Result<Self::Target> {
-        self.0.try_into(env)
+        TryIntoJavaValue::try_into(self.0, env)
+    }
+}
+
+impl<'env> IntoJavaValue<'env> for StringArr {
+    type Target = <Box<[String]> as TryIntoJavaValue<'env>>::Target;
+
+    fn into(self, env: &JNIEnv<'env>) -> Self::Target {
+        IntoJavaValue::into(self.0, env)
     }
 }
 
@@ -410,6 +418,34 @@ pub mod jni {
         ) -> JniResult<Vec<String>> {
         }
 
+        #[call_type(unchecked)]
+        pub extern "java" fn signaturesCheckUnchecked(
+            env: &'borrow JNIEnv<'env>,
+            int: i32,
+            boolean: bool,
+            character: char,
+            byte: i8,
+            float: f32,
+            double: f64,
+            long: i64,
+            short: i16,
+            string: String,
+            int_array: Vec<i32>,
+            string_array: Vec<String>,
+            byte_array: Box<[i8]>,
+            bool_array: Box<[bool]>,
+            jstring_arr: Box<[robusta_jni::jni::objects::JString<'env>]>,
+            string_arr: Box<[String]>,
+            nullable_string: Option<String>,
+            byte_array_nullable_2d: Vec<Option<Box<[i8]>>>,
+            byte_array_2d: Vec<Box<[i8]>>,
+            string_array_nullable_2d: Vec<Option<Box<[String]>>>,
+            string_array_2d: Vec<Box<[String]>>,
+            string_arr_nullable_2d: Box<[Option<StringArr>]>,
+            string_arr_2d: Box<[StringArr]>,
+        ) -> Vec<String> {
+        }
+
         pub extern "java" fn selfSignatureCheck(
             &self,
             env: &'borrow JNIEnv<'env>,
@@ -417,6 +453,16 @@ pub mod jni {
             user_array: Vec<Self>,
             user_arr: Box<[Self]>,
         ) -> JniResult<Vec<String>> {
+        }
+
+        #[call_type(unchecked)]
+        pub extern "java" fn selfSignatureCheckUnchecked(
+            &self,
+            env: &'borrow JNIEnv<'env>,
+            user: Self,
+            user_array: Vec<Self>,
+            user_arr: Box<[Self]>,
+        ) -> Vec<String> {
         }
 
         #[constructor]

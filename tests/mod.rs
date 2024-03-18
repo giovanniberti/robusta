@@ -133,7 +133,7 @@ fn vm_creation_and_object_usage() {
                                 vec![Some(vec!["42".to_string()].into_boxed_slice()), None],
                                 vec![vec!["42".to_string()].into_boxed_slice(), vec!["42".to_string(), "42".to_string()].into_boxed_slice()],
                                 vec![Some(Into::into(vec!["42".to_string()].into_boxed_slice())), None].into_boxed_slice(),
-                                vec![Into::into(vec!["42".to_string()].into_boxed_slice())].into_boxed_slice()
+                                vec![Into::into(vec!["42".to_string()].into_boxed_slice())].into_boxed_slice(),
     ).or_else(|e| {
         let _ = print_exception(&env);
         Err(e)
@@ -149,8 +149,35 @@ fn vm_creation_and_object_usage() {
         "[[42], null]",
         "[[42], [42, 42]]",
         "[[42], null]",
-        "[[42]]"
+        "[[42]]",
     ]);
+
+    assert_eq!(
+        User::signaturesCheckUnchecked(&env,
+                          42, false, '2', 42, 42.0, 42.0, 42, 42, "42".to_string(),
+                          vec![42, 42, 42], vec!["42".to_string(), "42".to_string()],
+                          vec![42, 42].into_boxed_slice(), vec![false, true].into_boxed_slice(),
+                          vec![env.new_string("42").unwrap(), env.new_string("42").unwrap()].into_boxed_slice(),
+                          vec!["42".to_string(), "42".to_string()].into_boxed_slice(),
+                          None, vec![Some(vec![42].into_boxed_slice()), None],
+                          vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
+                          vec![Some(vec!["42".to_string()].into_boxed_slice()), None],
+                          vec![vec!["42".to_string()].into_boxed_slice(), vec!["42".to_string(), "42".to_string()].into_boxed_slice()],
+                          vec![Some(Into::into(vec!["42".to_string()].into_boxed_slice())), None].into_boxed_slice(),
+                          vec![Into::into(vec!["42".to_string()].into_boxed_slice())].into_boxed_slice(),
+        ), vec![
+            "42", "false", "2", "42", "42.0", "42.0", "42", "42", "42",
+            "[42, 42, 42]", "[42, 42]",
+            "[42, 42]", "[false, true]",
+            "[42, 42]",
+            "[42, 42]",
+            "null", "[[42], null]",
+            "[[42], [42, 42]]",
+            "[[42], null]",
+            "[[42], [42, 42]]",
+            "[[42], null]",
+            "[[42]]",
+        ]);
 
     let create_user = |login: &str, password: &str| -> User {
         User::new(&env, login.into(), password.into()).expect("can't create user instance")
@@ -160,14 +187,28 @@ fn vm_creation_and_object_usage() {
     // std::process::Command::new("code").arg("--open-url").arg(url).output().unwrap();
     // std::thread::sleep_ms(10000);
     let res = u.selfSignatureCheck(&env,
-        create_user("user", "42"),
-        vec![create_user("user", "pass")],
-        vec![create_user("login", "42")].into_boxed_slice(),
+                                   create_user("user", "42"),
+                                   vec![create_user("user", "pass")],
+                                   vec![create_user("login", "42")].into_boxed_slice(),
     ).expect("can't check self signature");
     assert_eq!(res, vec![
         "User{username='user', password='password'}",
         "User{username='user', password='42'}",
         "[User{username='user', password='pass'}]",
-        "[User{username='login', password='42'}]"
-    ])
+        "[User{username='login', password='42'}]",
+    ]);
+
+    assert_eq!(
+        u.selfSignatureCheckUnchecked(
+            &env,
+            create_user("user", "42"),
+            vec![create_user("user", "pass")],
+            vec![create_user("login", "42")].into_boxed_slice(),
+        ), vec![
+            "User{username='user', password='password'}",
+            "User{username='user', password='42'}",
+            "[User{username='user', password='pass'}]",
+            "[User{username='login', password='42'}]",
+        ]
+    );
 }
