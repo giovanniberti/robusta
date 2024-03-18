@@ -3,16 +3,19 @@ use robusta_jni::jni::JNIEnv;
 
 #[derive(Signature, ArrSignature)]
 #[array(String)]
-pub struct StringArr(Box<[String]>);
+pub struct StringArr {
+    value: Box<[String]>,
+}
+
 impl From<Box<[String]>> for StringArr {
-    fn from(v: Box<[String]>) -> Self {
-        Self(v)
+    fn from(value: Box<[String]>) -> Self {
+        Self { value }
     }
 }
 
 impl From<StringArr> for Box<[String]> {
     fn from(v: StringArr) -> Self {
-        v.0
+        v.value
     }
 }
 
@@ -20,7 +23,7 @@ impl<'env> TryIntoJavaValue<'env> for StringArr {
     type Target = <Box<[String]> as TryIntoJavaValue<'env>>::Target;
 
     fn try_into(self, env: &JNIEnv<'env>) -> robusta_jni::jni::errors::Result<Self::Target> {
-        TryIntoJavaValue::try_into(self.0, env)
+        TryIntoJavaValue::try_into(<Box<[String]> as From<Self>>::from(self), env)
     }
 }
 
@@ -28,7 +31,7 @@ impl<'env> IntoJavaValue<'env> for StringArr {
     type Target = <Box<[String]> as TryIntoJavaValue<'env>>::Target;
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
-        IntoJavaValue::into(self.0, env)
+        IntoJavaValue::into(<Box<[String]> as From<Self>>::from(self), env)
     }
 }
 
@@ -36,7 +39,9 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for StringArr {
     type Source = <Box<[String]> as TryFromJavaValue<'env, 'borrow>>::Source;
 
     fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> robusta_jni::jni::errors::Result<Self> {
-        <Box<[String]> as TryFromJavaValue>::try_from(s, env).map(|res| From::from(res))
+        <Box<[String]> as TryFromJavaValue>::try_from(s, env).map(|res|
+            <Self as From<Box<[String]>>>::from(res)
+        )
     }
 }
 
@@ -44,7 +49,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for StringArr {
     type Source = <Box<[String]> as FromJavaValue<'env, 'borrow>>::Source;
 
     fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
-        From::from(<Box<[String]> as FromJavaValue>::from(s, env))
+        <Self as From<Box<[String]>>>::from(<Box<[String]> as FromJavaValue>::from(s, env))
     }
 }
 

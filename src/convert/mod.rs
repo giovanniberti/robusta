@@ -190,7 +190,7 @@ impl<T: Signature> Signature for Option<T> {
 }
 
 // TODO: This still is not gonna work well for multi-dimensional arrays, like Box<[Box<[T]>]>
-pub trait ArrSignature: Signature {
+pub trait ArrSignature {
     const ARR_SIG_TYPE: &'static str;
 }
 
