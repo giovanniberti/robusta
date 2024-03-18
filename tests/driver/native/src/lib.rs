@@ -330,7 +330,7 @@ pub mod jni {
         pub extern "java" fn getNullableString(
             env: &JNIEnv,
             v: Option<String>,
-        ) -> ::robusta_jni::jni::errors::Result<Option<String>> {
+        ) -> JniResult<Option<String>> {
         }
 
         #[call_type(unchecked)]
@@ -344,7 +344,7 @@ pub mod jni {
         pub extern "java" fn getPassword(
             &self,
             env: &JNIEnv,
-        ) -> ::robusta_jni::jni::errors::Result<String> {
+        ) -> JniResult<String> {
         }
 
         #[call_type(unchecked)]
@@ -356,7 +356,7 @@ pub mod jni {
 
         pub extern "java" fn getTotalUsersCount(
             env: &JNIEnv,
-        ) -> ::robusta_jni::jni::errors::Result<i32> {
+        ) -> JniResult<i32> {
         }
 
         #[call_type(unchecked)]
@@ -370,7 +370,7 @@ pub mod jni {
             env: &JNIEnv,
             v: i32,
             s: String,
-        ) -> ::robusta_jni::jni::errors::Result<String> {
+        ) -> JniResult<String> {
         }
 
         #[call_type(unchecked)]
@@ -407,7 +407,7 @@ pub mod jni {
             string_array_2d: Vec<Box<[String]>>,
             string_arr_nullable_2d: Box<[Option<StringArr>]>,
             string_arr_2d: Box<[StringArr]>,
-        ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
+        ) -> JniResult<Vec<String>> {
         }
 
         pub extern "java" fn selfSignatureCheck(
@@ -416,7 +416,7 @@ pub mod jni {
             user: User,
             user_array: Vec<User>,
             user_arr: Box<[User]>,
-        ) -> ::robusta_jni::jni::errors::Result<Vec<String>> {
+        ) -> JniResult<Vec<String>> {
         }
 
         #[constructor]
