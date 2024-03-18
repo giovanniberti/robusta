@@ -45,10 +45,6 @@ pub mod jni {
         password: String,
     }
 
-    // impl<'env, 'borrow> ArrSignature for User<'env, 'borrow> {
-    //     const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <User as Signature>::SIG_TYPE);
-    // }
-
     impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {
         pub extern "jni" fn initNative() {
             std::env::var("RUST_LOG").unwrap_or_else(|_| {

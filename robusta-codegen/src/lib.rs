@@ -38,7 +38,7 @@ pub fn signature_derive(raw_input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(ArrSignature, attributes(package))]
+#[proc_macro_derive(ArrSignature)]
 pub fn arr_signature_derive(raw_input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(raw_input as DeriveInput);
 
