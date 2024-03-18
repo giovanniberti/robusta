@@ -5,6 +5,7 @@ use native::jni::User;
 use robusta_jni::convert::FromJavaValue;
 use robusta_jni::jni::{InitArgsBuilder, JNIEnv, JavaVM};
 use std::process::Command;
+use native::StringArr;
 
 fn print_exception(env: &JNIEnv) -> jni::errors::Result<()> {
     let ex = env.exception_occurred()?;
@@ -156,18 +157,19 @@ fn vm_creation_and_object_usage() {
     ]);
 
     assert_eq!(
-        User::signaturesCheckUnchecked(&env,
-                          42, false, '2', 42, 42.0, 42.0, 42, 42, "42".to_string(),
-                          vec![42, 42, 42], vec!["42".to_string(), "42".to_string()],
-                          vec![42, 42].into_boxed_slice(), vec![false, true].into_boxed_slice(),
-                          vec![env.new_string("42").unwrap(), env.new_string("42").unwrap()].into_boxed_slice(),
-                          vec!["42".to_string(), "42".to_string()].into_boxed_slice(),
-                          None, vec![Some(vec![42].into_boxed_slice()), None],
-                          vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
-                          vec![Some(vec!["42".to_string()].into_boxed_slice()), None],
-                          vec![vec!["42".to_string()].into_boxed_slice(), vec!["42".to_string(), "42".to_string()].into_boxed_slice()],
-                          vec![Some(Into::into(vec!["42".to_string()].into_boxed_slice())), None].into_boxed_slice(),
-                          vec![Into::into(vec!["42".to_string()].into_boxed_slice())].into_boxed_slice(),
+        User::signaturesCheckUnchecked(
+            &env,
+            42, false, '2', 42, 42.0, 42.0, 42, 42, "42".to_string(),
+            vec![42, 42, 42], vec!["42".to_string(), "42".to_string()],
+            vec![42, 42].into_boxed_slice(), vec![false, true].into_boxed_slice(),
+            vec![env.new_string("42").unwrap(), env.new_string("42").unwrap()].into_boxed_slice(),
+            vec!["42".to_string(), "42".to_string()].into_boxed_slice(),
+            None, vec![Some(vec![42].into_boxed_slice()), None],
+            vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
+            vec![Some(vec!["42".to_string()].into_boxed_slice()), None],
+            vec![vec!["42".to_string()].into_boxed_slice(), vec!["42".to_string(), "42".to_string()].into_boxed_slice()],
+            vec![Some(Into::into(vec!["42".to_string()].into_boxed_slice())), None].into_boxed_slice(),
+            vec![Into::into(vec!["42".to_string()].into_boxed_slice())].into_boxed_slice(),
         ), vec![
             "42", "false", "2", "42", "42.0", "42.0", "42", "42", "42",
             "[42, 42, 42]", "[42, 42]",
@@ -213,5 +215,37 @@ fn vm_creation_and_object_usage() {
             "[User{username='user', password='pass'}]",
             "[User{username='login', password='42'}]",
         ]
+    );
+
+    let mut res = User::getStringArrNullable2D(
+        &env,
+        Some(Into::into(vec![
+            "42".to_string()
+        ].into_boxed_slice())),
+        None,
+    ).expect("can't check 2D string array").into_vec();
+    assert_eq!(res.len(), 2);
+    assert!(res[0].is_none());
+    let res1 = res.remove(1);
+    assert!(res1.is_some());
+    assert_eq!(
+        <StringArr as Into<Box<[String]>>>::into(res1.unwrap()),
+        vec!["42".to_string()].into_boxed_slice(),
+    );
+
+    let mut res = u.getStringArrNullable2DUnchecked(
+        &env,
+        Some(Into::into(vec![
+            "42".to_string()
+        ].into_boxed_slice())),
+        None,
+    ).into_vec();
+    assert_eq!(res.len(), 2);
+    assert!(res[0].is_none());
+    let res1 = res.remove(1);
+    assert!(res1.is_some());
+    assert_eq!(
+        <StringArr as Into<Box<[String]>>>::into(res1.unwrap()),
+        vec!["42".to_string()].into_boxed_slice(),
     );
 }

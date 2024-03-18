@@ -1,4 +1,4 @@
-use robusta_jni::convert::{ArrSignature, IntoJavaValue, Signature, TryIntoJavaValue};
+use robusta_jni::convert::{ArrSignature, FromJavaValue, IntoJavaValue, Signature, TryFromJavaValue, TryIntoJavaValue};
 use robusta_jni::jni::JNIEnv;
 
 #[derive(Signature, ArrSignature)]
@@ -7,6 +7,12 @@ pub struct StringArr(Box<[String]>);
 impl From<Box<[String]>> for StringArr {
     fn from(v: Box<[String]>) -> Self {
         Self(v)
+    }
+}
+
+impl From<StringArr> for Box<[String]> {
+    fn from(v: StringArr) -> Self {
+        v.0
     }
 }
 
@@ -23,6 +29,22 @@ impl<'env> IntoJavaValue<'env> for StringArr {
 
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
         IntoJavaValue::into(self.0, env)
+    }
+}
+
+impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for StringArr {
+    type Source = <Box<[String]> as TryFromJavaValue<'env, 'borrow>>::Source;
+
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> robusta_jni::jni::errors::Result<Self> {
+        <Box<[String]> as TryFromJavaValue>::try_from(s, env).map(|res| From::from(res))
+    }
+}
+
+impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for StringArr {
+    type Source = <Box<[String]> as FromJavaValue<'env, 'borrow>>::Source;
+
+    fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
+        From::from(<Box<[String]> as FromJavaValue>::from(s, env))
     }
 }
 
@@ -62,8 +84,8 @@ pub mod jni {
                 env.get_static_field("User", "TOTAL_USERS_COUNT", "I")
                     .unwrap(),
             )
-            .try_into()
-            .unwrap();
+                .try_into()
+                .unwrap();
             users_count.to_string()
         }
 
@@ -336,48 +358,41 @@ pub mod jni {
         pub extern "java" fn getNullableString(
             env: &JNIEnv,
             v: Option<String>,
-        ) -> JniResult<Option<String>> {
-        }
+        ) -> JniResult<Option<String>> {}
 
         #[call_type(unchecked)]
         pub extern "java" fn getNullableStringUnchecked(
             env: &JNIEnv,
             v: Option<String>,
-        ) -> Option<String> {
-        }
+        ) -> Option<String> {}
 
 
         pub extern "java" fn getPassword(
             &self,
             env: &JNIEnv,
-        ) -> JniResult<String> {
-        }
+        ) -> JniResult<String> {}
 
         #[call_type(unchecked)]
         pub extern "java" fn getPasswordUnchecked(
             &self,
             env: &JNIEnv,
-        ) -> String {
-        }
+        ) -> String {}
 
         pub extern "java" fn getTotalUsersCount(
             env: &JNIEnv,
-        ) -> JniResult<i32> {
-        }
+        ) -> JniResult<i32> {}
 
         #[call_type(unchecked)]
         pub extern "java" fn getTotalUsersCountUnchecked(
             env: &JNIEnv,
-        ) -> i32 {
-        }
+        ) -> i32 {}
 
         pub extern "java" fn multipleParameters(
             &self,
             env: &JNIEnv,
             v: i32,
             s: String,
-        ) -> JniResult<String> {
-        }
+        ) -> JniResult<String> {}
 
         #[call_type(unchecked)]
         pub extern "java" fn multipleParametersUnchecked(
@@ -385,8 +400,21 @@ pub mod jni {
             env: &JNIEnv,
             v: i32,
             s: String,
-        ) -> String {
-        }
+        ) -> String {}
+
+        pub extern "java" fn getStringArrNullable2D(
+            env: &JNIEnv,
+            a: Option<StringArr>,
+            b: Option<StringArr>,
+        ) -> JniResult<Box<[Option<StringArr>]>> {}
+
+        #[call_type(unchecked)]
+        pub extern "java" fn getStringArrNullable2DUnchecked(
+            &self,
+            env: &JNIEnv,
+            a: Option<StringArr>,
+            b: Option<StringArr>,
+        ) -> Box<[Option<StringArr>]> {}
 
         pub extern "java" fn signaturesCheck(
             &self,
@@ -413,8 +441,7 @@ pub mod jni {
             string_array_2d: Vec<Box<[String]>>,
             string_arr_nullable_2d: Box<[Option<StringArr>]>,
             string_arr_2d: Box<[StringArr]>,
-        ) -> JniResult<Vec<String>> {
-        }
+        ) -> JniResult<Vec<String>> {}
 
         #[call_type(unchecked)]
         pub extern "java" fn signaturesCheckUnchecked(
@@ -441,8 +468,7 @@ pub mod jni {
             string_array_2d: Vec<Box<[String]>>,
             string_arr_nullable_2d: Box<[Option<StringArr>]>,
             string_arr_2d: Box<[StringArr]>,
-        ) -> Vec<String> {
-        }
+        ) -> Vec<String> {}
 
         pub extern "java" fn selfSignatureCheck(
             &self,
@@ -450,8 +476,7 @@ pub mod jni {
             user: Self,
             user_array: Vec<Self>,
             user_arr: Box<[Self]>,
-        ) -> JniResult<Vec<String>> {
-        }
+        ) -> JniResult<Vec<String>> {}
 
         #[call_type(unchecked)]
         pub extern "java" fn selfSignatureCheckUnchecked(
@@ -460,30 +485,26 @@ pub mod jni {
             user: Self,
             user_array: Vec<Self>,
             user_arr: Box<[Self]>,
-        ) -> Vec<String> {
-        }
+        ) -> Vec<String> {}
 
         #[constructor]
         pub extern "java" fn new(
             env: &'borrow JNIEnv<'env>,
             username: String,
             password: String,
-        ) -> JniResult<Self> {
-        }
+        ) -> JniResult<Self> {}
 
         #[call_type(unchecked)]
         #[constructor]
         pub extern "java" fn newUnchecked(
             env: &'borrow JNIEnv<'env>,
             username: String,
-        ) -> Self {
-        }
+        ) -> Self {}
 
         #[call_type(unchecked)]
         pub extern "java" fn toString(
             &self,
             env: &JNIEnv,
-        ) -> String {
-        }
+        ) -> String {}
     }
 }

@@ -189,6 +189,20 @@ public class User {
         return s;
     }
 
+    public static String[][] getStringArrNullable2D(
+        @Nullable String[] a,
+        @Nullable String[] b
+    ) {
+        return new String[][] {b, a};
+    }
+
+    public String[][] getStringArrNullable2DUnchecked(
+        @Nullable String[] a,
+        @Nullable String[] b
+    ) {
+        return User.getStringArrNullable2D(a, b);
+    }
+
     // ArrayList won't work, signatures have to match
     public List<String> signaturesCheck(
             int i32,
