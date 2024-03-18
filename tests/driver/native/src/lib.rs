@@ -30,15 +30,13 @@ impl<'env> IntoJavaValue<'env> for StringArr {
 pub mod jni {
     use std::convert::TryInto;
 
-    use robusta_jni::convert::{
-        IntoJavaValue, JValueWrapper, Signature, ArrSignature, TryFromJavaValue, TryIntoJavaValue,
-    };
+    use robusta_jni::convert::{IntoJavaValue, FromJavaValue, JValueWrapper, Signature, ArrSignature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::convert::Local;
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::JNIEnv;
     use crate::StringArr;
 
-    #[derive(Signature, ArrSignature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue)]
+    #[derive(Signature, ArrSignature, TryIntoJavaValue, IntoJavaValue, TryFromJavaValue, FromJavaValue)]
     #[package()]
     pub struct User<'env: 'borrow, 'borrow> {
         #[instance]
@@ -471,6 +469,21 @@ pub mod jni {
             username: String,
             password: String,
         ) -> JniResult<Self> {
+        }
+
+        #[call_type(unchecked)]
+        #[constructor]
+        pub extern "java" fn newUnchecked(
+            env: &'borrow JNIEnv<'env>,
+            username: String,
+        ) -> Self {
+        }
+
+        #[call_type(unchecked)]
+        pub extern "java" fn toString(
+            &self,
+            env: &JNIEnv,
+        ) -> String {
         }
     }
 }

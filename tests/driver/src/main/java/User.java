@@ -146,6 +146,10 @@ public class User {
 
     public native String hashedPassword(int seed);
 
+    public User(String username) {
+        this(username, username + "_pass");
+    }
+
     public User(String username, String password) {
         User.TOTAL_USERS_COUNT += 1;
 

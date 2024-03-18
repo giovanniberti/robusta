@@ -91,6 +91,7 @@ fn vm_creation_and_object_usage() {
     assert_eq!(User::getTotalUsersCountUnchecked(&env), 0);
 
     let u = User::new(&env, "user".into(), "password".into()).expect("can't create user instance");
+    let u_unchecked = User::newUnchecked(&env, "user".into());
 
     let count = User::getTotalUsersCount(&env)
         .or_else(|e| {
@@ -98,8 +99,8 @@ fn vm_creation_and_object_usage() {
             Err(e)
         })
         .expect("can't get user count");
-    assert_eq!(count, 1);
-    assert_eq!(User::getTotalUsersCountUnchecked(&env), 1);
+    assert_eq!(count, 2);
+    assert_eq!(User::getTotalUsersCountUnchecked(&env), 2);
 
     assert_eq!(
         u.getPassword(&env).expect("can't get user password"),
@@ -110,6 +111,8 @@ fn vm_creation_and_object_usage() {
         u.getPasswordUnchecked(&env),
         "password"
     );
+
+    assert_eq!(u_unchecked.toString(&env), "User{username='user', password='user_pass'}");
 
     assert_eq!(
         u.multipleParameters(&env, 10, "test".to_string())
