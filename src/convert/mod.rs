@@ -86,6 +86,88 @@ pub trait Signature {
     const SIG_TYPE: &'static str;
 }
 
+// TODO: This still is not gonna work well for multi-dimensional arrays, like Box<[Box<[T]>]>
+pub trait ArrSignature {
+    const ARR_SIG_TYPE: &'static str;
+}
+
+pub struct JValueWrapper<'a>(pub JValue<'a>);
+
+impl<'a> From<JValue<'a>> for JValueWrapper<'a> {
+    fn from(v: JValue<'a>) -> Self {
+        JValueWrapper(v)
+    }
+}
+
+impl<'a> From<JValueWrapper<'a>> for JValue<'a> {
+    fn from(v: JValueWrapper<'a>) -> Self {
+        v.0
+    }
+}
+
+impl<'env> Signature for JList<'env, 'env> {
+    const SIG_TYPE: &'static str = "Ljava/util/List;";
+}
+
+impl<'env> Signature for JMap<'env, 'env> {
+    const SIG_TYPE: &'static str = "Ljava/util/Map;";
+}
+
+impl<T: Signature> Signature for jni::errors::Result<T> {
+    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
+}
+
+impl<T: Signature> Signature for Option<T> {
+    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
+}
+
+impl<T: ArrSignature> ArrSignature for Option<T> {
+    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+impl<T: ArrSignature> ArrSignature for jni::errors::Result<T> {
+    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+impl<T: ArrSignature> Signature for Box<[T]> {
+    const SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+// Similar to jvalue_types, but still different
+impl<'env> JavaValue<'env> for jobject {
+    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+        unsafe { JObject::from_raw(self) }
+    }
+
+    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+        s.into_raw()
+    }
+}
+
+// Impls for (), similar to jvalue_types, but still different
+impl Signature for () {
+    const SIG_TYPE: &'static str = "V";
+}
+
+impl<'env> JavaValue<'env> for () {
+    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+        panic!("called `JavaValue::autobox` on unit value")
+    }
+
+    fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
+}
+
+impl<'a> TryFrom<JValueWrapper<'a>> for () {
+    type Error = jni::errors::Error;
+
+    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+        match value.0 {
+            JValue::Void => Ok(()),
+            _ => Err(Error::WrongJValueType("void", value.0.type_name()).into()),
+        }
+    }
+}
+
 #[duplicate_item(
 j_type boxed sig unbox_method j_val_type j_val_type_name;
 [jboolean] [Boolean]    [Z]   [booleanValue]    [Bool]      ["bool"];
@@ -144,86 +226,6 @@ mod jvalue_types {
                 JValue::j_val_type(b) => Ok(b),
                 _ => Err(Error::WrongJValueType(j_val_type_name, value.0.type_name()).into()),
             }
-        }
-    }
-}
-
-impl Signature for () {
-    const SIG_TYPE: &'static str = "V";
-}
-
-impl<'env> JavaValue<'env> for () {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        panic!("called `JavaValue::autobox` on unit value")
-    }
-
-    fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
-}
-
-impl<'env> JavaValue<'env> for jobject {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        unsafe { JObject::from_raw(self) }
-    }
-
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-        s.into_raw()
-    }
-}
-
-impl<'env> Signature for JList<'env, 'env> {
-    const SIG_TYPE: &'static str = "Ljava/util/List;";
-}
-
-impl<'env> Signature for JMap<'env, 'env> {
-    const SIG_TYPE: &'static str = "Ljava/util/Map;";
-}
-
-impl<T: Signature> Signature for jni::errors::Result<T> {
-    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
-}
-
-impl<T: Signature> Signature for Option<T> {
-    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
-}
-
-// TODO: This still is not gonna work well for multi-dimensional arrays, like Box<[Box<[T]>]>
-pub trait ArrSignature {
-    const ARR_SIG_TYPE: &'static str;
-}
-
-impl<T: ArrSignature> ArrSignature for Option<T> {
-    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
-}
-
-impl<T: ArrSignature> ArrSignature for jni::errors::Result<T> {
-    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
-}
-
-impl<T: ArrSignature> Signature for Box<[T]> {
-    const SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
-}
-
-pub struct JValueWrapper<'a>(pub JValue<'a>);
-
-impl<'a> From<JValue<'a>> for JValueWrapper<'a> {
-    fn from(v: JValue<'a>) -> Self {
-        JValueWrapper(v)
-    }
-}
-
-impl<'a> From<JValueWrapper<'a>> for JValue<'a> {
-    fn from(v: JValueWrapper<'a>) -> Self {
-        v.0
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for () {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Void => Ok(()),
-            _ => Err(Error::WrongJValueType("void", value.0.type_name()).into()),
         }
     }
 }
