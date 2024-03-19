@@ -195,9 +195,12 @@ fn vm_creation_and_object_usage() {
     // let url = format!("vscode://vadimcn.vscode-lldb/launch/config?{{'request':'attach','pid':{}}}", std::process::id());
     // std::process::Command::new("code").arg("--open-url").arg(url).output().unwrap();
     // std::thread::sleep_ms(10000);
+    let borrow_user = create_user("borrow", "42");
+    let borrow_user_opt = create_user("borrow_opt", "42");
     let res = u.selfSignatureCheck(
         &env,
         create_user("user", "42"),
+        &borrow_user,  Some(&borrow_user_opt), Some(&borrow_user_opt),
         Some(create_user("user", "null")), None,
         vec![create_user("user", "pass")],
         vec![Some(create_user("user", "null")), None],
@@ -222,6 +225,7 @@ fn vm_creation_and_object_usage() {
         u.selfSignatureCheckUnchecked(
             &env,
             create_user("user", "42"),
+            &borrow_user,  Some(&borrow_user_opt), Some(&borrow_user_opt),
             Some(create_user("user", "null")), None,
             vec![create_user("user", "pass")],
             vec![Some(create_user("user", "null")), None],
@@ -241,6 +245,9 @@ fn vm_creation_and_object_usage() {
             "[User{username='login', password='arr_null'}]", "null",
         ]
     );
+
+    assert_eq!(borrow_user.toString(&env), "User{username='borrow', password='42__'}");
+    assert_eq!(borrow_user_opt.toString(&env), "User{username='borrow_opt', password='42____'}");
 
     let mut res = User::getStringArrNullable2D(
         &env,

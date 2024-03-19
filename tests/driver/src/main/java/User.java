@@ -286,6 +286,9 @@ public class User {
 
     public List<String> selfSignatureCheck(
             User user,
+            User borrow_user,
+            @Nullable User option_borrow_user1,
+            @Nullable User option_borrow_user2,
             @Nullable User option_user1,
             @Nullable User option_user2,
             List<User> vec_user,
@@ -296,6 +299,9 @@ public class User {
             User[] box_option_user,
             @Nullable User[] option_box_user1,
             @Nullable User[] option_box_user2) {
+        borrow_user.password += "_";
+        if (option_borrow_user1 != null) option_borrow_user1.password += "_";
+        if (option_borrow_user2 != null) option_borrow_user2.password += "_";
         return List.of(
                 this.toString(),
                 String.valueOf(user),
@@ -313,6 +319,9 @@ public class User {
 
     public List<String> selfSignatureCheckUnchecked(
             User user,
+            User borrow_user,
+            @Nullable User option_borrow_user1,
+            @Nullable User option_borrow_user2,
             @Nullable User option_user1,
             @Nullable User option_user2,
             List<User> vec_user,
@@ -323,7 +332,8 @@ public class User {
             User[] box_option_user,
             @Nullable User[] option_box_user1,
             @Nullable User[] option_box_user2) {
-        return selfSignatureCheck(user, option_user1, option_user2,
+        return selfSignatureCheck(user, borrow_user,
+                option_borrow_user1, option_borrow_user2, option_user1, option_user2,
                 vec_user, vec_option_user, option_vec_user1, option_vec_user2,
                 box_user, box_option_user, option_box_user1, option_box_user2);
     }
