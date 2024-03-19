@@ -160,20 +160,6 @@ impl<'env> JavaValue<'env> for () {
     fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
 }
 
-impl<'env> Signature for JObject<'env> {
-    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
-}
-
-impl<'env> JavaValue<'env> for JObject<'env> {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        self
-    }
-
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-        s
-    }
-}
-
 impl<'env> JavaValue<'env> for jobject {
     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
         unsafe { JObject::from_raw(self) }
@@ -242,17 +228,6 @@ impl<'a> TryFrom<JValueWrapper<'a>> for () {
     }
 }
 
-impl<'a> TryFrom<JValueWrapper<'a>> for JObject<'a> {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Object(o) => Ok(o),
-            _ => Err(Error::WrongJValueType("object", value.0.type_name()).into()),
-        }
-    }
-}
-
 #[duplicate_item(
 module_disambiguation j_type sig name;
 [a] [JString < 'env >]      ["Ljava/lang/String;"]     ["string"];
@@ -261,6 +236,7 @@ module_disambiguation j_type sig name;
 //// Introduced in new version of jni-rs, pls keep and uncomment after migration
 // [d] [JObjectArray < 'env >] ["[Ljava/lang/Object;"]    ["object_array"];
 [e] [JThrowable < 'env >]   ["Ljava/lang/Throwable;"]  ["throwable"];
+[f] [JObject < 'env >]      ["Ljava/lang/Object;"]     ["object"];
 )]
 mod jobject_types {
     use crate::convert::*;
@@ -269,6 +245,7 @@ mod jobject_types {
         const SIG_TYPE: &'static str = sig;
     }
 
+    // I believe it will be optimized away for JObject
     impl<'env> JavaValue<'env> for j_type {
         fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
             Into::into(self)
