@@ -43,9 +43,12 @@ use std::str::FromStr;
 
 use jni::errors::Error;
 use jni::objects::{JObject, JValue, JList, JMap};
+use jni::sys::jobject;
+
 // For duplicate_item blocks
 use jni::objects::{JString, JClass, JByteBuffer, JThrowable};
-use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
+use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort};
+
 use jni::JNIEnv;
 use duplicate::duplicate_item;
 
@@ -84,15 +87,15 @@ pub trait Signature {
 }
 
 #[duplicate_item(
-j_type boxed sig unbox_method;
-[jboolean] [Boolean]    [Z]   [booleanValue];
-[jbyte]    [Byte]       [B]   [byteValue];
-[jchar]    [Character]  [C]   [charValue];
-[jdouble]  [Double]     [D]   [doubleValue];
-[jfloat]   [Float]      [F]   [floatValue];
-[jint]     [Integer]    [I]   [intValue];
-[jlong]    [Long]       [J]   [longValue];
-[jshort]   [Short]      [S]   [shortValue];
+j_type boxed sig unbox_method j_val_type j_val_type_name;
+[jboolean] [Boolean]    [Z]   [booleanValue]    [Bool]      ["bool"];
+[jbyte]    [Byte]       [B]   [byteValue]       [Byte]      ["byte"];
+[jchar]    [Character]  [C]   [charValue]       [Char]      ["char"];
+[jdouble]  [Double]     [D]   [doubleValue]     [Double]    ["double"];
+[jfloat]   [Float]      [F]   [floatValue]      [Float]     ["float"];
+[jint]     [Integer]    [I]   [intValue]        [Int]       ["int"];
+[jlong]    [Long]       [J]   [longValue]       [Long]      ["long"];
+[jshort]   [Short]      [S]   [shortValue]      [Short]     ["short"];
 )]
 mod jvalue_types {
     use crate::convert::*;
@@ -132,6 +135,17 @@ mod jvalue_types {
     //         From::from(s)
     //     }
     // }
+
+    impl<'a> TryFrom<JValueWrapper<'a>> for j_type {
+        type Error = jni::errors::Error;
+
+        fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+            match value.0 {
+                JValue::j_val_type(b) => Ok(b),
+                _ => Err(Error::WrongJValueType(j_val_type_name, value.0.type_name()).into()),
+            }
+        }
+    }
 }
 
 impl Signature for () {
@@ -214,94 +228,6 @@ impl<'a> From<JValue<'a>> for JValueWrapper<'a> {
 impl<'a> From<JValueWrapper<'a>> for JValue<'a> {
     fn from(v: JValueWrapper<'a>) -> Self {
         v.0
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jboolean {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Bool(b) => Ok(b),
-            _ => Err(Error::WrongJValueType("bool", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jbyte {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Byte(b) => Ok(b),
-            _ => Err(Error::WrongJValueType("byte", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jchar {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Char(c) => Ok(c),
-            _ => Err(Error::WrongJValueType("char", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jdouble {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Double(d) => Ok(d),
-            _ => Err(Error::WrongJValueType("double", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jfloat {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Float(f) => Ok(f),
-            _ => Err(Error::WrongJValueType("float", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jint {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Int(i) => Ok(i),
-            _ => Err(Error::WrongJValueType("int", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jshort {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Short(s) => Ok(s),
-            _ => Err(Error::WrongJValueType("short", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jlong {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Long(l) => Ok(l),
-            _ => Err(Error::WrongJValueType("long", value.0.type_name()).into()),
-        }
     }
 }
 
