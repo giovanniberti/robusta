@@ -42,11 +42,11 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use jni::errors::Error;
-use jni::objects::{JObject, JString, JValue, JClass, JByteBuffer, JThrowable, JList, JMap};
-use jni::signature::ReturnType;
+use jni::objects::{JObject, JValue, JList, JMap};
+// For duplicate_item blocks
+use jni::objects::{JString, JClass, JByteBuffer, JThrowable};
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 use jni::JNIEnv;
-use paste::paste;
 use duplicate::duplicate_item;
 
 pub use field::*;
@@ -96,6 +96,8 @@ j_type boxed sig unbox_method;
 )]
 mod jvalue_types {
     use crate::convert::*;
+    use paste::paste;
+    use jni::signature::ReturnType;
 
     impl Signature for j_type {
         const SIG_TYPE: &'static str = stringify!(sig);
