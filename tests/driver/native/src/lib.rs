@@ -72,6 +72,8 @@ pub mod jni {
         #[field]
         pub username: Field<'env, 'borrow, String>,
         pub password: String,
+        #[field]
+        pub bytes: Field<'env, 'borrow, Box<[i8]>>,
     }
 
     impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {

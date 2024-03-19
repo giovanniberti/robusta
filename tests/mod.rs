@@ -253,6 +253,14 @@ fn vm_creation_and_object_usage() {
     assert_eq!("42__", User::cloneUser(&env, &borrow_user).password);
     // Mutable class fields work as expected
     assert_eq!("borrow__", borrow_user.username.get().expect("unable to get username"));
+    // This field is simply not updated on the java side
+    let expected = "42".as_bytes();
+    assert_eq!(
+        unsafe {
+            &*std::ptr::slice_from_raw_parts(expected.as_ref().as_ptr() as *const i8, expected.as_ref().len())
+        }.to_vec(),
+        borrow_user.bytes.get().expect("unable to get bytes").to_vec(),
+    );
 
     assert_eq!(borrow_user.toString(&env), "User{username='borrow__', password='42__'}");
     assert_eq!(borrow_user_opt.toString(&env), "User{username='borrow_opt____', password='42____'}");

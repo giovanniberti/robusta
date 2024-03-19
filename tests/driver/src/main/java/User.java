@@ -15,6 +15,7 @@ public class User {
 
     private String username;
     private String password;
+    private byte[] bytes;
 
     @Override
     public String toString() {
@@ -155,6 +156,7 @@ public class User {
 
         this.username = username;
         this.password = password;
+        this.bytes = password.getBytes();
     }
 
     public static String getNullableString(String v) {
