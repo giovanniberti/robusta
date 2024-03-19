@@ -178,6 +178,9 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
         })
         .collect();
 
+    let mut fields_struct_init = data_fields_struct_init.clone();
+    fields_struct_init.extend(class_fields_struct_init);
+
     Ok(quote! {
         #instance_field_type_assertion
 
@@ -191,8 +194,7 @@ fn from_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<TokenStr
 
                 Self {
                     #instance_ident: ::robusta_jni::convert::Local::new(env, source),
-                    #(#data_fields_struct_init),*
-                    #(#class_fields_struct_init),*
+                    #(#fields_struct_init),*
                 }
             }
         }
@@ -252,6 +254,9 @@ fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
         }
     }).collect();
 
+    let mut fields_struct_init = data_fields_struct_init.clone();
+    fields_struct_init.extend(class_fields_struct_init);
+
     Ok(quote! {
         #instance_field_type_assertion
 
@@ -265,8 +270,7 @@ fn tryfrom_java_value_macro_derive_impl(input: DeriveInput) -> syn::Result<Token
 
                 Ok(Self {
                     #instance_ident: ::robusta_jni::convert::Local::new(env, source),
-                    #(#data_fields_struct_init),*
-                    #(#class_fields_struct_init),*
+                    #(#fields_struct_init),*
                 })
             }
         }

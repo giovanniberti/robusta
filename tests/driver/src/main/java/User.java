@@ -299,9 +299,16 @@ public class User {
             User[] box_option_user,
             @Nullable User[] option_box_user1,
             @Nullable User[] option_box_user2) {
+        borrow_user.username += "_";
         borrow_user.password += "_";
-        if (option_borrow_user1 != null) option_borrow_user1.password += "_";
-        if (option_borrow_user2 != null) option_borrow_user2.password += "_";
+        if (option_borrow_user1 != null) {
+            option_borrow_user1.username += "_";
+            option_borrow_user1.password += "_";
+        }
+        if (option_borrow_user2 != null) {
+            option_borrow_user2.username += "_";
+            option_borrow_user2.password += "_";
+        }
         return List.of(
                 this.toString(),
                 String.valueOf(user),
@@ -336,5 +343,9 @@ public class User {
                 option_borrow_user1, option_borrow_user2, option_user1, option_user2,
                 vec_user, vec_option_user, option_vec_user1, option_vec_user2,
                 box_user, box_option_user, option_box_user1, option_box_user2);
+    }
+
+    public static User cloneUser(User user) {
+        return user;
     }
 }

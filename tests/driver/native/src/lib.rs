@@ -57,6 +57,7 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for StringArr {
 pub mod jni {
     use std::convert::TryInto;
 
+    use robusta_jni::convert::Field;
     use robusta_jni::convert::{IntoJavaValue, FromJavaValue, JValueWrapper, Signature, ArrSignature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::convert::Local;
     use robusta_jni::jni::errors::Result as JniResult;
@@ -68,7 +69,9 @@ pub mod jni {
     pub struct User<'env: 'borrow, 'borrow> {
         #[instance]
         raw: Local<'env, 'borrow>,
-        password: String,
+        #[field]
+        pub username: Field<'env, 'borrow, String>,
+        pub password: String,
     }
 
     impl<'env: 'borrow, 'borrow> User<'env, 'borrow> {
@@ -518,6 +521,12 @@ pub mod jni {
             user_arr_nullable1: Option<Box<[Self]>>,
             user_arr_nullable2: Option<Box<[Self]>>,
         ) -> Vec<String> {}
+
+        #[call_type(unchecked)]
+        pub extern "java" fn cloneUser(
+            env: &'borrow JNIEnv<'env>,
+            user: &Self,
+        ) -> Self {}
 
         #[constructor]
         pub extern "java" fn new(

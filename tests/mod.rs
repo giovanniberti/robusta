@@ -200,7 +200,7 @@ fn vm_creation_and_object_usage() {
     let res = u.selfSignatureCheck(
         &env,
         create_user("user", "42"),
-        &borrow_user,  Some(&borrow_user_opt), Some(&borrow_user_opt),
+        &borrow_user, Some(&borrow_user_opt), Some(&borrow_user_opt),
         Some(create_user("user", "null")), None,
         vec![create_user("user", "pass")],
         vec![Some(create_user("user", "null")), None],
@@ -225,7 +225,7 @@ fn vm_creation_and_object_usage() {
         u.selfSignatureCheckUnchecked(
             &env,
             create_user("user", "42"),
-            &borrow_user,  Some(&borrow_user_opt), Some(&borrow_user_opt),
+            &borrow_user, Some(&borrow_user_opt), Some(&borrow_user_opt),
             Some(create_user("user", "null")), None,
             vec![create_user("user", "pass")],
             vec![Some(create_user("user", "null")), None],
@@ -245,9 +245,17 @@ fn vm_creation_and_object_usage() {
             "[User{username='login', password='arr_null'}]", "null",
         ]
     );
+    // Mutable data fields can be tricky, as data is copied only once
+    // when (Try)FromJavaValue is called
+    assert_eq!("42", borrow_user.password);
+    assert_eq!("42__", borrow_user.getPassword(&env).expect("unable to get password"));
+    // We actually reinitialize data field here
+    assert_eq!("42__", User::cloneUser(&env, &borrow_user).password);
+    // Mutable class fields work as expected
+    assert_eq!("borrow__", borrow_user.username.get().expect("unable to get username"));
 
-    assert_eq!(borrow_user.toString(&env), "User{username='borrow', password='42__'}");
-    assert_eq!(borrow_user_opt.toString(&env), "User{username='borrow_opt', password='42____'}");
+    assert_eq!(borrow_user.toString(&env), "User{username='borrow__', password='42__'}");
+    assert_eq!(borrow_user_opt.toString(&env), "User{username='borrow_opt____', password='42____'}");
 
     let mut res = User::getStringArrNullable2D(
         &env,
