@@ -12,7 +12,7 @@
 //!
 
 use std::ptr::slice_from_raw_parts;
-use jni::objects::{JList, JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
+use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jbyte, jchar, jsize};
 use jni::sys::{JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
@@ -341,71 +341,4 @@ impl<'env, T> IntoJavaValue<'env> for Box<[T]>
         }
         unsafe { Self::Target::from_raw(raw) }
     }
-}
-
-macro_rules! box_impl_unchecked {
-    ($type:ty, $l_type:ty) => {
-        impl<'env> ArrSignature for $l_type {
-            const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <$type as Signature>::SIG_TYPE);
-        }
-
-        impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[$l_type]>
-        {
-            // TODO: Replace with JObjectArray after migration to 0.21
-            type Source = JObject<'env>;
-
-            fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
-                let len = env.get_array_length(s.into_raw()).unwrap();
-                let mut buf = Vec::with_capacity(len as usize);
-                for idx in 0..len {
-                    buf.push(env.get_object_array_element(s.into_raw(), idx).unwrap());
-                }
-
-                buf.into_boxed_slice().iter()
-                .map(|&b| <$type as FromJavaValue>::from(Into::into(b), &env))
-                .collect()
-            }
-        }
-
-        impl<'env> IntoJavaValue<'env> for Box<[$l_type]>
-        {
-            // TODO: Replace with JObjectArray after migration to 0.21
-            type Target = JObject<'env>;
-
-            fn into(self, env: &JNIEnv<'env>) -> Self::Target {
-                let vec = self.into_vec();
-                let raw = env.new_object_array(
-                    vec.len() as jsize, <$type as Signature>::SIG_TYPE, JObject::null()
-                ).unwrap();
-                for (idx, elem) in vec.into_iter().enumerate() {
-                    env.set_object_array_element(raw, idx as jsize, <$type as IntoJavaValue>::into(elem, env)).unwrap();
-                }
-                unsafe { Self::Target::from_raw(raw) }
-            }
-        }
-    };
-
-    ($type:ty, $l_type:ty, $($rest:ty, $l_rest_boxed:ty),+) => {
-        box_impl_unchecked!($type, $l_type);
-
-        box_impl_unchecked!($($rest, $l_rest_boxed),+);
-    }
-}
-
-box_impl_unchecked! {
-    JString, JString<'env>,
-    String, String,
-    JClass, JClass<'env>,
-    JByteBuffer, JByteBuffer<'env>,
-    // TODO: Enable after migration
-    // JObjectArray, JObjectArray<'env>,
-    // JBooleanArray, JBooleanArray<'env>
-    // JByteArray, JByteArray<'env>
-    // JCharacterArray, JCharacterArray<'env>
-    // JDoubleArray, JDoubleArray<'env>
-    // JFloatArray, JFloatArray<'env>
-    // JIntegerArray, JIntegerArray<'env>
-    // JLongArray, JLongArray<'env>
-    // JShortArray, JShortArray<'env>
-    JThrowable, JThrowable<'env>
 }

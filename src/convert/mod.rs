@@ -362,3 +362,101 @@ mod jobject_types {
         }
     }
 }
+
+#[duplicate_item(
+module_disambiguation j_type l_type;
+[a] [JString] [JString < 'env >];
+[b] [String] [String];
+[c] [JClass] [JClass < 'env >];
+[d] [JByteBuffer] [JByteBuffer < 'env >];
+// TODO: Enable after migration
+// [e] [JObjectArray] [JObjectArray<'env>];
+// [f] [JBooleanArray] [JBooleanArray<'env>];
+// [g] [JByteArray] [JByteArray<'env>];
+// [h] [JCharacterArray] [JCharacterArray<'env>];
+// [i] [JDoubleArray] [JDoubleArray<'env>];
+// [j] [JFloatArray] [JFloatArray<'env>];
+// [k] [JIntegerArray] [JIntegerArray<'env>];
+// [l] [JLongArray] [JLongArray<'env>];
+// [m] [JShortArray] [JShortArray<'env>];
+[n] [JThrowable] [JThrowable < 'env >];
+)]
+mod box_impl {
+    use crate::convert::*;
+    use jni::sys::jsize;
+    use jni::errors::Result;
+
+    impl<'env> ArrSignature for l_type {
+        const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <j_type as Signature>::SIG_TYPE);
+    }
+
+    impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[l_type]>
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Source = JObject<'env>;
+
+        fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
+            let len = env.get_array_length(s.into_raw()).unwrap();
+            let mut buf = Vec::with_capacity(len as usize);
+            for idx in 0..len {
+                buf.push(env.get_object_array_element(s.into_raw(), idx).unwrap());
+            }
+
+            buf.into_boxed_slice().iter()
+                .map(|&b| <j_type as FromJavaValue>::from(Into::into(b), &env))
+                .collect()
+        }
+    }
+
+    impl<'env> IntoJavaValue<'env> for Box<[l_type]>
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Target = JObject<'env>;
+
+        fn into(self, env: &JNIEnv<'env>) -> Self::Target {
+            let vec = self.into_vec();
+            let raw = env.new_object_array(
+                vec.len() as jsize, <j_type as Signature>::SIG_TYPE, JObject::null(),
+            ).unwrap();
+            for (idx, elem) in vec.into_iter().enumerate() {
+                env.set_object_array_element(raw, idx as jsize, <j_type as IntoJavaValue>::into(elem, env)).unwrap();
+            }
+            unsafe { Self::Target::from_raw(raw) }
+        }
+    }
+
+    impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[l_type]>
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Source = JObject<'env>;
+
+        fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
+            let len = env.get_array_length(s.into_raw())?;
+            let mut buf = Vec::with_capacity(len as usize);
+            for idx in 0..len {
+                buf.push(env.get_object_array_element(s.into_raw(), idx)?);
+            }
+
+            buf.into_boxed_slice().iter()
+                .map(|&b| <j_type as TryFromJavaValue>::try_from(Into::into(b), &env))
+                .collect()
+        }
+    }
+
+    impl<'env> TryIntoJavaValue<'env> for Box<[l_type]>
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Target = JObject<'env>;
+
+        fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
+            let vec = self.into_vec();
+            let raw = env.new_object_array(
+                vec.len() as jsize, <j_type as Signature>::SIG_TYPE, JObject::null(),
+            )?;
+            for (idx, elem) in vec.into_iter().enumerate() {
+                env.set_object_array_element(raw, idx as jsize, <j_type as TryIntoJavaValue>::try_into(elem, env)?)?;
+            }
+            Ok(unsafe { Self::Target::from_raw(raw) })
+        }
+    }
+}

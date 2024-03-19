@@ -18,7 +18,7 @@
 
 use std::ptr::slice_from_raw_parts;
 use jni::errors::{Error, Result};
-use jni::objects::{JList, JObject, JString, JValue, JClass, JByteBuffer, JThrowable};
+use jni::objects::{JList, JObject, JString, JValue};
 use jni::sys::{jboolean, jchar, jsize};
 use jni::sys::JNI_FALSE;
 use jni::JNIEnv;
@@ -354,67 +354,4 @@ where
         }
         Ok(unsafe { Self::Target::from_raw(raw) })
     }
-}
-
-macro_rules! box_impl_safe {
-    ($type:ty, $l_type:ty) => {
-        impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[$l_type]>
-        {
-            // TODO: Replace with JObjectArray after migration to 0.21
-            type Source = JObject<'env>;
-
-            fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
-                let len = env.get_array_length(s.into_raw())?;
-                let mut buf = Vec::with_capacity(len as usize);
-                for idx in 0..len {
-                    buf.push(env.get_object_array_element(s.into_raw(), idx)?);
-                }
-
-                buf.into_boxed_slice().iter()
-                .map(|&b| <$type as TryFromJavaValue>::try_from(Into::into(b), &env))
-                .collect()
-            }
-        }
-
-        impl<'env> TryIntoJavaValue<'env> for Box<[$l_type]>
-        {
-            // TODO: Replace with JObjectArray after migration to 0.21
-            type Target = JObject<'env>;
-
-            fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-                let vec = self.into_vec();
-                let raw = env.new_object_array(
-                    vec.len() as jsize, <$type as Signature>::SIG_TYPE, JObject::null()
-                )?;
-                for (idx, elem) in vec.into_iter().enumerate() {
-                    env.set_object_array_element(raw, idx as jsize, <$type as TryIntoJavaValue>::try_into(elem, env)?)?;
-                }
-                Ok(unsafe { Self::Target::from_raw(raw) })
-            }
-        }
-    };
-
-    ($type:ty, $l_type:ty, $($rest:ty, $l_rest_boxed:ty),+) => {
-        box_impl_safe!($type, $l_type);
-
-        box_impl_safe!($($rest, $l_rest_boxed),+);
-    }
-}
-
-box_impl_safe! {
-    JString, JString<'env>,
-    String, String,
-    JClass, JClass<'env>,
-    JByteBuffer, JByteBuffer<'env>,
-    // TODO: Enable after migration
-    // JObjectArray, JObjectArray<'env>,
-    // JBooleanArray, JBooleanArray<'env>
-    // JByteArray, JByteArray<'env>
-    // JCharacterArray, JCharacterArray<'env>
-    // JDoubleArray, JDoubleArray<'env>
-    // JFloatArray, JFloatArray<'env>
-    // JIntegerArray, JIntegerArray<'env>
-    // JLongArray, JLongArray<'env>
-    // JShortArray, JShortArray<'env>
-    JThrowable, JThrowable<'env>
 }
