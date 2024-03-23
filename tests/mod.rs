@@ -76,10 +76,15 @@ fn vm_creation_and_object_usage() {
 
     User::initNative();
 
-    assert_eq!(User::getNullableString(&env, None).expect("can't get nullable string"), None);
-    assert_eq!(User::getNullableString(&env, Some("hello!".into())).expect("can't get nullable string"), Some("hello!".into()));
-    assert_eq!(User::getNullableStringUnchecked(&env, None), None);
-    assert_eq!(User::getNullableStringUnchecked(&env, Some("hello!".into())), Some("hello!".into()));
+    assert_eq!(User::nullableString(&env, None).expect("can't get nullable string"), None);
+    assert_eq!(User::nullableString(&env, Some("hello!".into())).expect("can't get nullable string"), Some("hello!".into()));
+    assert_eq!(User::nullableStringUnchecked(&env, None), None);
+    assert_eq!(User::nullableStringUnchecked(&env, Some("hello!".into())), Some("hello!".into()));
+
+    assert_eq!(User::nullableDouble(&env, None).expect("can't get nullable double"), 0f64);
+    assert_eq!(User::nullableDouble(&env, Some(4.2f64)).expect("can't get nullable double"), 4.2f64);
+    assert_eq!(User::nullableDoubleUnchecked(&env, None), 0f64);
+    assert_eq!(User::nullableDoubleUnchecked(&env, Some(4.2f64)), 4.2f64);
 
     let count = User::getTotalUsersCount(&env)
         .or_else(|e| {
@@ -265,7 +270,7 @@ fn vm_creation_and_object_usage() {
     assert_eq!(borrow_user.toString(&env), "User{username='borrow__', password='42__'}");
     assert_eq!(borrow_user_opt.toString(&env), "User{username='borrow_opt____', password='42____'}");
 
-    let mut res = User::getStringArrNullable2D(
+    let mut res = User::stringArrNullable2D(
         &env,
         Some(Into::into(vec![
             "42".to_string()
@@ -281,7 +286,7 @@ fn vm_creation_and_object_usage() {
         vec!["42".to_string()].into_boxed_slice(),
     );
 
-    let mut res = u.getStringArrNullable2DUnchecked(
+    let mut res = u.stringArrNullable2DUnchecked(
         &env,
         Some(Into::into(vec![
             "42".to_string()

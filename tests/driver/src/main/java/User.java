@@ -159,11 +159,19 @@ public class User {
         this.bytes = password.getBytes();
     }
 
-    public static String getNullableString(String v) {
+    public static String nullableString(@Nullable String v) {
         return v;
     }
 
-    public static String getNullableStringUnchecked(String v) {
+    public static String nullableStringUnchecked(@Nullable String v) {
+        return v;
+    }
+
+    public static double nullableDouble(double v) {
+        return v;
+    }
+
+    public static double nullableDoubleUnchecked(double v) {
         return v;
     }
 
@@ -191,16 +199,16 @@ public class User {
         return s;
     }
 
-    public static String[][] getStringArrNullable2D(
+    public static String[][] stringArrNullable2D(
             @Nullable String[] a,
             @Nullable String[] b) {
         return new String[][] { b, a };
     }
 
-    public String[][] getStringArrNullable2DUnchecked(
+    public String[][] stringArrNullable2DUnchecked(
             @Nullable String[] a,
             @Nullable String[] b) {
-        return User.getStringArrNullable2D(a, b);
+        return User.stringArrNullable2D(a, b);
     }
 
     // ArrayList won't work, signatures have to match

@@ -282,16 +282,12 @@ where
 impl<'env, T> IntoJavaValue<'env> for Option<T>
 where
     T: IntoJavaValue<'env>,
-    // It's possible to replace this with
-    // <T as IntoJavaValue<'env>>::Target: Default,
-    // after migration, so it'll work with primitive types too
-    // (not sure if it break things for types with Target != JObject
-    <T as IntoJavaValue<'env>>::Target: From<JObject<'env>>,
+    <T as IntoJavaValue<'env>>::Target: Default,
 {
     type Target = <T as IntoJavaValue<'env>>::Target;
     fn into(self, env: &JNIEnv<'env>) -> Self::Target {
         match self {
-            None => { From::from(JObject::null()) }
+            None => { Self::Target::default() }
             Some(value) => { T::into(value, env) }
         }
     }

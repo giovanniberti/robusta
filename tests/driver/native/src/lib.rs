@@ -365,16 +365,27 @@ pub mod jni {
             format!("{:?}", v)
         }
 
-        pub extern "java" fn getNullableString(
+        pub extern "java" fn nullableString(
             env: &JNIEnv,
             v: Option<String>,
         ) -> JniResult<Option<String>> {}
 
         #[call_type(unchecked)]
-        pub extern "java" fn getNullableStringUnchecked(
+        pub extern "java" fn nullableStringUnchecked(
             env: &JNIEnv,
             v: Option<String>,
         ) -> Option<String> {}
+
+        pub extern "java" fn nullableDouble(
+            env: &JNIEnv,
+            v: Option<f64>,
+        ) -> JniResult<f64> {}
+
+        #[call_type(unchecked)]
+        pub extern "java" fn nullableDoubleUnchecked(
+            env: &JNIEnv,
+            v: Option<f64>,
+        ) -> f64 {}
 
 
         pub extern "java" fn getPassword(
@@ -412,14 +423,14 @@ pub mod jni {
             s: String,
         ) -> String {}
 
-        pub extern "java" fn getStringArrNullable2D(
+        pub extern "java" fn stringArrNullable2D(
             env: &JNIEnv,
             a: Option<StringArr>,
             b: Option<StringArr>,
         ) -> JniResult<Box<[Option<StringArr>]>> {}
 
         #[call_type(unchecked)]
-        pub extern "java" fn getStringArrNullable2DUnchecked(
+        pub extern "java" fn stringArrNullable2DUnchecked(
             &self,
             env: &JNIEnv,
             a: Option<StringArr>,

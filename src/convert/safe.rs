@@ -296,16 +296,12 @@ where
 impl<'env, T> TryIntoJavaValue<'env> for Option<T>
 where
     T: TryIntoJavaValue<'env>,
-    // It's possible to replace this with
-    // <T as TryIntoJavaValue<'env>>::Target: Default,
-    // after migration, so it'll work with primitive types too
-    // (not sure if it break things for types with Target != JObject
-    <T as TryIntoJavaValue<'env>>::Target: From<JObject<'env>>,
+    <T as TryIntoJavaValue<'env>>::Target: Default,
 {
     type Target = <T as TryIntoJavaValue<'env>>::Target;
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         match self {
-            None => { Ok(From::from(JObject::null())) }
+            None => { Ok(Self::Target::default()) }
             Some(value) => { T::try_into(value, env) }
         }
     }
