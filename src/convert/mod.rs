@@ -288,46 +288,10 @@ module_disambiguation j_type l_type;
 // [m] [JShortArray] [JShortArray<'env>];
 [n] [JThrowable] [JThrowable < 'env >];
 )]
-mod box_impl {
+mod arr_sign_impl {
     use crate::convert::*;
-    use jni::sys::jsize;
 
     impl<'env> ArrSignature for l_type {
         const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <j_type as Signature>::SIG_TYPE);
-    }
-
-    impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for Box<[l_type]>
-    {
-        // TODO: Replace with JObjectArray after migration to 0.21
-        type Source = JObject<'env>;
-
-        fn from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Self {
-            let len = env.get_array_length(s.into_raw()).unwrap();
-            let mut buf = Vec::with_capacity(len as usize);
-            for idx in 0..len {
-                buf.push(env.get_object_array_element(s.into_raw(), idx).unwrap());
-            }
-
-            buf.into_boxed_slice().iter()
-                .map(|&b| <j_type as FromJavaValue>::from(Into::into(b), &env))
-                .collect()
-        }
-    }
-
-    impl<'env> IntoJavaValue<'env> for Box<[l_type]>
-    {
-        // TODO: Replace with JObjectArray after migration to 0.21
-        type Target = JObject<'env>;
-
-        fn into(self, env: &JNIEnv<'env>) -> Self::Target {
-            let vec = self.into_vec();
-            let raw = env.new_object_array(
-                vec.len() as jsize, <j_type as Signature>::SIG_TYPE, JObject::null(),
-            ).unwrap();
-            for (idx, elem) in vec.into_iter().enumerate() {
-                env.set_object_array_element(raw, idx as jsize, <j_type as IntoJavaValue>::into(elem, env)).unwrap();
-            }
-            unsafe { Self::Target::from_raw(raw) }
-        }
     }
 }
