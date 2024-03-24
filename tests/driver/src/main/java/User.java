@@ -229,7 +229,7 @@ public class User {
             boolean[] box_bool,
             String[] box_jstring,
             String[] box_string,
-            String[] box_option_string, // not passed to signaturesCheckUnchecked yet
+            String[] box_option_string,
             @Nullable String option_string,
             List<byte[]> vec_option_box_i8,
             List<byte[]> vec_box_i8,
@@ -238,8 +238,8 @@ public class User {
             String[][] box_option_box_string,
             String[][] box_box_string) {
         return User.signaturesCheckUnchecked(i32, bool, character, i8, f32, f64, i64, i16, string,
-                vec_i32, vec_string, vec_option_string, box_i8, box_bool, box_jstring, box_string, option_string,
-                vec_option_box_i8, vec_box_i8, vec_option_box_string, vec_box_string,
+                vec_i32, vec_string, vec_option_string, box_i8, box_bool, box_jstring, box_string, box_option_string,
+                option_string, vec_option_box_i8, vec_box_i8, vec_option_box_string, vec_box_string,
                 box_option_box_string, box_box_string);
     }
 
@@ -260,7 +260,7 @@ public class User {
             boolean[] box_bool,
             String[] box_jstring,
             String[] box_string,
-            // String[] box_option_string - not possible yet,
+            String[] box_option_string,
             @Nullable String option_string,
             List<byte[]> vec_option_box_i8,
             List<byte[]> vec_box_i8,
@@ -285,6 +285,7 @@ public class User {
                 Arrays.toString(box_bool),
                 Arrays.toString(box_jstring),
                 Arrays.toString(box_string),
+                Arrays.toString(box_option_string),
                 String.valueOf(option_string),
                 vec_option_box_i8.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
                 vec_box_i8.stream().map(Arrays::toString).collect(Collectors.toList()).toString(),
