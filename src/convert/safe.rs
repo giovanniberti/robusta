@@ -186,6 +186,17 @@ where
     fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[T]>>;
 }
 
+pub trait BoxedTryIntoJavaValue<'env, T, U>
+    where
+        T: TryIntoJavaValue<'env, Target=U>,
+        Box<[T]>: Signature,
+{
+    type Target: JavaValue<'env>;
+    const SIG_TYPE: &'static str = <Box<[T]> as Signature>::SIG_TYPE;
+
+    fn boxed_try_into(t: Box<[T]>, env: &JNIEnv<'env>) -> Result<Self::Target>;
+}
+
 impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, bool, <bool as TryFromJavaValue<'env, 'borrow>>::Source> for (bool, <bool as TryFromJavaValue<'env, 'borrow>>::Source) {
     type Source = JObject<'env>;
 
@@ -200,6 +211,18 @@ impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, bool, <bool as
     }
 }
 
+impl<'env> BoxedTryIntoJavaValue<'env, bool, <bool as TryIntoJavaValue<'env>>::Target> for (bool, <bool as TryIntoJavaValue<'env>>::Target) {
+    type Target = JObject<'env>;
+
+    fn boxed_try_into(t: Box<[bool]>, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        let len = t.len();
+        let buf: Vec<_> = t.iter().map(|&b| Into::into(b)).collect();
+        let raw = env.new_boolean_array(len as i32)?;
+        env.set_boolean_array_region(raw, 0, &buf)?;
+        Ok(unsafe { Self::Target::from_raw(raw) })
+    }
+}
+
 impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, i8, <i8 as TryFromJavaValue<'env, 'borrow>>::Source> for (i8, <i8 as TryFromJavaValue<'env, 'borrow>>::Source) {
     type Source = JObject<'env>;
 
@@ -208,6 +231,15 @@ impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, i8, <i8 as Try
         let boxed_slice = buf.into_boxed_slice();
         let conv = unsafe { &*slice_from_raw_parts(boxed_slice.as_ref().as_ptr() as *const i8, boxed_slice.as_ref().len()) };
         Ok(conv.into())
+    }
+}
+
+impl<'env> BoxedTryIntoJavaValue<'env, i8, <i8 as TryIntoJavaValue<'env>>::Target> for (i8, <i8 as TryIntoJavaValue<'env>>::Target) {
+    type Target = JObject<'env>;
+
+    fn boxed_try_into(t: Box<[i8]>, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        let conv = unsafe { &*slice_from_raw_parts(t.as_ref().as_ptr() as *const u8, t.as_ref().len()) };
+        env.byte_array_from_slice(conv).map(|val| unsafe { Self::Target::from_raw(val) } )
     }
 }
 
@@ -253,6 +285,28 @@ mod box_impl {
                 .collect()
         }
     }
+
+    impl<'env, T> BoxedTryIntoJavaValue<'env, T, j_type<'env>> for (T, j_type<'env>)
+        where
+            Box<[T]>: Signature,
+            T: TryIntoJavaValue<'env, Target = j_type<'env>>,
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Target = JObject<'env>;
+
+        fn boxed_try_into(t: Box<[T]>, env: &JNIEnv<'env>) -> Result<Self::Target> {
+            let vec = t.into_vec();
+            let raw = env.new_object_array(
+                vec.len() as jsize, <T as Signature>::SIG_TYPE, JObject::null()
+            )?;
+            for (idx, elem) in vec.into_iter().enumerate() {
+                // TODO: use AutoLocal - and convert immediately there - for types that
+                // don't hold local ref, so env.delete_local_ref is safe
+                env.set_object_array_element(raw, idx as jsize, T::try_into(elem, env)?)?;
+            }
+            Ok(unsafe { Self::Target::from_raw(raw) })
+        }
+    }
 }
 
 // https://stackoverflow.com/questions/40392524/conflicting-trait-implementations-even-though-associated-types-differ/40408431#40408431
@@ -269,15 +323,16 @@ where
     }
 }
 
-impl<'env> TryIntoJavaValue<'env> for Box<[bool]> {
-    type Target = JObject<'env>;
+impl<'env, T> TryIntoJavaValue<'env> for Box<[T]>
+    where
+        T: TryIntoJavaValue<'env>,
+        Box<[T]>: Signature,
+        (T, <T as TryIntoJavaValue<'env>>::Target): BoxedTryIntoJavaValue<'env, T, <T as TryIntoJavaValue<'env>>::Target>,
+{
+    type Target = <(T, <T as TryIntoJavaValue<'env>>::Target) as BoxedTryIntoJavaValue<'env, T, <T as TryIntoJavaValue<'env>>::Target>>::Target;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        let len = self.len();
-        let buf: Vec<_> = self.iter().map(|&b| Into::into(b)).collect();
-        let raw = env.new_boolean_array(len as i32)?;
-        env.set_boolean_array_region(raw, 0, &buf)?;
-        Ok(unsafe { Self::Target::from_raw(raw) })
+        <(T, <T as TryIntoJavaValue<'env>>::Target) as BoxedTryIntoJavaValue<T, <T as TryIntoJavaValue<'env>>::Target>>::boxed_try_into(self, env)
     }
 }
 
@@ -326,15 +381,6 @@ where
     }
 }
 
-impl<'env> TryIntoJavaValue<'env> for Box<[i8]> {
-    type Target = JObject<'env>;
-
-    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        let conv = unsafe { &*slice_from_raw_parts(self.as_ref().as_ptr() as *const u8, self.as_ref().len()) };
-        env.byte_array_from_slice(conv).map(|val| unsafe { Self::Target::from_raw(val) } )
-    }
-}
-
 /// When returning a [`jni::errors::Result`], if the returned variant is `Ok(v)` then the value `v` is returned as usual.
 ///
 /// If the returned value is `Err`, the Java exception specified in the `#[call_type(safe)]` attribute is thrown
@@ -376,27 +422,5 @@ where
             None => { Ok(Self::Target::default()) }
             Some(value) => { T::try_into(value, env) }
         }
-    }
-}
-
-impl<'env, T> TryIntoJavaValue<'env> for Box<[T]>
-where
-    Box<[T]>: Signature,
-    T: TryIntoJavaValue<'env, Target = JObject<'env>>,
-{
-    // TODO: Replace with JObjectArray after migration to 0.21
-    type Target = JObject<'env>;
-
-    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        let vec = self.into_vec();
-        let raw = env.new_object_array(
-            vec.len() as jsize, <T as Signature>::SIG_TYPE, JObject::null()
-        )?;
-        for (idx, elem) in vec.into_iter().enumerate() {
-            // TODO: use AutoLocal - and convert immediately there - for types that
-            // don't hold local ref, so env.delete_local_ref is safe
-            env.set_object_array_element(raw, idx as jsize, T::try_into(elem, env)?)?;
-        }
-        Ok(unsafe { Self::Target::from_raw(raw) })
     }
 }

@@ -291,7 +291,6 @@ module_disambiguation j_type l_type;
 mod box_impl {
     use crate::convert::*;
     use jni::sys::jsize;
-    use jni::errors::Result;
 
     impl<'env> ArrSignature for l_type {
         const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <j_type as Signature>::SIG_TYPE);
@@ -329,23 +328,6 @@ mod box_impl {
                 env.set_object_array_element(raw, idx as jsize, <j_type as IntoJavaValue>::into(elem, env)).unwrap();
             }
             unsafe { Self::Target::from_raw(raw) }
-        }
-    }
-
-    impl<'env> TryIntoJavaValue<'env> for Box<[l_type]>
-    {
-        // TODO: Replace with JObjectArray after migration to 0.21
-        type Target = JObject<'env>;
-
-        fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-            let vec = self.into_vec();
-            let raw = env.new_object_array(
-                vec.len() as jsize, <j_type as Signature>::SIG_TYPE, JObject::null(),
-            )?;
-            for (idx, elem) in vec.into_iter().enumerate() {
-                env.set_object_array_element(raw, idx as jsize, <j_type as TryIntoJavaValue>::try_into(elem, env)?)?;
-            }
-            Ok(unsafe { Self::Target::from_raw(raw) })
         }
     }
 }
