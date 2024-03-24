@@ -332,24 +332,6 @@ mod box_impl {
         }
     }
 
-    impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, l_type, <l_type as TryFromJavaValue<'env, 'borrow>>::Source> for (l_type, <l_type as TryFromJavaValue<'env, 'borrow>>::Source)
-    {
-        // TODO: Replace with JObjectArray after migration to 0.21
-        type Source = JObject<'env>;
-
-        fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[l_type]>> {
-            let len = env.get_array_length(s.into_raw())?;
-            let mut buf = Vec::with_capacity(len as usize);
-            for idx in 0..len {
-                buf.push(env.get_object_array_element(s.into_raw(), idx)?);
-            }
-
-            buf.into_boxed_slice().iter()
-                .map(|&b| <j_type as TryFromJavaValue>::try_from(Into::into(b), &env))
-                .collect()
-        }
-    }
-
     impl<'env> TryIntoJavaValue<'env> for Box<[l_type]>
     {
         // TODO: Replace with JObjectArray after migration to 0.21

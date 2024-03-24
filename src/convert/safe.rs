@@ -19,6 +19,7 @@
 use std::ptr::slice_from_raw_parts;
 use jni::errors::{Error, Result};
 use jni::objects::{JList, JObject, JString, JValue};
+use jni::objects::{JClass, JByteBuffer, JThrowable};
 use jni::sys::{jboolean, jchar, jsize};
 use jni::sys::JNI_FALSE;
 use jni::JNIEnv;
@@ -27,6 +28,8 @@ use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
 use crate::convert::{JavaValue, Signature};
 
 pub use robusta_codegen::{TryFromJavaValue, TryIntoJavaValue};
+
+use duplicate::duplicate_item;
 
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
 ///
@@ -208,26 +211,47 @@ impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, i8, <i8 as Try
     }
 }
 
-impl<'env: 'borrow, 'borrow, T> BoxedTryFromJavaValue<'env, 'borrow, T, JObject<'env>> for (T, JObject<'env>)
-where
-    Box<[T]>: Signature,
-    T: TryFromJavaValue<'env, 'borrow, Source = JObject<'env>>,
-{
-    // TODO: Replace with JObjectArray after migration to 0.21
-    type Source = JObject<'env>;
+#[duplicate_item(
+module_disambiguation j_type;
+[a] [JObject];
+[b] [JString];
+[c] [JClass];
+[d] [JByteBuffer];
+// TODO: Enable after migration
+// [e] [JObjectArray];
+// [f] [JBooleanArray];
+// [g] [JByteArray];
+// [h] [JCharacterArray];
+// [i] [JDoubleArray];
+// [j] [JFloatArray];
+// [k] [JIntegerArray];
+// [l] [JLongArray];
+// [m] [JShortArray];
+[n] [JThrowable];
+)]
+mod box_impl {
+    use crate::convert::safe::*;
+    impl<'env: 'borrow, 'borrow, T> BoxedTryFromJavaValue<'env, 'borrow, T, j_type<'env>> for (T, j_type<'env>)
+        where
+            Box<[T]>: Signature,
+            T: TryFromJavaValue<'env, 'borrow, Source = j_type<'env>>,
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Source = JObject<'env>;
 
-    fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[T]>> {
-        let len = env.get_array_length(s.into_raw())?;
-        let mut buf = Vec::with_capacity(len as usize);
-        for idx in 0..len {
-            // TODO: use AutoLocal - and convert immediately there - for types that
-            // don't hold local ref, so env.delete_local_ref is safe
-            buf.push(env.get_object_array_element(s.into_raw(), idx)?);
+        fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[T]>> {
+            let len = env.get_array_length(s.into_raw())?;
+            let mut buf = Vec::with_capacity(len as usize);
+            for idx in 0..len {
+                // TODO: use AutoLocal - and convert immediately there - for types that
+                // don't hold local ref, so env.delete_local_ref is safe
+                buf.push(env.get_object_array_element(s.into_raw(), idx)?);
+            }
+
+            buf.into_boxed_slice().iter()
+                .map(|&b| T::try_from(Into::into(b), &env))
+                .collect()
         }
-
-        buf.into_boxed_slice().iter()
-            .map(|&b| T::try_from(Into::into(b), &env))
-            .collect()
     }
 }
 
