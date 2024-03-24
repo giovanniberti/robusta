@@ -456,9 +456,7 @@ pub mod jni {
             bool_array: Box<[bool]>,
             jstring_arr: Box<[robusta_jni::jni::objects::JString<'env>]>,
             string_arr: Box<[String]>,
-            // `Box<[Option<String>]>` is impossible
-            // Because `TryIntoJavaValue<'env> for Box<[T]>` has
-            // to have `Target = JObject<'env>` restriction
+            string_arr_nullable: Box<[Option<String>]>,
             nullable_string: Option<String>,
             byte_array_nullable_2d: Vec<Option<Box<[i8]>>>,
             byte_array_2d: Vec<Box<[i8]>>,

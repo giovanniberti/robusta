@@ -229,7 +229,7 @@ public class User {
             boolean[] box_bool,
             String[] box_jstring,
             String[] box_string,
-            // String[] box_option_string - not possible yet,
+            String[] box_option_string, // not passed to signaturesCheckUnchecked yet
             @Nullable String option_string,
             List<byte[]> vec_option_box_i8,
             List<byte[]> vec_box_i8,

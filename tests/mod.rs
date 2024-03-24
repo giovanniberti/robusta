@@ -138,6 +138,7 @@ fn vm_creation_and_object_usage() {
                                 vec![42, 42].into_boxed_slice(), vec![false, true].into_boxed_slice(),
                                 vec![env.new_string("42").unwrap(), <JString<'_> as From<JObject>>::from(JObject::null())].into_boxed_slice(),
                                 vec!["42".to_string(), "42".to_string()].into_boxed_slice(),
+                                vec![None, Some("42".to_string())].into_boxed_slice(),
                                 None, vec![Some(vec![42].into_boxed_slice()), None],
                                 vec![vec![42].into_boxed_slice(), vec![42, 42].into_boxed_slice()],
                                 vec![Some(vec!["42".to_string()].into_boxed_slice()), None],
