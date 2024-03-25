@@ -1,0 +1,25 @@
+// .vscode/launch.json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug gradlew tests",
+            "preLaunchTask": "buildTests",
+            "program": "java",
+            "args": [
+                "-Xmx64m",
+                "-Xms64m",
+                "-Dorg.gradle.appname=gradlew",
+                "-classpath", "gradle/wrapper/gradle-wrapper.jar",
+                "org.gradle.wrapper.GradleWrapperMain", "test", "-i"
+            ],
+            "initCommands": ["breakpoint set --selector getInt"],
+            "cwd": "${workspaceFolder}/tests/driver",
+            "sourceLanguages": [
+                "rust"
+            ]
+        }
+    ]
+}

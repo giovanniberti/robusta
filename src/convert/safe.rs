@@ -16,15 +16,20 @@
 //! Both of these parameters are optional. By default, the exception class is `java.lang.RuntimeException`.
 //!
 
+use std::ptr::slice_from_raw_parts;
 use jni::errors::{Error, Result};
 use jni::objects::{JList, JObject, JString, JValue};
-use jni::sys::{jboolean, jbooleanArray, jbyteArray, jchar, jobject};
+use jni::objects::{JClass, JByteBuffer, JThrowable};
+use jni::sys::{jboolean, jchar, jsize};
+use jni::sys::JNI_FALSE;
 use jni::JNIEnv;
 
 use crate::convert::unchecked::{FromJavaValue, IntoJavaValue};
 use crate::convert::{JavaValue, Signature};
 
 pub use robusta_codegen::{TryFromJavaValue, TryIntoJavaValue};
+
+use duplicate::duplicate_item;
 
 /// Conversion trait from Rust values to Java values, analogous to [TryInto](std::convert::TryInto). Used when converting types returned from JNI-available functions.
 ///
@@ -52,7 +57,7 @@ pub trait TryIntoJavaValue<'env>: Signature {
 /// This is the default trait used when converting values from Java to Rust.
 ///
 /// # Notes on the derive macro
-/// When using the derive macro, the deriving struct **must** have a [`AutoLocal`] field annotated with both `'env` and `'borrow` lifetimes and a `#[instance]` attribute.
+/// When using the derive macro, the deriving struct **must** have a [`Local`] field annotated with both `'env` and `'borrow` lifetimes and a `#[instance]` attribute.
 /// This fields keeps a [local reference](https://docs.oracle.com/en/java/javase/15/docs/specs/jni/design.html#global-and-local-references) to the underlying Java object.
 /// All other fields are automatically initialized from fields on the Java instance with the same name.
 ///
@@ -60,26 +65,25 @@ pub trait TryIntoJavaValue<'env>: Signature {
 ///
 /// ```rust
 /// # use robusta_jni::bridge;
-/// use robusta_jni::convert::{Signature, TryFromJavaValue};
-/// use robusta_jni::jni::objects::AutoLocal;
+/// use robusta_jni::convert::{Signature, TryFromJavaValue, Local};
 /// #
 /// # #[bridge]
 /// # mod jni {
-///     # use robusta_jni::convert::{Signature, TryFromJavaValue};
+///     # use robusta_jni::convert::{Signature, TryFromJavaValue, Local};
 ///     # use robusta_jni::jni::JNIEnv;
-///     # use jni::objects::{JObject, AutoLocal};
+///     # use jni::objects::JObject;
 ///
 /// #[derive(Signature, TryFromJavaValue)]
 /// #[package()]
 /// struct A<'env: 'borrow, 'borrow> {
 ///     #[instance]
-///     raw: AutoLocal<'env, 'borrow>,
+///     raw: Local<'env, 'borrow>,
 ///     foo: i32
 /// }
 /// # }
 /// ```
 ///
-/// [`AutoLocal`]: jni::objects::AutoLocal
+/// [`Local`]: convert::Local
 ///
 pub trait TryFromJavaValue<'env: 'borrow, 'borrow>
 where
@@ -120,7 +124,6 @@ where
 
 impl<'env> TryIntoJavaValue<'env> for String {
     type Target = JString<'env>;
-    const SIG_TYPE: &'static str = "Ljava/lang/String;";
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         env.new_string(self)
@@ -172,29 +175,35 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for char {
     }
 }
 
-impl Signature for Box<[bool]> {
-    const SIG_TYPE: &'static str = "[Z";
+pub trait BoxedTryFromJavaValue<'env: 'borrow, 'borrow, T, U>
+where
+    T: TryFromJavaValue<'env, 'borrow, Source=U>,
+    Box<[T]>: Signature,
+{
+    type Source: JavaValue<'env>;
+    const SIG_TYPE: &'static str = <Box<[T]> as Signature>::SIG_TYPE;
+
+    fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[T]>>;
 }
 
-impl<'env> TryIntoJavaValue<'env> for Box<[bool]> {
-    type Target = jbooleanArray;
+pub trait BoxedTryIntoJavaValue<'env, T, U>
+    where
+        T: TryIntoJavaValue<'env, Target=U>,
+        Box<[T]>: Signature,
+{
+    type Target: JavaValue<'env>;
+    const SIG_TYPE: &'static str = <Box<[T]> as Signature>::SIG_TYPE;
 
-    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        let len = self.len();
-        let buf: Vec<_> = self.iter().map(|&b| Into::into(b)).collect();
-        let raw = env.new_boolean_array(len as i32)?;
-        env.set_boolean_array_region(raw, 0, &buf)?;
-        Ok(raw)
-    }
+    fn boxed_try_into(t: Box<[T]>, env: &JNIEnv<'env>) -> Result<Self::Target>;
 }
 
-impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[bool]> {
-    type Source = jbooleanArray;
+impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, bool, <bool as TryFromJavaValue<'env, 'borrow>>::Source> for (bool, <bool as TryFromJavaValue<'env, 'borrow>>::Source) {
+    type Source = JObject<'env>;
 
-    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
-        let len = env.get_array_length(s)?;
-        let mut buf = Vec::with_capacity(len as usize).into_boxed_slice();
-        env.get_boolean_array_region(s, 0, &mut *buf)?;
+    fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[bool]>> {
+        let len = env.get_array_length(s.into_raw())?;
+        let mut buf = vec![JNI_FALSE; len as usize].into_boxed_slice();
+        env.get_boolean_array_region(s.into_raw(), 0, &mut *buf)?;
 
         buf.iter()
             .map(|&b| TryFromJavaValue::try_from(b, &env))
@@ -202,11 +211,136 @@ impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[bool]> {
     }
 }
 
+impl<'env> BoxedTryIntoJavaValue<'env, bool, <bool as TryIntoJavaValue<'env>>::Target> for (bool, <bool as TryIntoJavaValue<'env>>::Target) {
+    type Target = JObject<'env>;
+
+    fn boxed_try_into(t: Box<[bool]>, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        let len = t.len();
+        let buf: Vec<_> = t.iter().map(|&b| Into::into(b)).collect();
+        let raw = env.new_boolean_array(len as i32)?;
+        env.set_boolean_array_region(raw, 0, &buf)?;
+        Ok(unsafe { Self::Target::from_raw(raw) })
+    }
+}
+
+impl<'env: 'borrow, 'borrow> BoxedTryFromJavaValue<'env, 'borrow, i8, <i8 as TryFromJavaValue<'env, 'borrow>>::Source> for (i8, <i8 as TryFromJavaValue<'env, 'borrow>>::Source) {
+    type Source = JObject<'env>;
+
+    fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[i8]>> {
+        let buf = env.convert_byte_array(s.into_raw())?;
+        let boxed_slice = buf.into_boxed_slice();
+        let conv = unsafe { &*slice_from_raw_parts(boxed_slice.as_ref().as_ptr() as *const i8, boxed_slice.as_ref().len()) };
+        Ok(conv.into())
+    }
+}
+
+impl<'env> BoxedTryIntoJavaValue<'env, i8, <i8 as TryIntoJavaValue<'env>>::Target> for (i8, <i8 as TryIntoJavaValue<'env>>::Target) {
+    type Target = JObject<'env>;
+
+    fn boxed_try_into(t: Box<[i8]>, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        let conv = unsafe { &*slice_from_raw_parts(t.as_ref().as_ptr() as *const u8, t.as_ref().len()) };
+        env.byte_array_from_slice(conv).map(|val| unsafe { Self::Target::from_raw(val) } )
+    }
+}
+
+#[duplicate_item(
+module_disambiguation j_type;
+[a] [JObject];
+[b] [JString];
+[c] [JClass];
+[d] [JByteBuffer];
+// TODO: Enable after migration
+// [e] [JObjectArray];
+// [f] [JBooleanArray];
+// [g] [JByteArray];
+// [h] [JCharacterArray];
+// [i] [JDoubleArray];
+// [j] [JFloatArray];
+// [k] [JIntegerArray];
+// [l] [JLongArray];
+// [m] [JShortArray];
+[n] [JThrowable];
+)]
+mod box_impl {
+    use crate::convert::safe::*;
+    impl<'env: 'borrow, 'borrow, T> BoxedTryFromJavaValue<'env, 'borrow, T, j_type<'env>> for (T, j_type<'env>)
+        where
+            Box<[T]>: Signature,
+            T: TryFromJavaValue<'env, 'borrow, Source = j_type<'env>>,
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Source = JObject<'env>;
+
+        fn boxed_try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[T]>> {
+            let len = env.get_array_length(s.into_raw())?;
+            let mut buf = Vec::with_capacity(len as usize);
+            for idx in 0..len {
+                // TODO: use AutoLocal - and convert immediately there - for types that
+                // don't hold local ref, so env.delete_local_ref is safe
+                buf.push(env.get_object_array_element(s.into_raw(), idx)?);
+            }
+
+            buf.into_boxed_slice().iter()
+                .map(|&b| T::try_from(Into::into(b), &env))
+                .collect()
+        }
+    }
+
+    impl<'env, T> BoxedTryIntoJavaValue<'env, T, j_type<'env>> for (T, j_type<'env>)
+        where
+            Box<[T]>: Signature,
+            T: TryIntoJavaValue<'env, Target = j_type<'env>>,
+    {
+        // TODO: Replace with JObjectArray after migration to 0.21
+        type Target = JObject<'env>;
+
+        fn boxed_try_into(t: Box<[T]>, env: &JNIEnv<'env>) -> Result<Self::Target> {
+            let vec = t.into_vec();
+            let raw = env.new_object_array(
+                vec.len() as jsize, <T as Signature>::SIG_TYPE, JObject::null()
+            )?;
+            for (idx, elem) in vec.into_iter().enumerate() {
+                // TODO: use AutoLocal - and convert immediately there - for types that
+                // don't hold local ref, so env.delete_local_ref is safe
+                env.set_object_array_element(raw, idx as jsize, T::try_into(elem, env)?)?;
+            }
+            Ok(unsafe { Self::Target::from_raw(raw) })
+        }
+    }
+}
+
+// https://stackoverflow.com/questions/40392524/conflicting-trait-implementations-even-though-associated-types-differ/40408431#40408431
+impl<'env: 'borrow, 'borrow, T> TryFromJavaValue<'env, 'borrow> for Box<[T]>
+where
+    T: TryFromJavaValue<'env, 'borrow>,
+    Box<[T]>: Signature,
+    (T, <T as TryFromJavaValue<'env, 'borrow>>::Source): BoxedTryFromJavaValue<'env, 'borrow, T, <T as TryFromJavaValue<'env, 'borrow>>::Source>,
+{
+    type Source = <(T, <T as TryFromJavaValue<'env, 'borrow>>::Source) as BoxedTryFromJavaValue<'env, 'borrow, T, <T as TryFromJavaValue<'env, 'borrow>>::Source>>::Source;
+
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
+        <(T, <T as TryFromJavaValue<'env, 'borrow>>::Source) as BoxedTryFromJavaValue<T, <T as TryFromJavaValue<'env, 'borrow>>::Source>>::boxed_try_from(s, env)
+    }
+}
+
+impl<'env, T> TryIntoJavaValue<'env> for Box<[T]>
+    where
+        T: TryIntoJavaValue<'env>,
+        Box<[T]>: Signature,
+        (T, <T as TryIntoJavaValue<'env>>::Target): BoxedTryIntoJavaValue<'env, T, <T as TryIntoJavaValue<'env>>::Target>,
+{
+    type Target = <(T, <T as TryIntoJavaValue<'env>>::Target) as BoxedTryIntoJavaValue<'env, T, <T as TryIntoJavaValue<'env>>::Target>>::Target;
+
+    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        <(T, <T as TryIntoJavaValue<'env>>::Target) as BoxedTryIntoJavaValue<T, <T as TryIntoJavaValue<'env>>::Target>>::boxed_try_into(self, env)
+    }
+}
+
 impl<'env, T> TryIntoJavaValue<'env> for Vec<T>
 where
     T: TryIntoJavaValue<'env>,
 {
-    type Target = jobject;
+    type Target = JObject<'env>;
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         let obj = env.new_object(
@@ -227,7 +361,7 @@ where
             .map(|el| Ok(list.add(el?)))
             .collect();
 
-        Ok(list.into_raw())
+        Ok(list.into())
     }
 }
 
@@ -247,28 +381,6 @@ where
     }
 }
 
-impl Signature for Box<[u8]> {
-    const SIG_TYPE: &'static str = "[B";
-}
-
-impl<'env> TryIntoJavaValue<'env> for Box<[u8]> {
-    type Target = jbyteArray;
-
-    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
-        env.byte_array_from_slice(self.as_ref())
-    }
-}
-
-impl<'env: 'borrow, 'borrow> TryFromJavaValue<'env, 'borrow> for Box<[u8]> {
-    type Source = jbyteArray;
-
-    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Box<[u8]>> {
-        let buf = env.convert_byte_array(s)?;
-        let boxed_slice = buf.into_boxed_slice();
-        Ok(boxed_slice)
-    }
-}
-
 /// When returning a [`jni::errors::Result`], if the returned variant is `Ok(v)` then the value `v` is returned as usual.
 ///
 /// If the returned value is `Err`, the Java exception specified in the `#[call_type(safe)]` attribute is thrown
@@ -281,5 +393,34 @@ where
 
     fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
         self.and_then(|s| TryIntoJavaValue::try_into(s, env))
+    }
+}
+
+impl<'env: 'borrow, 'borrow, T> TryFromJavaValue<'env, 'borrow> for Option<T>
+where
+    T: TryFromJavaValue<'env, 'borrow>,
+    // TODO: Remove Clone after migration
+    <T as TryFromJavaValue<'env, 'borrow>>::Source: Into<JObject<'env>> + Clone,
+{
+    type Source = <T as TryFromJavaValue<'env, 'borrow>>::Source;
+
+    fn try_from(s: Self::Source, env: &'borrow JNIEnv<'env>) -> Result<Self> {
+        if env.is_same_object(s.clone().into(), JObject::null())? {
+            Ok(None)
+        } else { Ok(Some(T::try_from(s, env)?)) }
+    }
+}
+
+impl<'env, T> TryIntoJavaValue<'env> for Option<T>
+where
+    T: TryIntoJavaValue<'env>,
+    <T as TryIntoJavaValue<'env>>::Target: Default,
+{
+    type Target = <T as TryIntoJavaValue<'env>>::Target;
+    fn try_into(self, env: &JNIEnv<'env>) -> Result<Self::Target> {
+        match self {
+            None => { Ok(Self::Target::default()) }
+            Some(value) => { T::try_into(value, env) }
+        }
     }
 }

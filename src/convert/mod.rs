@@ -42,20 +42,27 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use jni::errors::Error;
-use jni::objects::{JObject, JString, JValue};
-use jni::signature::ReturnType;
-use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
+use jni::objects::{JObject, JValue, JList, JMap};
+use jni::sys::jobject;
+
+// For duplicate_item blocks
+use jni::objects::{JString, JClass, JByteBuffer, JThrowable};
+use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort};
+
 use jni::JNIEnv;
-use paste::paste;
+use duplicate::duplicate_item;
 
 pub use field::*;
 pub use robusta_codegen::Signature;
+pub use robusta_codegen::ArrSignature;
 pub use safe::*;
 pub use unchecked::*;
+pub use local::*;
 
 pub mod field;
 pub mod safe;
 pub mod unchecked;
+pub mod local;
 
 /// A trait for types that are ffi-safe to use with JNI. It is implemented for primitives, [JObject](jni::objects::JObject) and [jobject](jni::sys::jobject).
 /// Users that want automatic conversion should instead implement [FromJavaValue], [IntoJavaValue] and/or [TryFromJavaValue], [TryIntoJavaValue]
@@ -79,98 +86,9 @@ pub trait Signature {
     const SIG_TYPE: &'static str;
 }
 
-macro_rules! jvalue_types {
-    ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident]) => {
-        impl Signature for $type {
-            const SIG_TYPE: &'static str = stringify!($sig);
-        }
-
-        impl<'env> JavaValue<'env> for $type {
-            fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
-                env.call_static_method_unchecked(concat!("java/lang/", stringify!($boxed)),
-                    (concat!("java/lang/", stringify!($boxed)), "valueOf", concat!(stringify!(($sig)), "Ljava/lang/", stringify!($boxed), ";")),
-                    ReturnType::from_str(concat!("Ljava/lang/", stringify!($boxed), ";")).unwrap(),
-                    &[JValue::from(self).to_jni()]).unwrap().l().unwrap()
-            }
-
-            fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self {
-                paste!(Into::into(env.call_method_unchecked(s, (concat!("java/lang/", stringify!($boxed)), stringify!($unbox_method), concat!("()", stringify!($sig))), ReturnType::from_str(stringify!($sig)).unwrap(), &[])
-                    .unwrap().[<$sig:lower>]()
-                    .unwrap()))
-            }
-        }
-    };
-
-    ($type:ty: $boxed:ident ($sig:ident) [$unbox_method:ident], $($rest:ty: $rest_boxed:ident ($rest_sig:ident) [$unbox_method_rest:ident]),+) => {
-        jvalue_types!($type: $boxed ($sig) [$unbox_method]);
-
-        jvalue_types!($($rest: $rest_boxed ($rest_sig) [$unbox_method_rest]),+);
-    }
-}
-
-jvalue_types! {
-    jboolean: Boolean (Z) [booleanValue],
-    jbyte: Byte (B) [byteValue],
-    jchar: Character (C) [charValue],
-    jdouble: Double (D) [doubleValue],
-    jfloat: Float (F) [floatValue],
-    jint: Integer (I) [intValue],
-    jlong: Long (J) [longValue],
-    jshort: Short (S) [shortValue]
-}
-
-impl Signature for () {
-    const SIG_TYPE: &'static str = "V";
-}
-
-impl<'env> JavaValue<'env> for () {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        panic!("called `JavaValue::autobox` on unit value")
-    }
-
-    fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
-}
-
-impl<'env> Signature for JObject<'env> {
-    const SIG_TYPE: &'static str = "Ljava/lang/Object;";
-}
-
-impl<'env> JavaValue<'env> for JObject<'env> {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        self
-    }
-
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-        s
-    }
-}
-
-impl<'env> JavaValue<'env> for jobject {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        unsafe { JObject::from_raw(self) }
-    }
-
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-        s.into_raw()
-    }
-}
-
-impl<'env> Signature for JString<'env> {
-    const SIG_TYPE: &'static str = "Ljava/lang/String;";
-}
-
-impl<'env> JavaValue<'env> for JString<'env> {
-    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
-        Into::into(self)
-    }
-
-    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
-        From::from(s)
-    }
-}
-
-impl<T: Signature> Signature for jni::errors::Result<T> {
-    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
+// TODO: This still is not gonna work well for multi-dimensional arrays, like Box<[Box<[T]>]>
+pub trait ArrSignature {
+    const ARR_SIG_TYPE: &'static str;
 }
 
 pub struct JValueWrapper<'a>(pub JValue<'a>);
@@ -187,92 +105,56 @@ impl<'a> From<JValueWrapper<'a>> for JValue<'a> {
     }
 }
 
-impl<'a> TryFrom<JValueWrapper<'a>> for jboolean {
-    type Error = jni::errors::Error;
+impl<'env> Signature for JList<'env, 'env> {
+    const SIG_TYPE: &'static str = "Ljava/util/List;";
+}
 
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Bool(b) => Ok(b),
-            _ => Err(Error::WrongJValueType("bool", value.0.type_name()).into()),
-        }
+impl<'env> Signature for JMap<'env, 'env> {
+    const SIG_TYPE: &'static str = "Ljava/util/Map;";
+}
+
+impl<T: Signature> Signature for jni::errors::Result<T> {
+    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
+}
+
+impl<T: Signature> Signature for Option<T> {
+    const SIG_TYPE: &'static str = <T as Signature>::SIG_TYPE;
+}
+
+impl<T: ArrSignature> ArrSignature for Option<T> {
+    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+impl<T: ArrSignature> ArrSignature for jni::errors::Result<T> {
+    const ARR_SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+impl<T: ArrSignature> Signature for Box<[T]> {
+    const SIG_TYPE: &'static str = <T as ArrSignature>::ARR_SIG_TYPE;
+}
+
+// Similar to jvalue_types, but still different
+impl<'env> JavaValue<'env> for jobject {
+    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+        unsafe { JObject::from_raw(self) }
+    }
+
+    fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+        s.into_raw()
     }
 }
 
-impl<'a> TryFrom<JValueWrapper<'a>> for jbyte {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Byte(b) => Ok(b),
-            _ => Err(Error::WrongJValueType("byte", value.0.type_name()).into()),
-        }
-    }
+// Impls for (), similar to jvalue_types, but still different
+impl Signature for () {
+    const SIG_TYPE: &'static str = "V";
 }
 
-impl<'a> TryFrom<JValueWrapper<'a>> for jchar {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Char(c) => Ok(c),
-            _ => Err(Error::WrongJValueType("char", value.0.type_name()).into()),
-        }
+impl<'env> JavaValue<'env> for () {
+    fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+        panic!("called `JavaValue::autobox` on unit value")
     }
-}
 
-impl<'a> TryFrom<JValueWrapper<'a>> for jdouble {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Double(d) => Ok(d),
-            _ => Err(Error::WrongJValueType("double", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jfloat {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Float(f) => Ok(f),
-            _ => Err(Error::WrongJValueType("float", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jint {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Int(i) => Ok(i),
-            _ => Err(Error::WrongJValueType("int", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jshort {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Short(s) => Ok(s),
-            _ => Err(Error::WrongJValueType("short", value.0.type_name()).into()),
-        }
-    }
-}
-
-impl<'a> TryFrom<JValueWrapper<'a>> for jlong {
-    type Error = jni::errors::Error;
-
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Long(l) => Ok(l),
-            _ => Err(Error::WrongJValueType("long", value.0.type_name()).into()),
-        }
-    }
+    fn unbox(_s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {}
 }
 
 impl<'a> TryFrom<JValueWrapper<'a>> for () {
@@ -286,24 +168,130 @@ impl<'a> TryFrom<JValueWrapper<'a>> for () {
     }
 }
 
-impl<'a> TryFrom<JValueWrapper<'a>> for JObject<'a> {
-    type Error = jni::errors::Error;
+#[duplicate_item(
+j_type boxed sig unbox_method j_val_type j_val_type_name;
+[jboolean] [Boolean]    [Z]   [booleanValue]    [Bool]      ["bool"];
+[jbyte]    [Byte]       [B]   [byteValue]       [Byte]      ["byte"];
+[jchar]    [Character]  [C]   [charValue]       [Char]      ["char"];
+[jdouble]  [Double]     [D]   [doubleValue]     [Double]    ["double"];
+[jfloat]   [Float]      [F]   [floatValue]      [Float]     ["float"];
+[jint]     [Integer]    [I]   [intValue]        [Int]       ["int"];
+[jlong]    [Long]       [J]   [longValue]       [Long]      ["long"];
+[jshort]   [Short]      [S]   [shortValue]      [Short]     ["short"];
+)]
+mod jvalue_types {
+    use crate::convert::*;
+    use paste::paste;
+    use jni::signature::ReturnType;
 
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Object(o) => Ok(o),
-            _ => Err(Error::WrongJValueType("object", value.0.type_name()).into()),
+    impl Signature for j_type {
+        const SIG_TYPE: &'static str = stringify!(sig);
+    }
+
+    impl<'env> JavaValue<'env> for j_type {
+        fn autobox(self, env: &JNIEnv<'env>) -> JObject<'env> {
+            env.call_static_method_unchecked(concat!("java/lang/", stringify!(boxed)),
+                                             (concat!("java/lang/", stringify!(boxed)), "valueOf", concat!(stringify!((sig)), "Ljava/lang/", stringify!(boxed), ";")),
+                                             ReturnType::from_str(concat!("Ljava/lang/", stringify!(boxed), ";")).unwrap(),
+                                             &[JValue::from(self).to_jni()]).unwrap().l().unwrap()
+        }
+
+        fn unbox(s: JObject<'env>, env: &JNIEnv<'env>) -> Self {
+            paste!(Into::into(env.call_method_unchecked(s, (concat!("java/lang/", stringify!(boxed)), stringify!(unbox_method), concat!("()", stringify!(sig))), ReturnType::from_str(stringify!(sig)).unwrap(), &[])
+                    .unwrap().[<sig:lower>]()
+                    .unwrap()))
+        }
+    }
+
+    //// Introduced in new version of jni-rs, pls keep and uncomment after migration
+    // impl<'env> Signature for paste!([<J boxed Array>])<'env> {
+    //     const SIG_TYPE: &'static str = concat!("[", stringify!(sig));
+    // }
+
+    // impl<'env> JavaValue<'env> for paste!([<J boxed Array>])<'env> {
+    //     fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+    //         Into::into(self)
+    //     }
+
+    //     fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+    //         From::from(s)
+    //     }
+    // }
+
+    impl<'a> TryFrom<JValueWrapper<'a>> for j_type {
+        type Error = jni::errors::Error;
+
+        fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
+            match value.0 {
+                JValue::j_val_type(b) => Ok(b),
+                _ => Err(Error::WrongJValueType(j_val_type_name, value.0.type_name()).into()),
+            }
         }
     }
 }
 
-impl<'a> TryFrom<JValueWrapper<'a>> for JString<'a> {
-    type Error = jni::errors::Error;
+#[duplicate_item(
+module_disambiguation j_type sig name;
+[a] [JString < 'env >]      ["Ljava/lang/String;"]     ["string"];
+[b] [JClass < 'env >]       ["Ljava/lang/Class;"]      ["class"];
+[c] [JByteBuffer < 'env >]  ["Ljava/nio/ByteBuffer;"]  ["bytebuffer"];
+//// Introduced in new version of jni-rs, pls keep and uncomment after migration
+// [d] [JObjectArray < 'env >] ["[Ljava/lang/Object;"]    ["object_array"];
+[e] [JThrowable < 'env >]   ["Ljava/lang/Throwable;"]  ["throwable"];
+[f] [JObject < 'env >]      ["Ljava/lang/Object;"]     ["object"];
+)]
+mod jobject_types {
+    use crate::convert::*;
 
-    fn try_from(value: JValueWrapper<'a>) -> Result<Self, Self::Error> {
-        match value.0 {
-            JValue::Object(o) => Ok(From::from(o)),
-            _ => Err(Error::WrongJValueType("string", value.0.type_name()).into()),
+    impl<'env> Signature for j_type {
+        const SIG_TYPE: &'static str = sig;
+    }
+
+    // I believe it will be optimized away for JObject
+    impl<'env> JavaValue<'env> for j_type {
+        fn autobox(self, _env: &JNIEnv<'env>) -> JObject<'env> {
+            Into::into(self)
         }
+
+        fn unbox(s: JObject<'env>, _env: &JNIEnv<'env>) -> Self {
+            From::from(s)
+        }
+    }
+
+    impl<'env> TryFrom<JValueWrapper<'env>> for j_type {
+        type Error = jni::errors::Error;
+
+        fn try_from(value: JValueWrapper<'env>) -> Result<Self, Self::Error> {
+            match value.0 {
+                JValue::Object(o) => Ok(From::from(o)),
+                _ => Err(Error::WrongJValueType(name, value.0.type_name()).into()),
+            }
+        }
+    }
+}
+
+#[duplicate_item(
+module_disambiguation j_type l_type;
+[a] [JString] [JString < 'env >];
+[b] [String] [String];
+[c] [JClass] [JClass < 'env >];
+[d] [JByteBuffer] [JByteBuffer < 'env >];
+// TODO: Enable after migration
+// [e] [JObjectArray] [JObjectArray<'env>];
+// [f] [JBooleanArray] [JBooleanArray<'env>];
+// [g] [JByteArray] [JByteArray<'env>];
+// [h] [JCharacterArray] [JCharacterArray<'env>];
+// [i] [JDoubleArray] [JDoubleArray<'env>];
+// [j] [JFloatArray] [JFloatArray<'env>];
+// [k] [JIntegerArray] [JIntegerArray<'env>];
+// [l] [JLongArray] [JLongArray<'env>];
+// [m] [JShortArray] [JShortArray<'env>];
+[n] [JThrowable] [JThrowable < 'env >];
+)]
+mod arr_sign_impl {
+    use crate::convert::*;
+
+    impl<'env> ArrSignature for l_type {
+        const ARR_SIG_TYPE: &'static str = constcat::concat!("[", <j_type as Signature>::SIG_TYPE);
     }
 }

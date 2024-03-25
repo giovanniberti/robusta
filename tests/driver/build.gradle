@@ -10,6 +10,7 @@ repositories {
 }
 
 dependencies {
+    implementation group: 'jakarta.annotation', name: 'jakarta.annotation-api', version: '3.0.0-M1'
     testImplementation platform('org.junit:junit-bom:5.7.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
