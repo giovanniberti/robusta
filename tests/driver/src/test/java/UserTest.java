@@ -199,6 +199,12 @@ public class UserTest {
     }
 
     @Test
+    public void optionStringArrayTest() {
+        assertArrayEquals(u.getOptionStringArr(new String[]{"null", null, "42"}), new String[]{null, "null", "42"});
+        assertArrayEquals(User.getOptionStringArrUnchecked(new String[]{null, "null", "42"}), new String[]{"null", null, "42"});
+    }
+
+    @Test
     public void byteArrayTest() {
         assertArrayValueRoundTrip(u::getByteArray, u::byteArrayToString, User::getByteArrayUnchecked,
                 User::byteArrayToStringUnchecked, new byte[0], "[]");

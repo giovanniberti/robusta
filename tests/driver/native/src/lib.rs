@@ -239,6 +239,25 @@ pub mod jni {
             v
         }
 
+        pub extern "jni" fn getOptionStringArr(self, v: Box<[Option<String>]>) -> Box<[Option<String>]> {
+            v.iter().map(|item|
+                match item {
+                    Some(str) => if str == "null" { None } else { Some(str.clone()) },
+                    None => Some("null".to_string()),
+                }
+            ).collect()
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn getOptionStringArrUnchecked(v: Box<[Option<String>]>) -> Box<[Option<String>]> {
+            v.iter().map(|item|
+                match item {
+                    Some(str) => if str == "null" { None } else { Some(str.clone()) },
+                    None => Some("null".to_string()),
+                }
+            ).collect()
+        }
+
         pub extern "jni" fn getOptionString(self, v: Option<String>) -> Option<String> {
             v
         }

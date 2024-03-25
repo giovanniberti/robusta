@@ -85,6 +85,10 @@ public class User {
 
     public static native String[] getStringArrUnchecked(String[] x);
 
+    public native String[] getOptionStringArr(String[] x);
+
+    public static native String[] getOptionStringArrUnchecked(String[] x);
+
     public native @Nullable String getOptionString(@Nullable String x);
 
     public static native @Nullable String getOptionStringUnchecked(@Nullable String x);
