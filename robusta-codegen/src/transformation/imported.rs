@@ -8,7 +8,7 @@ use syn::{parse_quote, GenericArgument, PathArguments, Type, TypePath};
 use syn::{FnArg, ImplItemFn, Lit, Pat, PatIdent, ReturnType, Signature};
 
 use crate::transformation::context::StructContext;
-use crate::transformation::utils::get_call_type;
+use crate::transformation::utils::{get_call_type, get_output_type_override};
 use crate::transformation::{CallType, CallTypeAttribute, SafeParams};
 use crate::utils::{get_abi, get_class_arg_if_any, get_env_arg, is_self_method};
 use std::collections::HashSet;
@@ -58,6 +58,7 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     let discarded_known_attributes: HashSet<&str> = {
                         let mut h = HashSet::new();
                         h.insert("call_type");
+                        h.insert("output_type");
 
                         if is_constructor {
                             h.insert("constructor");
@@ -199,56 +200,61 @@ impl<'ctx> Fold for ImportedMethodTransformer<'ctx> {
                     }
                 };
 
-                let output_conversion = match signature.output {
-                    ReturnType::Default => quote_spanned!(signature.output.span() => ),
-                    ReturnType::Type(_arrow, ref ty) => {
-                        if is_constructor {
-                            quote_spanned! { output_type_span => "V" }
-                        } else {
-                            match call_type {
-                                CallType::Safe(_) => {
-                                    let inner_result_ty = match &**ty {
-                                        Type::Path(TypePath { path, .. }) => {
-                                            path.segments.last().map(|s| match &s.arguments {
-                                                PathArguments::AngleBracketed(a) => {
-                                                    match &a.args.first().expect("return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`") {
-                                                        GenericArgument::Type(t) => t,
-                                                        _ => abort!(a, "first generic argument in return type must be a type")
+                let override_output_type = get_output_type_override(&node);
+                let output_conversion = if let Some(override_output_type) = override_output_type {
+                    quote_spanned! { output_type_span => #override_output_type }
+                } else {
+                    match signature.output {
+                        ReturnType::Default => quote_spanned!(signature.output.span() => ),
+                        ReturnType::Type(_arrow, ref ty) => {
+                            if is_constructor {
+                                quote_spanned! { output_type_span => "V" }
+                            } else {
+                                match call_type {
+                                    CallType::Safe(_) => {
+                                        let inner_result_ty = match &**ty {
+                                            Type::Path(TypePath { path, .. }) => {
+                                                path.segments.last().map(|s| match &s.arguments {
+                                                    PathArguments::AngleBracketed(a) => {
+                                                        match &a.args.first().expect("return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`") {
+                                                            GenericArgument::Type(t) => t,
+                                                            _ => abort!(a, "first generic argument in return type must be a type")
+                                                        }
                                                     }
-                                                }
-                                                PathArguments::None => {
-                                                    let user_attribute_message = call_type_attribute.as_ref().map(|_| "because of this attribute");
-                                                    abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`";
+                                                    PathArguments::None => {
+                                                        let user_attribute_message = call_type_attribute.as_ref().map(|_| "because of this attribute");
+                                                        abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`";
                                                                         help = "replace `{}` with `Result<{}>`", s.ident, s.ident;
                                                                         help =? call_type_attribute.as_ref().map(|c| c.attr.span()).unwrap() => user_attribute_message)
-                                                }
-                                                _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
-                                            })
-                                        }
-                                        _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
-                                    }.unwrap();
+                                                    }
+                                                    _ => abort!(s, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
+                                                })
+                                            }
+                                            _ => abort!(ty, "return type must be `::robusta_jni::jni::errors::Result` when using \"java\" ABI with an implicit or \"safe\" `call_type`")
+                                        }.unwrap();
 
-                                    quote_spanned! { output_type_span => <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
-                                }
-                                CallType::Unchecked(_) => {
-                                    if let Type::Path(TypePath { path, .. }) = ty.as_ref() {
-                                        if let Some(r) =
-                                            path.segments.last().filter(|i| i.ident == "Result")
-                                        {
-                                            if let PathArguments::AngleBracketed(_) = r.arguments {
-                                                let call_type_span = call_type_attribute
-                                                    .as_ref()
-                                                    .map(|c| c.attr.span());
-                                                let call_type_hint = call_type_span.map(|_| {
-                                                    "maybe you meant `#[call_type(safe)]`?"
-                                                });
+                                        quote_spanned! { output_type_span => <#inner_result_ty as ::robusta_jni::convert::TryIntoJavaValue>::SIG_TYPE }
+                                    }
+                                    CallType::Unchecked(_) => {
+                                        if let Type::Path(TypePath { path, .. }) = ty.as_ref() {
+                                            if let Some(r) =
+                                                path.segments.last().filter(|i| i.ident == "Result")
+                                            {
+                                                if let PathArguments::AngleBracketed(_) = r.arguments {
+                                                    let call_type_span = call_type_attribute
+                                                        .as_ref()
+                                                        .map(|c| c.attr.span());
+                                                    let call_type_hint = call_type_span.map(|_| {
+                                                        "maybe you meant `#[call_type(safe)]`?"
+                                                    });
 
-                                                emit_warning!(ty, "using a `Result` type in a `#[call_type(unchecked)]` method";
+                                                    emit_warning!(ty, "using a `Result` type in a `#[call_type(unchecked)]` method";
                                             hint =? call_type_span.unwrap() => call_type_hint)
+                                                }
                                             }
                                         }
+                                        quote_spanned! { output_type_span => <#ty as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE }
                                     }
-                                    quote_spanned! { output_type_span => <#ty as ::robusta_jni::convert::IntoJavaValue>::SIG_TYPE }
                                 }
                             }
                         }

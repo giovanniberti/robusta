@@ -205,6 +205,12 @@ public class UserTest {
     }
 
     @Test
+    public void typeOverrideTest() {
+        assertEquals(u.typeOverrideJni(Double.valueOf(4.2)), Double.valueOf(-42));
+        assertEquals(User.typeOverrideJniUnchecked(Double.valueOf(4.2)), Double.valueOf(-42));
+    }
+
+    @Test
     public void byteArrayTest() {
         assertArrayValueRoundTrip(u::getByteArray, u::byteArrayToString, User::getByteArrayUnchecked,
                 User::byteArrayToStringUnchecked, new byte[0], "[]");

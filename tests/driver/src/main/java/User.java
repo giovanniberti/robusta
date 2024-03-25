@@ -363,4 +363,16 @@ public class User {
     public static User cloneUser(User user) {
         return user;
     }
+
+    public Double typeOverrideJava(Double d) {
+        return User.typeOverrideJavaUnchecked(d);
+    }
+
+    public static Double typeOverrideJavaUnchecked(Double d) {
+        return -d;
+    }
+
+    public native Double typeOverrideJni(Double d);
+
+    public static native Double typeOverrideJniUnchecked(Double d);
 }

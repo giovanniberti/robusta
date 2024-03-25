@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use jni::objects::{JObject, JString};
 use native::jni::User;
-use robusta_jni::convert::FromJavaValue;
+use robusta_jni::convert::{FromJavaValue, JavaValue};
 use robusta_jni::jni::{InitArgsBuilder, JNIEnv, JavaVM};
 use std::process::Command;
 use native::StringArr;
@@ -305,4 +305,17 @@ fn vm_creation_and_object_usage() {
         <StringArr as Into<Box<[String]>>>::into(res1.unwrap()),
         vec!["42".to_string()].into_boxed_slice(),
     );
+
+    assert_eq!(
+        <f64 as JavaValue>::unbox(
+            u.typeOverrideJava(
+                &env, <f64 as JavaValue>::autobox(4.2f64, &env)
+            ).expect("unable to call typeOverrideJava"), &env
+        ), -4.2f64);
+    assert_eq!(
+        <f64 as JavaValue>::unbox(
+            User::typeOverrideJavaUnchecked(
+                &env, <f64 as JavaValue>::autobox(4.2f64, &env)
+            ), &env
+        ), -4.2f64);
 }

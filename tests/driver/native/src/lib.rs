@@ -57,8 +57,8 @@ impl<'env: 'borrow, 'borrow> FromJavaValue<'env, 'borrow> for StringArr {
 pub mod jni {
     use std::convert::TryInto;
 
-    use robusta_jni::convert::Field;
-    use robusta_jni::convert::{IntoJavaValue, FromJavaValue, JValueWrapper, Signature, ArrSignature, TryFromJavaValue, TryIntoJavaValue};
+    use robusta_jni::convert::{Field, JavaValue, JValueWrapper};
+    use robusta_jni::convert::{IntoJavaValue, FromJavaValue, Signature, ArrSignature, TryFromJavaValue, TryIntoJavaValue};
     use robusta_jni::convert::Local;
     use robusta_jni::jni::errors::Result as JniResult;
     use robusta_jni::jni::JNIEnv;
@@ -578,5 +578,42 @@ pub mod jni {
             &self,
             env: &JNIEnv,
         ) -> String {}
+
+        // No type checks here, unbox and autobox use call_method_unchecked, be extra careful.
+        // If you replace <f64 as JavaValue>::unbox with <i8 as JavaValue>::unbox, it won't fail, but it's an UB.
+        // It's better to define a wrapper struct and impl Signature for it.
+        #[output_type("Ljava/lang/Double;")]
+        pub extern "java" fn typeOverrideJava(
+            &self,
+            env: &'borrow JNIEnv<'env>,
+            #[input_type("Ljava/lang/Double;")]
+            v: robusta_jni::jni::objects::JObject<'env>
+        ) -> JniResult<robusta_jni::jni::objects::JObject<'env>> {}
+
+        #[call_type(unchecked)]
+        #[output_type("Ljava/lang/Double;")]
+        pub extern "java" fn typeOverrideJavaUnchecked(
+            env: &'borrow JNIEnv<'env>,
+            #[input_type("Ljava/lang/Double;")]
+            v: robusta_jni::jni::objects::JObject<'env>
+        ) -> robusta_jni::jni::objects::JObject<'env> {}
+
+
+        // Rust signatures aren't involved here, only Java definition matters
+        pub extern "jni" fn typeOverrideJni(
+            self, env: &'borrow JNIEnv<'env>,
+            v: robusta_jni::jni::objects::JObject<'env>
+        ) -> robusta_jni::jni::objects::JObject<'env> {
+            Self::typeOverrideJniUnchecked(env, v)
+        }
+
+        #[call_type(unchecked)]
+        pub extern "jni" fn typeOverrideJniUnchecked(
+            env: &'borrow JNIEnv<'env>,
+            v: robusta_jni::jni::objects::JObject<'env>
+        ) -> robusta_jni::jni::objects::JObject<'env> {
+            let val: f64 = JavaValue::unbox(v, env);
+            (val * -10f64).autobox(env)
+        }
     }
 }
